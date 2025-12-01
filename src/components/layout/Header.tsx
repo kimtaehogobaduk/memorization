@@ -6,11 +6,20 @@ import { Button } from "@/components/ui/button";
 interface HeaderProps {
   title: string;
   showBack?: boolean;
+  onBack?: () => void;
   action?: ReactNode;
 }
 
-export const Header = ({ title, showBack = false, action }: HeaderProps) => {
+export const Header = ({ title, showBack = false, onBack, action }: HeaderProps) => {
   const navigate = useNavigate();
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      navigate(-1);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-card/80 backdrop-blur-md border-b border-border">
@@ -20,7 +29,7 @@ export const Header = ({ title, showBack = false, action }: HeaderProps) => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate(-1)}
+              onClick={handleBack}
               className="mr-2"
             >
               <ArrowLeft className="w-5 h-5" />

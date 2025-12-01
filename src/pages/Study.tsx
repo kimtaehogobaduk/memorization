@@ -198,7 +198,7 @@ const Study = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header title={vocabularyName} showBack />
+      <Header title={vocabularyName} showBack onBack={() => navigate(`/vocabularies/${id}`)} />
       
       <div className="max-w-screen-xl mx-auto px-4 py-6">
         <div className="mb-6">
