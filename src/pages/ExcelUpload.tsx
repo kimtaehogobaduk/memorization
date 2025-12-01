@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Upload, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from "xlsx";
 
 const ExcelUpload = () => {
   const { user } = useAuth();
@@ -52,7 +53,6 @@ const ExcelUpload = () => {
     const lines = cleanText.split('\n').filter(line => line.trim());
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map(h => h.trim());
     const words = [];
 
     for (let i = 1; i < lines.length; i++) {
@@ -71,6 +71,47 @@ const ExcelUpload = () => {
     return words;
   };
 
+  const parseExcel = async (file: File): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'binary' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+          console.log("[ExcelUpload] Parsed Excel data:", jsonData);
+
+          const words = [];
+          for (let i = 1; i < jsonData.length; i++) {
+            const row = jsonData[i];
+            if (row[0] && row[1]) { // At least word and meaning required
+              words.push({
+                word: String(row[0]).trim(),
+                meaning: String(row[1]).trim(),
+                example: row[2] ? String(row[2]).trim() : null,
+                part_of_speech: row[3] ? String(row[3]).trim() : null,
+                note: row[4] ? String(row[4]).trim() : null,
+              });
+            }
+          }
+
+          console.log("[ExcelUpload] Parsed words:", words);
+          resolve(words);
+        } catch (error) {
+          console.error("[ExcelUpload] Error parsing Excel:", error);
+          reject(error);
+        }
+      };
+
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsBinaryString(file);
+    });
+  };
+
   const handleUpload = async () => {
     if (!file || !vocabularyName.trim()) {
       toast.error("단어장 이름과 파일을 모두 입력해주세요.");
@@ -80,8 +121,19 @@ const ExcelUpload = () => {
     setLoading(true);
 
     try {
-      const text = await file.text();
-      const words = parseCSV(text);
+      let words: any[] = [];
+      const ext = file.name.split('.').pop()?.toLowerCase();
+
+      console.log("[ExcelUpload] File type:", ext);
+
+      if (ext === 'csv') {
+        const text = await file.text();
+        words = parseCSV(text);
+      } else if (ext === 'xlsx' || ext === 'xls') {
+        words = await parseExcel(file);
+      }
+
+      console.log("[ExcelUpload] Parsed words count:", words.length);
 
       if (words.length === 0) {
         toast.error("올바른 형식의 데이터가 없습니다. 템플릿을 확인해주세요.");
@@ -100,7 +152,12 @@ const ExcelUpload = () => {
         .select()
         .single();
 
-      if (vocabError) throw vocabError;
+      if (vocabError) {
+        console.error("[ExcelUpload] Vocabulary creation error:", vocabError);
+        throw vocabError;
+      }
+
+      console.log("[ExcelUpload] Created vocabulary:", vocabulary);
 
       // Insert words
       const wordsToInsert = words.map((w, index) => ({
@@ -113,11 +170,16 @@ const ExcelUpload = () => {
         order_index: index,
       }));
 
+      console.log("[ExcelUpload] Inserting words:", wordsToInsert.length);
+
       const { error: wordsError } = await supabase
         .from("words")
         .insert(wordsToInsert);
 
-      if (wordsError) throw wordsError;
+      if (wordsError) {
+        console.error("[ExcelUpload] Words insertion error:", wordsError);
+        throw wordsError;
+      }
 
       toast.success(`단어장이 생성되었습니다! (${words.length}개 단어)`);
       navigate(`/vocabularies/${vocabulary.id}`);
