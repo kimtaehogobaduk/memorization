@@ -53,14 +53,28 @@ const VocabularyDetail = () => {
   const loadVocabulary = async () => {
     try {
       setLoading(true);
+      
+      console.log("[VocabularyDetail] Loading vocabulary with id:", id);
 
       const { data: vocabData, error: vocabError } = await supabase
         .from("vocabularies")
         .select("*")
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
-      if (vocabError) throw vocabError;
+      if (vocabError) {
+        console.error("[VocabularyDetail] Error loading vocabulary:", vocabError);
+        throw vocabError;
+      }
+
+      if (!vocabData) {
+        console.log("[VocabularyDetail] No vocabulary found with id:", id);
+        setVocabulary(null);
+        setLoading(false);
+        return;
+      }
+
+      console.log("[VocabularyDetail] Vocabulary loaded:", vocabData);
 
       const { data: chaptersData } = await supabase
         .from("chapters")
@@ -74,14 +88,20 @@ const VocabularyDetail = () => {
         .eq("vocabulary_id", id)
         .order("order_index", { ascending: true });
 
-      if (wordsError) throw wordsError;
+      if (wordsError) {
+        console.error("[VocabularyDetail] Error loading words:", wordsError);
+        throw wordsError;
+      }
+
+      console.log("[VocabularyDetail] Words loaded:", wordsData?.length || 0);
 
       setVocabulary(vocabData);
       setChapters(chaptersData || []);
       setWords(wordsData || []);
     } catch (error) {
-      console.error("Error loading vocabulary:", error);
+      console.error("[VocabularyDetail] Error loading vocabulary:", error);
       toast.error("단어장을 불러오는데 실패했습니다.");
+      setVocabulary(null);
     } finally {
       setLoading(false);
     }
