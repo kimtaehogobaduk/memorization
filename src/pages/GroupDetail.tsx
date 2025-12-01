@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { GroupChat } from "@/components/group/GroupChat";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { 
   Users, 
   BookOpen, 
@@ -15,7 +17,8 @@ import {
   Settings, 
   Copy, 
   UserMinus,
-  Target
+  MessageSquare,
+  LogOut
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,6 +61,7 @@ const GroupDetail = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [vocabulary, setVocabulary] = useState<VocabularyInfo | null>(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [isMember, setIsMember] = useState(false);
 
   useEffect(() => {
     if (id && user) {
@@ -80,6 +84,16 @@ const GroupDetail = () => {
 
       setGroup(groupData);
       setIsOwner(groupData.owner_id === user?.id);
+
+      // Check if user is a member
+      const { data: memberData } = await supabase
+        .from("group_members")
+        .select("id")
+        .eq("group_id", id)
+        .eq("user_id", user?.id)
+        .single();
+      
+      setIsMember(!!memberData);
 
       // Load vocabulary info if exists
       if (groupData.vocabulary_id) {
@@ -172,6 +186,22 @@ const GroupDetail = () => {
     }
   };
 
+  const handleLeaveGroup = async () => {
+    try {
+      await supabase
+        .from("group_members")
+        .delete()
+        .eq("group_id", id)
+        .eq("user_id", user?.id);
+
+      toast.success("그룹에서 탈퇴했습니다.");
+      navigate("/groups");
+    } catch (error) {
+      console.error("Error leaving group:", error);
+      toast.error("그룹 탈퇴에 실패했습니다.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -221,10 +251,11 @@ const GroupDetail = () => {
         )}
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="dashboard">대시보드</TabsTrigger>
             <TabsTrigger value="members">구성원</TabsTrigger>
             <TabsTrigger value="vocabulary">단어장</TabsTrigger>
+            <TabsTrigger value="chat">채팅</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-4">
@@ -367,7 +398,50 @@ const GroupDetail = () => {
               </Card>
             )}
           </TabsContent>
+
+          <TabsContent value="chat">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5" />
+                  그룹 채팅
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <GroupChat groupId={id!} />
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
+
+        {!isOwner && isMember && (
+          <Card className="mt-6">
+            <CardContent className="p-4">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="w-full">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    그룹 탈퇴
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>그룹을 탈퇴하시겠습니까?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      탈퇴 후 다시 가입하려면 초대 코드나 승인이 필요할 수 있습니다.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>취소</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleLeaveGroup}>
+                      탈퇴하기
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
