@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown, Trash2, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
 
 interface WordManagerProps {
   word: any;
@@ -47,22 +48,23 @@ export const WordManager = ({ word, onUpdate, onDelete, vocabularyId }: WordMana
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!validateImageFile(file, 5)) return;
+
     try {
       setUploading(true);
       
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
+      const fileName = `${Math.random()}.jpg`;
       const filePath = `${vocabularyId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('word-images')
-        .upload(filePath, file);
+      const publicUrl = await uploadImageWithRetry('word-images', filePath, file, {
+        compress: true,
+        maxSize: 600,
+      });
 
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('word-images')
-        .getPublicUrl(filePath);
+      if (!publicUrl) {
+        setUploading(false);
+        return;
+      }
 
       const { error: updateError } = await supabase
         .from("words")
@@ -75,8 +77,8 @@ export const WordManager = ({ word, onUpdate, onDelete, vocabularyId }: WordMana
       toast.success("이미지가 업로드되었습니다!");
       onUpdate();
     } catch (error) {
-      console.error("Error uploading image:", error);
-      toast.error("이미지 업로드에 실패했습니다.");
+      console.error("Error updating word:", error);
+      toast.error("단어 업데이트에 실패했습니다.");
     } finally {
       setUploading(false);
     }

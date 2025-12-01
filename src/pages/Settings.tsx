@@ -16,6 +16,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { LogOut, User, Upload, Settings as SettingsIcon, Zap, BookOpen, TrendingUp, Award, Users, Type } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
 import { motion } from "framer-motion";
 
 const Settings = () => {
@@ -105,10 +106,7 @@ const Settings = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("이미지 크기는 2MB 이하여야 합니다.");
-      return;
-    }
+    if (!validateImageFile(file, 5)) return;
 
     setAvatarFile(file);
     setAvatarPreview(URL.createObjectURL(file));
@@ -117,26 +115,13 @@ const Settings = () => {
   const uploadAvatar = async () => {
     if (!avatarFile) return avatarPreview;
 
-    try {
-      const fileExt = avatarFile.name.split('.').pop();
-      const filePath = `${user?.id}/avatar.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, avatarFile, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      return data.publicUrl;
-    } catch (error) {
-      console.error("Error uploading avatar:", error);
-      toast.error("이미지 업로드에 실패했습니다.");
-      return null;
-    }
+    const fileExt = 'jpg';
+    const filePath = `${user?.id}/avatar.${fileExt}`;
+    
+    return await uploadImageWithRetry('avatars', filePath, avatarFile, {
+      compress: true,
+      maxSize: 800,
+    });
   };
 
   const handleProfileUpdate = async (e: React.FormEvent) => {

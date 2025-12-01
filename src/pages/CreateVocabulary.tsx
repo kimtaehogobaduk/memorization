@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
 import { Plus, Trash2, ChevronDown, Upload } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -94,22 +95,23 @@ const CreateVocabulary = () => {
   const handleImageUpload = async (wordId: string, file: File) => {
     if (!file) return;
 
+    if (!validateImageFile(file, 5)) return;
+
     try {
       setUploadingImage(true);
       
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
+      const fileName = `${Math.random()}.jpg`;
       const filePath = `temp/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('word-images')
-        .upload(filePath, file);
+      const publicUrl = await uploadImageWithRetry('word-images', filePath, file, {
+        compress: true,
+        maxSize: 600,
+      });
 
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('word-images')
-        .getPublicUrl(filePath);
+      if (!publicUrl) {
+        setUploadingImage(false);
+        return;
+      }
 
       updateWord(wordId, 'image_url', publicUrl);
       toast.success("이미지가 업로드되었습니다!");

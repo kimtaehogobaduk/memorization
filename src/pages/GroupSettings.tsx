@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
 import { Upload, Trash2, UserPlus, Crown } from "lucide-react";
 
 interface Member {
@@ -125,10 +126,7 @@ const GroupSettings = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("이미지 크기는 5MB 이하여야 합니다.");
-      return;
-    }
+    if (!validateImageFile(file, 5)) return;
 
     setCoverImage(file);
     setCoverImageUrl(URL.createObjectURL(file));
@@ -137,26 +135,12 @@ const GroupSettings = () => {
   const uploadImage = async () => {
     if (!coverImage) return coverImageUrl;
 
-    try {
-      const fileExt = coverImage.name.split('.').pop();
-      const filePath = `${id}/cover.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('group-images')
-        .upload(filePath, coverImage, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage
-        .from('group-images')
-        .getPublicUrl(filePath);
-
-      return data.publicUrl;
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      toast.error("이미지 업로드에 실패했습니다.");
-      return null;
-    }
+    const filePath = `${id}/cover.jpg`;
+    
+    return await uploadImageWithRetry('group-images', filePath, coverImage, {
+      compress: true,
+      maxSize: 1000,
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
