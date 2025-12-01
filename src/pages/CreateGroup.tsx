@@ -25,10 +25,8 @@ const CreateGroup = () => {
   
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [vocabularyId, setVocabularyId] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [requiresApproval, setRequiresApproval] = useState(false);
-  const [dailyWordGoal, setDailyWordGoal] = useState(10);
 
   useEffect(() => {
     if (user) {
@@ -78,11 +76,9 @@ const CreateGroup = () => {
           name,
           description,
           owner_id: user?.id,
-          vocabulary_id: vocabularyId || null,
           is_public: isPublic,
           requires_approval: requiresApproval,
           join_code: joinCode,
-          daily_word_goal: dailyWordGoal,
         })
         .select()
         .single();
@@ -141,21 +137,6 @@ const CreateGroup = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="vocabulary">대표 단어장</Label>
-                <Select value={vocabularyId} onValueChange={setVocabularyId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="단어장을 선택하세요 (선택사항)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vocabularies.map((vocab) => (
-                      <SelectItem key={vocab.id} value={vocab.id}>
-                        {vocab.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </CardContent>
           </Card>
 
@@ -196,24 +177,6 @@ const CreateGroup = () => {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>학습 목표</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="dailyGoal">하루 목표 단어 수: {dailyWordGoal}개</Label>
-                <Input
-                  id="dailyGoal"
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={dailyWordGoal}
-                  onChange={(e) => setDailyWordGoal(parseInt(e.target.value) || 10)}
-                />
-              </div>
-            </CardContent>
-          </Card>
 
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "생성 중..." : "그룹 만들기"}
