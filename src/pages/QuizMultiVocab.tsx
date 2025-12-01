@@ -14,11 +14,11 @@ import { toast } from "sonner";
 
 const QuizMultiVocab = () => {
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [vocabularyNames, setVocabularyNames] = useState<string[]>([]);
   const [wordCount, setWordCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [quizLoading, setQuizLoading] = useState(true);
 
   // Quiz settings
   const [quizType, setQuizType] = useState<"multiple" | "writing" | "matching" | "random">("multiple");
@@ -30,6 +30,8 @@ const QuizMultiVocab = () => {
   const vocabIds = searchParams.get("ids")?.split(",") || [];
 
   useEffect(() => {
+    if (loading) return;
+
     if (vocabIds.length > 0 && user) {
       loadQuizData();
       loadUserSettings();
@@ -37,7 +39,7 @@ const QuizMultiVocab = () => {
       toast.error("단어장을 선택해주세요.");
       navigate("/vocabularies");
     }
-  }, [vocabIds, user]);
+  }, [vocabIds.join(","), user?.id, loading]);
 
   const loadUserSettings = async () => {
     try {
@@ -57,7 +59,7 @@ const QuizMultiVocab = () => {
 
   const loadQuizData = async () => {
     try {
-      setLoading(true);
+      setQuizLoading(true);
 
       // Load vocabulary names
       const { data: vocabs } = await supabase
@@ -80,7 +82,7 @@ const QuizMultiVocab = () => {
       console.error("Error loading quiz data:", error);
       toast.error("퀴즈 데이터를 불러오는데 실패했습니다.");
     } finally {
-      setLoading(false);
+      setQuizLoading(false);
     }
   };
 
@@ -142,7 +144,7 @@ const QuizMultiVocab = () => {
     },
   ];
 
-  if (loading) {
+  if (loading || quizLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">로딩 중...</div>
