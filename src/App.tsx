@@ -17,6 +17,9 @@ import QuizWriting from "./pages/QuizWriting";
 import QuizMatching from "./pages/QuizMatching";
 import QuizResult from "./pages/QuizResult";
 import Groups from "./pages/Groups";
+import CreateGroup from "./pages/CreateGroup";
+import JoinGroup from "./pages/JoinGroup";
+import GroupDetail from "./pages/GroupDetail";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -43,6 +46,9 @@ const App = () => (
           <Route path="/quiz/:id/matching" element={<QuizMatching />} />
           <Route path="/quiz/:id/result" element={<QuizResult />} />
           <Route path="/groups" element={<Groups />} />
+          <Route path="/groups/new" element={<CreateGroup />} />
+          <Route path="/groups/join" element={<JoinGroup />} />
+          <Route path="/groups/:id" element={<GroupDetail />} />
           <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
