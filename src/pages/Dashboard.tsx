@@ -37,13 +37,6 @@ const Dashboard = () => {
       emoji: "📚"
     },
     { 
-      icon: Share2, 
-      label: "공유 단어장", 
-      color: "from-accent to-pink-400",
-      path: "/vocabularies/public",
-      emoji: "🌐"
-    },
-    { 
       icon: Brain, 
       label: "단어 학습하기", 
       color: "from-success to-emerald-400",
@@ -83,54 +76,59 @@ const Dashboard = () => {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="relative mb-8 overflow-hidden"
         >
-          <div className="bg-gradient-junsuk rounded-3xl p-8 shadow-junsuk relative">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <h1 className="text-4xl font-bold mb-2 text-junsuk-blue">안녕! 👋</h1>
-                  <p className="text-xl text-foreground/80 mb-4">
-                    오늘도 준섹이와 함께<br />즐겁게 공부해볼까요?
-                  </p>
-                </motion.div>
-                
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className="flex gap-2"
-                >
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-white/60 backdrop-blur rounded-full text-sm font-medium">
-                    <Sparkles className="w-4 h-4 text-junsuk-yellow" />
-                    화이팅!
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-white/60 backdrop-blur rounded-full text-sm font-medium">
-                    <Target className="w-4 h-4 text-junsuk-blue" />
-                    목표 달성
-                  </span>
-                </motion.div>
-              </div>
-              
+          <div className="bg-gradient-junsuk rounded-3xl p-10 shadow-junsuk relative min-h-[280px]">
+            <div className="flex flex-col items-center text-center gap-6">
               <motion.div
-                initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
+                initial={{ opacity: 0, scale: 0.3, rotate: -20 }}
                 animate={{ opacity: 1, scale: 1, rotate: 0 }}
                 transition={{ 
-                  delay: 0.3, 
+                  delay: 0.2, 
                   type: "spring",
-                  stiffness: 200,
-                  damping: 10
+                  stiffness: 150,
+                  damping: 12
                 }}
-                whileHover={{ scale: 1.1, rotate: 5 }}
-                className="w-32 h-32 flex-shrink-0"
+                whileHover={{ scale: 1.15, rotate: 8 }}
+                className="w-48 h-48"
               >
                 <img 
                   src={junsuk01} 
                   alt="준섹이" 
-                  className="w-full h-full object-contain drop-shadow-lg"
+                  className="w-full h-full object-contain drop-shadow-2xl filter brightness-105"
                 />
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="space-y-3"
+              >
+                <h1 className="text-5xl font-extrabold text-junsuk-blue drop-shadow-md">
+                  준섹이와 함께! 🎉
+                </h1>
+                <p className="text-2xl text-foreground/90 font-medium">
+                  오늘도 즐겁게 공부해볼까요?
+                </p>
+                
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.6 }}
+                  className="flex gap-3 justify-center pt-2"
+                >
+                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur rounded-full text-base font-bold shadow-lg">
+                    <Sparkles className="w-5 h-5 text-junsuk-yellow" />
+                    화이팅!
+                  </span>
+                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur rounded-full text-base font-bold shadow-lg">
+                    <Target className="w-5 h-5 text-junsuk-blue" />
+                    목표 달성
+                  </span>
+                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur rounded-full text-base font-bold shadow-lg">
+                    <Trophy className="w-5 h-5 text-warning" />
+                    최고!
+                  </span>
+                </motion.div>
               </motion.div>
             </div>
           </div>
@@ -227,55 +225,6 @@ const Dashboard = () => {
           </motion.div>
         </div>
 
-        {/* Public Vocabularies Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.1 }}
-          className="mt-8"
-        >
-          <Card 
-            className="cursor-pointer bg-gradient-to-br from-accent to-primary/20 hover:shadow-xl transition-all border-2 border-accent/30 hover:border-accent overflow-hidden"
-            onClick={() => navigate("/vocabularies/public")}
-          >
-            <CardContent className="p-8 relative">
-              <div className="absolute top-4 right-4 opacity-20">
-                <Globe className="w-24 h-24 text-accent" />
-              </div>
-              <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-3 bg-white/90 rounded-2xl shadow-lg">
-                    <Share2 className="w-8 h-8 text-accent" />
-                  </div>
-                  <h2 className="text-3xl font-bold text-foreground">공유 단어장</h2>
-                </div>
-                <p className="text-lg text-muted-foreground mb-4">
-                  다른 사람들이 만든 단어장을 탐색하고 학습해보세요! 🌍
-                </p>
-                <div className="flex items-center gap-2 text-sm flex-wrap">
-                  <span className="px-3 py-1 bg-white/80 backdrop-blur rounded-full font-medium text-accent">
-                    무료로 사용
-                  </span>
-                  <span className="px-3 py-1 bg-white/80 backdrop-blur rounded-full font-medium text-accent">
-                    로그인 불필요
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate("/vocabularies/generate");
-                    }}
-                    className="ml-auto text-xs bg-primary/10 hover:bg-primary/20"
-                  >
-                    <Sparkles className="w-3 h-3 mr-1" />
-                    AI 생성
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
       </div>
       <BottomNav />
     </div>
