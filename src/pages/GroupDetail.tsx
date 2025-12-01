@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { GroupChat } from "@/components/group/GroupChat";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { 
   Users, 
@@ -62,10 +64,15 @@ const GroupDetail = () => {
   const [vocabulary, setVocabulary] = useState<VocabularyInfo | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [isMember, setIsMember] = useState(false);
+  const [sharedVocabularies, setSharedVocabularies] = useState<any[]>([]);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [myVocabularies, setMyVocabularies] = useState<any[]>([]);
 
   useEffect(() => {
     if (id && user) {
       loadGroupData();
+      loadSharedVocabularies();
+      loadMyVocabularies();
     }
   }, [id, user]);
 
@@ -199,6 +206,159 @@ const GroupDetail = () => {
     } catch (error) {
       console.error("Error leaving group:", error);
       toast.error("그룹 탈퇴에 실패했습니다.");
+    }
+  };
+
+  const loadSharedVocabularies = async () => {
+    try {
+      const { data: sharedData } = await supabase
+        .from("group_vocabularies")
+        .select("*")
+        .eq("group_id", id);
+
+      if (sharedData) {
+        const vocabsWithDetails = await Promise.all(
+          sharedData.map(async (shared) => {
+            // Get vocabulary details
+            const { data: vocabData } = await supabase
+              .from("vocabularies")
+              .select("name")
+              .eq("id", shared.vocabulary_id)
+              .single();
+
+            // Get word count
+            const { count } = await supabase
+              .from("words")
+              .select("id", { count: "exact", head: true })
+              .eq("vocabulary_id", shared.vocabulary_id);
+
+            // Get sharer's profile
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name, username")
+              .eq("id", shared.shared_by)
+              .single();
+
+            return {
+              ...shared,
+              vocabulary_name: vocabData?.name || "알 수 없음",
+              word_count: count || 0,
+              shared_by_name: profile?.full_name || profile?.username || "알 수 없음",
+            };
+          })
+        );
+
+        setSharedVocabularies(vocabsWithDetails);
+      }
+    } catch (error) {
+      console.error("Error loading shared vocabularies:", error);
+    }
+  };
+
+  const loadMyVocabularies = async () => {
+    try {
+      const { data } = await supabase
+        .from("vocabularies")
+        .select("id, name")
+        .eq("user_id", user?.id)
+        .order("created_at", { ascending: false });
+
+      setMyVocabularies(data || []);
+    } catch (error) {
+      console.error("Error loading vocabularies:", error);
+    }
+  };
+
+  const handleShareVocabulary = async (vocabularyId: string) => {
+    try {
+      const { error } = await supabase
+        .from("group_vocabularies")
+        .insert({
+          group_id: id,
+          vocabulary_id: vocabularyId,
+          shared_by: user?.id,
+        });
+
+      if (error) {
+        if (error.code === "23505") {
+          toast.error("이미 공유된 단어장입니다.");
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast.success("단어장이 공유되었습니다!");
+      setShowShareDialog(false);
+      loadSharedVocabularies();
+    } catch (error) {
+      console.error("Error sharing vocabulary:", error);
+      toast.error("단어장 공유에 실패했습니다.");
+    }
+  };
+
+  const handleUnshareVocabulary = async (sharedVocabId: string) => {
+    try {
+      const { error } = await supabase
+        .from("group_vocabularies")
+        .delete()
+        .eq("id", sharedVocabId);
+
+      if (error) throw error;
+
+      toast.success("단어장 공유가 해제되었습니다.");
+      loadSharedVocabularies();
+    } catch (error) {
+      console.error("Error unsharing vocabulary:", error);
+      toast.error("공유 해제에 실패했습니다.");
+    }
+  };
+
+  const handleCopyVocabulary = async (vocab: any) => {
+    try {
+      // Create new vocabulary
+      const { data: newVocab, error: vocabError } = await supabase
+        .from("vocabularies")
+        .insert({
+          user_id: user?.id,
+          name: `${vocab.vocabulary_name} (복사본)`,
+          description: `${vocab.shared_by_name}님이 공유한 단어장`,
+          language: "english",
+        })
+        .select()
+        .single();
+
+      if (vocabError) throw vocabError;
+
+      // Copy words
+      const { data: words } = await supabase
+        .from("words")
+        .select("*")
+        .eq("vocabulary_id", vocab.vocabulary_id);
+
+      if (words && words.length > 0) {
+        const wordsToInsert = words.map((word, index) => ({
+          vocabulary_id: newVocab.id,
+          word: word.word,
+          meaning: word.meaning,
+          example: word.example,
+          note: word.note,
+          part_of_speech: word.part_of_speech,
+          order_index: index,
+        }));
+
+        const { error: wordsError } = await supabase
+          .from("words")
+          .insert(wordsToInsert);
+
+        if (wordsError) throw wordsError;
+      }
+
+      toast.success("단어장이 내 단어장에 복사되었습니다!");
+      navigate(`/vocabularies/${newVocab.id}`);
+    } catch (error) {
+      console.error("Error copying vocabulary:", error);
+      toast.error("단어장 복사에 실패했습니다.");
     }
   };
 
@@ -361,42 +521,96 @@ const GroupDetail = () => {
           </TabsContent>
 
           <TabsContent value="vocabulary" className="space-y-4">
-            {vocabulary ? (
-              <Card
-                className="cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => navigate(`/vocabularies/${vocabulary.id}`)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <BookOpen className="w-8 h-8 text-primary" />
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{vocabulary.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {vocabulary.word_count}개 단어
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <BookOpen className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                  <p className="text-muted-foreground">
-                    아직 연결된 단어장이 없습니다.
-                  </p>
-                  {isOwner && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>공유된 단어장</span>
+                  {isMember && (
                     <Button
-                      className="mt-4"
-                      variant="outline"
-                      onClick={() => navigate(`/groups/${id}/settings`)}
+                      size="sm"
+                      onClick={() => setShowShareDialog(true)}
                     >
-                      단어장 연결하기
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      내 단어장 공유하기
                     </Button>
                   )}
-                </CardContent>
-              </Card>
-            )}
+                </CardTitle>
+                <CardDescription>
+                  그룹 멤버들이 공유한 단어장입니다
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {sharedVocabularies.length === 0 ? (
+                  <div className="text-center py-8">
+                    <BookOpen className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-muted-foreground">
+                      아직 공유된 단어장이 없습니다.
+                    </p>
+                    {isMember && (
+                      <Button
+                        className="mt-4"
+                        variant="outline"
+                        onClick={() => setShowShareDialog(true)}
+                      >
+                        첫 단어장 공유하기
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  sharedVocabularies.map((vocab, index) => (
+                    <motion.div
+                      key={vocab.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <Card
+                        className="cursor-pointer hover:shadow-lg transition-shadow"
+                        onClick={() => navigate(`/vocabularies/${vocab.vocabulary_id}`)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-semibold text-lg">
+                                  {vocab.vocabulary_name}
+                                </h3>
+                                <Badge variant="secondary">{vocab.word_count}개</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                공유자: {vocab.shared_by_name || "알 수 없음"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(vocab.created_at).toLocaleDateString("ko-KR")}
+                              </p>
+                            </div>
+                            <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                              {vocab.shared_by !== user?.id && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleCopyVocabulary(vocab)}
+                                >
+                                  내 단어장에 복사
+                                </Button>
+                              )}
+                              {(vocab.shared_by === user?.id || isOwner) && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleUnshareVocabulary(vocab.id)}
+                                >
+                                  공유 해제
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="chat">
@@ -443,6 +657,47 @@ const GroupDetail = () => {
           </Card>
         )}
       </div>
+
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>단어장 공유하기</DialogTitle>
+            <DialogDescription>
+              그룹에 공유할 단어장을 선택하세요
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {myVocabularies.length === 0 ? (
+              <div className="text-center py-8">
+                <BookOpen className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                <p className="text-muted-foreground mb-4">
+                  공유할 단어장이 없습니다.
+                </p>
+                <Button onClick={() => navigate("/vocabularies/new")}>
+                  단어장 만들기
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {myVocabularies.map((vocab) => (
+                  <Card
+                    key={vocab.id}
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => handleShareVocabulary(vocab.id)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold">{vocab.name}</h3>
+                        <Button size="sm">공유하기</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
