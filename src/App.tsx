@@ -24,6 +24,7 @@ import GroupDetail from "./pages/GroupDetail";
 import GroupSettings from "./pages/GroupSettings";
 import PublicGroups from "./pages/PublicGroups";
 import PublicVocabularies from "./pages/PublicVocabularies";
+import GenerateVocabularies from "./pages/GenerateVocabularies";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -43,6 +44,7 @@ const App = () => (
           <Route path="/vocabularies/new" element={<CreateVocabulary />} />
           <Route path="/vocabularies/excel" element={<ExcelUpload />} />
           <Route path="/vocabularies/public" element={<PublicVocabularies />} />
+          <Route path="/vocabularies/generate" element={<GenerateVocabularies />} />
           <Route path="/vocabularies/:id/edit" element={<EditVocabulary />} />
           <Route path="/vocabularies/:id" element={<VocabularyDetail />} />
           <Route path="/study/:id" element={<Study />} />
