@@ -1,0 +1,264 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { Header } from "@/components/layout/Header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Plus, Trash2 } from "lucide-react";
+
+interface WordInput {
+  id: string;
+  word: string;
+  meaning: string;
+  example: string;
+  note: string;
+  part_of_speech: string;
+}
+
+const CreateVocabulary = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [language, setLanguage] = useState("english");
+  const [words, setWords] = useState<WordInput[]>([
+    { id: "1", word: "", meaning: "", example: "", note: "", part_of_speech: "" },
+  ]);
+
+  const addWord = () => {
+    const newId = (words.length + 1).toString();
+    setWords([...words, { id: newId, word: "", meaning: "", example: "", note: "", part_of_speech: "" }]);
+  };
+
+  const removeWord = (id: string) => {
+    if (words.length > 1) {
+      setWords(words.filter(w => w.id !== id));
+    }
+  };
+
+  const updateWord = (id: string, field: keyof WordInput, value: string) => {
+    setWords(words.map(w => w.id === id ? { ...w, [field]: value } : w));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!name.trim()) {
+      toast.error("단어장 이름을 입력해주세요.");
+      return;
+    }
+
+    const validWords = words.filter(w => w.word.trim() && w.meaning.trim());
+    
+    if (validWords.length === 0) {
+      toast.error("최소 1개 이상의 단어를 입력해주세요.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Create vocabulary
+      const { data: vocabulary, error: vocabError } = await supabase
+        .from("vocabularies")
+        .insert({
+          user_id: user?.id,
+          name: name.trim(),
+          description: description.trim() || null,
+          language,
+        })
+        .select()
+        .single();
+
+      if (vocabError) throw vocabError;
+
+      // Insert words
+      const wordsToInsert = validWords.map((w, index) => ({
+        vocabulary_id: vocabulary.id,
+        word: w.word.trim(),
+        meaning: w.meaning.trim(),
+        example: w.example.trim() || null,
+        note: w.note.trim() || null,
+        part_of_speech: w.part_of_speech || null,
+        order_index: index,
+      }));
+
+      const { error: wordsError } = await supabase
+        .from("words")
+        .insert(wordsToInsert);
+
+      if (wordsError) throw wordsError;
+
+      toast.success("단어장이 생성되었습니다!");
+      navigate(`/vocabularies/${vocabulary.id}`);
+    } catch (error) {
+      console.error("Error creating vocabulary:", error);
+      toast.error("단어장 생성에 실패했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background pb-20">
+      <Header title="새 단어장 만들기" showBack />
+      
+      <form onSubmit={handleSubmit} className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">단어장 이름 *</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="예: 토익 필수 단어"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">설명 (선택)</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="단어장에 대한 설명을 입력하세요"
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="language">언어</Label>
+              <Select value={language} onValueChange={setLanguage}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="english">영어</SelectItem>
+                  <SelectItem value="chinese">중국어</SelectItem>
+                  <SelectItem value="japanese">일본어</SelectItem>
+                  <SelectItem value="korean">한국어</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">단어 입력</h2>
+          <Button type="button" variant="outline" size="sm" onClick={addWord}>
+            <Plus className="w-4 h-4 mr-2" />
+            단어 추가
+          </Button>
+        </div>
+
+        <div className="space-y-4">
+          {words.map((word, index) => (
+            <Card key={word.id}>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    단어 {index + 1}
+                  </span>
+                  {words.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeWord(word.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor={`word-${word.id}`}>단어 *</Label>
+                    <Input
+                      id={`word-${word.id}`}
+                      value={word.word}
+                      onChange={(e) => updateWord(word.id, "word", e.target.value)}
+                      placeholder="단어 입력"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`meaning-${word.id}`}>뜻 *</Label>
+                    <Input
+                      id={`meaning-${word.id}`}
+                      value={word.meaning}
+                      onChange={(e) => updateWord(word.id, "meaning", e.target.value)}
+                      placeholder="뜻 입력"
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor={`example-${word.id}`}>예문 (선택)</Label>
+                    <Input
+                      id={`example-${word.id}`}
+                      value={word.example}
+                      onChange={(e) => updateWord(word.id, "example", e.target.value)}
+                      placeholder="예문 입력"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`part_of_speech-${word.id}`}>품사 (선택)</Label>
+                    <Input
+                      id={`part_of_speech-${word.id}`}
+                      value={word.part_of_speech}
+                      onChange={(e) => updateWord(word.id, "part_of_speech", e.target.value)}
+                      placeholder="예: 명사, 동사"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`note-${word.id}`}>메모 (선택)</Label>
+                    <Input
+                      id={`note-${word.id}`}
+                      value={word.note}
+                      onChange={(e) => updateWord(word.id, "note", e.target.value)}
+                      placeholder="메모 입력"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="flex gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1"
+            onClick={() => navigate("/vocabularies")}
+            disabled={loading}
+          >
+            취소
+          </Button>
+          <Button type="submit" className="flex-1" disabled={loading}>
+            {loading ? "생성 중..." : "단어장 만들기"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default CreateVocabulary;
