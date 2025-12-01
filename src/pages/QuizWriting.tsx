@@ -52,7 +52,8 @@ const QuizWriting = () => {
       let query = supabase
         .from("words")
         .select("id, word, meaning")
-        .in("vocabulary_id", vocabIds);
+        .in("vocabulary_id", vocabIds)
+        .limit(100); // 최대 100개로 제한
 
       if (chapterId) {
         query = query.eq("chapter_id", chapterId);
