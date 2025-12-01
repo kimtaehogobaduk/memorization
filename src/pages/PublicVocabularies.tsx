@@ -101,7 +101,11 @@ const PublicVocabularies = () => {
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-12"
           >
-            <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <img 
+              src={new URL('@/assets/junsuk-3-2.png', import.meta.url).href} 
+              alt="Junsuk celebrating" 
+              className="w-40 h-40 mx-auto mb-4"
+            />
             <h2 className="text-xl font-semibold mb-2">
               {searchQuery ? "검색 결과가 없습니다" : "아직 공유된 단어장이 없습니다"}
             </h2>

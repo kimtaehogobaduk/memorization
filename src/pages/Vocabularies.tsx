@@ -483,7 +483,11 @@ const Vocabularies = () => {
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-12"
           >
-            <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <img 
+              src={new URL('@/assets/junsuk-16.png', import.meta.url).href} 
+              alt="Junsuk" 
+              className="w-32 h-32 mx-auto mb-4"
+            />
             <h2 className="text-xl font-semibold mb-2">아직 단어장이 없습니다</h2>
             <p className="text-muted-foreground mb-6">첫 단어장을 만들어보세요!</p>
             <Button onClick={() => navigate("/vocabularies/new")}>

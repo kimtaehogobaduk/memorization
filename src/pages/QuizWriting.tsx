@@ -157,7 +157,14 @@ const QuizWriting = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">로딩 중...</div>
+        <div className="text-center">
+          <img 
+            src={new URL('@/assets/junsuk-08.png', import.meta.url).href} 
+            alt="Junsuk surprised" 
+            className="w-24 h-24 mx-auto mb-4"
+          />
+          <p>로딩 중...</p>
+        </div>
       </div>
     );
   }
@@ -166,6 +173,11 @@ const QuizWriting = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
+          <img 
+            src={new URL('@/assets/junsuk-16.png', import.meta.url).href} 
+            alt="Junsuk shy" 
+            className="w-24 h-24 mx-auto mb-4"
+          />
           <p className="mb-4">퀴즈할 단어가 없습니다.</p>
           <Button onClick={() => navigate(vocabIds.length > 1 ? "/vocabularies" : `/vocabularies/${id}`)}>
             돌아가기
