@@ -106,6 +106,9 @@ const Groups = () => {
         title="그룹"
         action={
           <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => navigate("/groups/public")}>
+              공개 그룹
+            </Button>
             <Button size="icon" variant="outline" onClick={() => navigate("/groups/join")}>
               <LogIn className="w-5 h-5" />
             </Button>
@@ -128,10 +131,13 @@ const Groups = () => {
             <p className="text-muted-foreground mb-6">
               그룹을 만들거나 가입해서 함께 학습해보세요!
             </p>
-            <div className="flex gap-3 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button onClick={() => navigate("/groups/public")} variant="outline">
+                공개 그룹 찾기
+              </Button>
               <Button onClick={() => navigate("/groups/join")} variant="outline">
                 <LogIn className="w-5 h-5 mr-2" />
-                그룹 가입
+                코드로 가입
               </Button>
               <Button onClick={() => navigate("/groups/new")}>
                 <Plus className="w-5 h-5 mr-2" />

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
+import Index from "./pages/Index";
 import Vocabularies from "./pages/Vocabularies";
 import CreateVocabulary from "./pages/CreateVocabulary";
 import ExcelUpload from "./pages/ExcelUpload";
@@ -20,6 +21,8 @@ import Groups from "./pages/Groups";
 import CreateGroup from "./pages/CreateGroup";
 import JoinGroup from "./pages/JoinGroup";
 import GroupDetail from "./pages/GroupDetail";
+import GroupSettings from "./pages/GroupSettings";
+import PublicGroups from "./pages/PublicGroups";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -32,7 +35,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<Index />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/vocabularies" element={<Vocabularies />} />
           <Route path="/vocabularies/new" element={<CreateVocabulary />} />
@@ -48,7 +52,9 @@ const App = () => (
           <Route path="/groups" element={<Groups />} />
           <Route path="/groups/new" element={<CreateGroup />} />
           <Route path="/groups/join" element={<JoinGroup />} />
+          <Route path="/groups/public" element={<PublicGroups />} />
           <Route path="/groups/:id" element={<GroupDetail />} />
+          <Route path="/groups/:id/settings" element={<GroupSettings />} />
           <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

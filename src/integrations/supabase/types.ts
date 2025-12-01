@@ -84,8 +84,81 @@ export type Database = {
           },
         ]
       }
+      group_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          group_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          group_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          group_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_vocabularies: {
+        Row: {
+          created_at: string | null
+          group_id: string
+          id: string
+          shared_by: string
+          vocabulary_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          group_id: string
+          id?: string
+          shared_by: string
+          vocabulary_id: string
+        }
+        Update: {
+          created_at?: string | null
+          group_id?: string
+          id?: string
+          shared_by?: string
+          vocabulary_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_vocabularies_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_vocabularies_vocabulary_id_fkey"
+            columns: ["vocabulary_id"]
+            isOneToOne: false
+            referencedRelation: "vocabularies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       groups: {
         Row: {
+          co_owners: string[] | null
+          cover_image_url: string | null
           created_at: string | null
           daily_word_goal: number | null
           description: string | null
@@ -99,6 +172,8 @@ export type Database = {
           vocabulary_id: string | null
         }
         Insert: {
+          co_owners?: string[] | null
+          cover_image_url?: string | null
           created_at?: string | null
           daily_word_goal?: number | null
           description?: string | null
@@ -112,6 +187,8 @@ export type Database = {
           vocabulary_id?: string | null
         }
         Update: {
+          co_owners?: string[] | null
+          cover_image_url?: string | null
           created_at?: string | null
           daily_word_goal?: number | null
           description?: string | null
@@ -130,6 +207,82 @@ export type Database = {
             columns: ["vocabulary_id"]
             isOneToOne: false
             referencedRelation: "vocabularies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      poll_votes: {
+        Row: {
+          created_at: string | null
+          id: string
+          option_index: number
+          poll_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          option_index: number
+          poll_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          option_index?: number
+          poll_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poll_votes_poll_id_fkey"
+            columns: ["poll_id"]
+            isOneToOne: false
+            referencedRelation: "polls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polls: {
+        Row: {
+          created_at: string | null
+          creator_id: string
+          description: string | null
+          end_date: string | null
+          group_id: string
+          id: string
+          options: Json
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          creator_id: string
+          description?: string | null
+          end_date?: string | null
+          group_id: string
+          id?: string
+          options?: Json
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          creator_id?: string
+          description?: string | null
+          end_date?: string | null
+          group_id?: string
+          id?: string
+          options?: Json
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polls_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
             referencedColumns: ["id"]
           },
         ]
