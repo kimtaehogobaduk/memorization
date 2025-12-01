@@ -161,9 +161,9 @@ const QuizWriting = () => {
           <img 
             src={new URL('@/assets/junsuk-08.png', import.meta.url).href} 
             alt="Junsuk surprised" 
-            className="w-24 h-24 mx-auto mb-4"
+            className="w-40 h-40 mx-auto mb-6 animate-bounce"
           />
-          <p>로딩 중...</p>
+          <p className="text-2xl font-semibold">로딩 중...</p>
         </div>
       </div>
     );
