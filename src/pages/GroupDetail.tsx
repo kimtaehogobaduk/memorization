@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { GroupChat } from "@/components/group/GroupChat";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { 
@@ -666,18 +667,18 @@ const GroupDetail = () => {
               그룹에 공유할 단어장을 선택하세요
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            {myVocabularies.length === 0 ? (
-              <div className="text-center py-8">
-                <BookOpen className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                <p className="text-muted-foreground mb-4">
-                  공유할 단어장이 없습니다.
-                </p>
-                <Button onClick={() => navigate("/vocabularies/new")}>
-                  단어장 만들기
-                </Button>
-              </div>
-            ) : (
+          {myVocabularies.length === 0 ? (
+            <div className="text-center py-8">
+              <BookOpen className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+              <p className="text-muted-foreground mb-4">
+                공유할 단어장이 없습니다.
+              </p>
+              <Button onClick={() => navigate("/vocabularies/new")}>
+                단어장 만들기
+              </Button>
+            </div>
+          ) : (
+            <ScrollArea className="h-[400px] pr-4">
               <div className="space-y-2">
                 {myVocabularies.map((vocab) => (
                   <Card
@@ -694,8 +695,8 @@ const GroupDetail = () => {
                   </Card>
                 ))}
               </div>
-            )}
-          </div>
+            </ScrollArea>
+          )}
         </DialogContent>
       </Dialog>
     </div>
