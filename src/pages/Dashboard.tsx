@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Users, Plus, Sparkles, Trophy, Target, Share2, Brain, Upload } from "lucide-react";
+import { BookOpen, Users, Plus, Sparkles, Trophy, Target, Share2, Brain, Upload, Globe } from "lucide-react";
 import { motion } from "framer-motion";
 import junsuk01 from "@/assets/junsuk-01.png";
 import junsuk30 from "@/assets/junsuk-30.png";
@@ -219,6 +219,44 @@ const Dashboard = () => {
             </Card>
           </motion.div>
         </div>
+
+        {/* Public Vocabularies Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.1 }}
+          className="mt-8"
+        >
+          <Card 
+            className="cursor-pointer bg-gradient-to-br from-accent to-primary/20 hover:shadow-xl transition-all border-2 border-accent/30 hover:border-accent overflow-hidden"
+            onClick={() => navigate("/vocabularies/public")}
+          >
+            <CardContent className="p-8 relative">
+              <div className="absolute top-4 right-4 opacity-20">
+                <Globe className="w-24 h-24 text-accent" />
+              </div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-3 bg-white/90 rounded-2xl shadow-lg">
+                    <Share2 className="w-8 h-8 text-accent" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-foreground">공유 단어장</h2>
+                </div>
+                <p className="text-lg text-muted-foreground mb-4">
+                  다른 사람들이 만든 단어장을 탐색하고 학습해보세요! 🌍
+                </p>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="px-3 py-1 bg-white/80 backdrop-blur rounded-full font-medium text-accent">
+                    무료로 사용
+                  </span>
+                  <span className="px-3 py-1 bg-white/80 backdrop-blur rounded-full font-medium text-accent">
+                    로그인 불필요
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
       <BottomNav />
     </div>
