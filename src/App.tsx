@@ -41,7 +41,7 @@ const App = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 1250); // 1.25초
+    }, 1750); // 1.75초
 
     return () => clearTimeout(timer);
   }, []);
