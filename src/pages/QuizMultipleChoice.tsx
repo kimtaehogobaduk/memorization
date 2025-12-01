@@ -41,13 +41,14 @@ const QuizMultipleChoice = () => {
   const chapterId = searchParams.get("chapter");
   const isRetry = searchParams.get("retry") === "true";
   const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
-  const vocabIds = searchParams.get("ids")?.split(",") || [id]; // Support multi-vocab
-
+  const idsParam = searchParams.get("ids");
+  const vocabIds = idsParam ? idsParam.split(",") : [id]; // Support multi-vocab
+ 
   useEffect(() => {
-    if ((id || vocabIds.length > 0) && user) {
+    if ((id || (vocabIds && vocabIds.length > 0)) && user) {
       loadWords();
     }
-  }, [id, vocabIds, user]);
+  }, [id, idsParam, user]);
 
   useEffect(() => {
     if (words.length > 0 && currentIndex < words.length) {
@@ -149,7 +150,7 @@ const QuizMultipleChoice = () => {
           choices: choiceCount.toString(),
           delay: answerDelay.toString(),
         });
-        
+         
         if (chapterId) {
           params.append("chapter", chapterId);
         }
