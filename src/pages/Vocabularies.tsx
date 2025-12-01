@@ -5,7 +5,8 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, BookOpen, Trash2, Share2 } from "lucide-react";
+import { Plus, BookOpen, Trash2, Share2, CheckSquare, Square } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -35,6 +36,8 @@ const Vocabularies = () => {
   const navigate = useNavigate();
   const [vocabularies, setVocabularies] = useState<Vocabulary[]>([]);
   const [loadingVocabs, setLoadingVocabs] = useState(true);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!loading) {
@@ -112,6 +115,20 @@ const Vocabularies = () => {
     }
   };
 
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const startMultiQuiz = () => {
+    if (selectedIds.length === 0) {
+      toast.error("최소 1개 이상의 단어장을 선택해주세요.");
+      return;
+    }
+    navigate(`/quiz/multi?ids=${selectedIds.join(",")}`);
+  };
+
   if (loading || loadingVocabs) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -126,15 +143,34 @@ const Vocabularies = () => {
         title="내 단어장"
         action={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate("/vocabularies/public")}>
-              <Share2 className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate("/vocabularies/excel")}>
-              Excel
-            </Button>
-            <Button size="icon" onClick={() => navigate("/vocabularies/new")}>
-              <Plus className="w-5 h-5" />
-            </Button>
+            {isSelectionMode ? (
+              <>
+                <Button variant="outline" size="sm" onClick={() => {
+                  setIsSelectionMode(false);
+                  setSelectedIds([]);
+                }}>
+                  취소
+                </Button>
+                <Button size="sm" onClick={startMultiQuiz} disabled={selectedIds.length === 0}>
+                  퀴즈 시작 ({selectedIds.length})
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={() => navigate("/vocabularies/public")}>
+                  <Share2 className="w-4 h-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => navigate("/vocabularies/excel")}>
+                  Excel
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setIsSelectionMode(true)}>
+                  통합 퀴즈
+                </Button>
+                <Button size="icon" onClick={() => navigate("/vocabularies/new")}>
+                  <Plus className="w-5 h-5" />
+                </Button>
+              </>
+            )}
           </div>
         }
       />
@@ -164,11 +200,27 @@ const Vocabularies = () => {
                 transition={{ delay: index * 0.05 }}
               >
                 <Card
-                  className="cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => navigate(`/vocabularies/${vocab.id}`)}
+                  className={`cursor-pointer hover:shadow-lg transition-shadow ${
+                    isSelectionMode && selectedIds.includes(vocab.id) ? "border-primary bg-primary/5" : ""
+                  }`}
+                  onClick={() => {
+                    if (isSelectionMode) {
+                      toggleSelection(vocab.id);
+                    } else {
+                      navigate(`/vocabularies/${vocab.id}`);
+                    }
+                  }}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
+                      {isSelectionMode && (
+                        <div className="mr-3 pt-1" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.includes(vocab.id)}
+                            onCheckedChange={() => toggleSelection(vocab.id)}
+                          />
+                        </div>
+                      )}
                       <div className="flex-1">
                         <h3 className="font-semibold text-lg mb-1">{vocab.name}</h3>
                         {vocab.description && (
@@ -181,33 +233,35 @@ const Vocabularies = () => {
                           <span>{vocab.words_count}개 단어</span>
                         </div>
                       </div>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="text-destructive">
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>정말 삭제하시겠습니까?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              이 작업은 되돌릴 수 없습니다. 단어장과 모든 단어가 삭제됩니다.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>취소</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDelete(vocab.id);
-                              }}
-                              className="bg-destructive text-destructive-foreground"
-                            >
-                              삭제
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      {!isSelectionMode && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="text-destructive">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>정말 삭제하시겠습니까?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                이 작업은 되돌릴 수 없습니다. 단어장과 모든 단어가 삭제됩니다.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>취소</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(vocab.id);
+                                }}
+                                className="bg-destructive text-destructive-foreground"
+                              >
+                                삭제
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

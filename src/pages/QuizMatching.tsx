@@ -43,12 +43,13 @@ const QuizMatching = () => {
   const wordsPerPage = 6;
   const isRetry = searchParams.get("retry") === "true";
   const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
+  const vocabIds = searchParams.get("ids")?.split(",") || [id]; // Support multi-vocab
 
   useEffect(() => {
-    if (id && user) {
+    if ((id || vocabIds.length > 0) && user) {
       loadWords();
     }
-  }, [id, user]);
+  }, [id, vocabIds, user]);
 
   useEffect(() => {
     if (allWords.length > 0) {
@@ -63,7 +64,7 @@ const QuizMatching = () => {
       let query = supabase
         .from("words")
         .select("id, word, meaning")
-        .eq("vocabulary_id", id);
+        .in("vocabulary_id", vocabIds);
 
       if (chapterId) {
         query = query.eq("chapter_id", chapterId);
@@ -160,7 +161,12 @@ const QuizMatching = () => {
               params.append("chapter", chapterId);
             }
             
-            navigate(`/quiz/${id}/result?${params.toString()}`);
+            if (vocabIds.length > 1 || !id) {
+              params.append("ids", vocabIds.join(","));
+              navigate(`/quiz/result?${params.toString()}`);
+            } else {
+              navigate(`/quiz/${id}/result?${params.toString()}`);
+            }
           }
         }, 1000);
       }
@@ -188,7 +194,7 @@ const QuizMatching = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="mb-4">퀴즈할 단어가 없습니다.</p>
-          <Button onClick={() => navigate(`/vocabularies/${id}`)}>
+          <Button onClick={() => navigate(vocabIds.length > 1 ? "/vocabularies" : `/vocabularies/${id}`)}>
             돌아가기
           </Button>
         </div>
