@@ -13,6 +13,7 @@ import EditVocabulary from "./pages/EditVocabulary";
 import VocabularyDetail from "./pages/VocabularyDetail";
 import Study from "./pages/Study";
 import Quiz from "./pages/Quiz";
+import QuizMultiVocab from "./pages/QuizMultiVocab";
 import QuizMultipleChoice from "./pages/QuizMultipleChoice";
 import QuizWriting from "./pages/QuizWriting";
 import QuizMatching from "./pages/QuizMatching";
@@ -48,6 +49,10 @@ const App = () => (
           <Route path="/vocabularies/:id/edit" element={<EditVocabulary />} />
           <Route path="/vocabularies/:id" element={<VocabularyDetail />} />
           <Route path="/study/:id" element={<Study />} />
+          <Route path="/quiz/multi" element={<QuizMultiVocab />} />
+          <Route path="/quiz/multi/multiple" element={<QuizMultipleChoice />} />
+          <Route path="/quiz/multi/writing" element={<QuizWriting />} />
+          <Route path="/quiz/multi/matching" element={<QuizMatching />} />
           <Route path="/quiz/:id" element={<Quiz />} />
           <Route path="/quiz/:id/multiple" element={<QuizMultipleChoice />} />
           <Route path="/quiz/:id/writing" element={<QuizWriting />} />

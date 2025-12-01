@@ -41,12 +41,13 @@ const QuizMultipleChoice = () => {
   const chapterId = searchParams.get("chapter");
   const isRetry = searchParams.get("retry") === "true";
   const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
+  const vocabIds = searchParams.get("ids")?.split(",") || [id]; // Support multi-vocab
 
   useEffect(() => {
-    if (id && user) {
+    if ((id || vocabIds.length > 0) && user) {
       loadWords();
     }
-  }, [id, user]);
+  }, [id, vocabIds, user]);
 
   useEffect(() => {
     if (words.length > 0 && currentIndex < words.length) {
@@ -71,7 +72,7 @@ const QuizMultipleChoice = () => {
       let query = supabase
         .from("words")
         .select("id, word, meaning, part_of_speech")
-        .eq("vocabulary_id", id);
+        .in("vocabulary_id", vocabIds);
 
       if (chapterId) {
         query = query.eq("chapter_id", chapterId);
@@ -152,7 +153,12 @@ const QuizMultipleChoice = () => {
           params.append("chapter", chapterId);
         }
         
-        navigate(`/quiz/${id}/result?${params.toString()}`);
+        if (vocabIds.length > 1 || !id) {
+          params.append("ids", vocabIds.join(","));
+          navigate(`/quiz/result?${params.toString()}`);
+        } else {
+          navigate(`/quiz/${id}/result?${params.toString()}`);
+        }
       }
     }, answerDelay * 1000);
   };
@@ -170,7 +176,7 @@ const QuizMultipleChoice = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="mb-4">퀴즈할 단어가 없습니다.</p>
-          <Button onClick={() => navigate(`/vocabularies/${id}`)}>
+          <Button onClick={() => navigate(vocabIds.length > 1 ? "/vocabularies" : `/vocabularies/${id}`)}>
             돌아가기
           </Button>
         </div>
