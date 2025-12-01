@@ -5,7 +5,7 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Check, X, Eye, EyeOff, FileText } from "lucide-react";
+import { Check, X, Eye, EyeOff, FileText, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -158,6 +158,17 @@ const Study = () => {
   const currentWord = words[currentIndex];
   const progress = ((currentIndex + 1) / words.length) * 100;
 
+  const speak = (text: string) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      window.speechSynthesis.speak(utterance);
+    } else {
+      toast.error("음성 재생을 지원하지 않는 브라우저입니다.");
+    }
+  };
+
   const renderCardContent = () => {
     switch (viewMode) {
       case "word-only":
@@ -257,6 +268,16 @@ const Study = () => {
               className="w-full max-w-md"
             >
               <Card className="p-8 bg-gradient-card shadow-lg">
+                <div className="mb-4 flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => speak(currentWord.word)}
+                    className="text-primary"
+                  >
+                    <Volume2 className="w-5 h-5" />
+                  </Button>
+                </div>
                 {renderCardContent()}
               </Card>
 

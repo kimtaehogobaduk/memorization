@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Users, Plus, Sparkles, Trophy, Target } from "lucide-react";
+import { BookOpen, Users, Plus, Sparkles, Trophy, Target, Share2, Brain, Upload } from "lucide-react";
 import { motion } from "framer-motion";
 import junsuk01 from "@/assets/junsuk-01.png";
 import junsuk30 from "@/assets/junsuk-30.png";
@@ -37,7 +37,14 @@ const Dashboard = () => {
       emoji: "📚"
     },
     { 
-      icon: BookOpen, 
+      icon: Share2, 
+      label: "공유 단어장", 
+      color: "from-accent to-pink-400",
+      path: "/vocabularies/public",
+      emoji: "🌐"
+    },
+    { 
+      icon: Brain, 
       label: "단어 학습하기", 
       color: "from-success to-emerald-400",
       path: "/vocabularies",
@@ -51,10 +58,10 @@ const Dashboard = () => {
       emoji: "👥"
     },
     { 
-      icon: Trophy, 
-      label: "내 통계", 
-      color: "from-purple-400 to-pink-400",
-      path: "/settings",
+      icon: Upload, 
+      label: "Excel 업로드", 
+      color: "from-purple-400 to-indigo-400",
+      path: "/vocabularies/excel",
       emoji: "📊"
     },
   ];
