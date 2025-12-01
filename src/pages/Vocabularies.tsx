@@ -37,41 +37,51 @@ const Vocabularies = () => {
   const [loadingVocabs, setLoadingVocabs] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth");
-    }
-  }, [user, loading, navigate]);
-
-  useEffect(() => {
-    if (user) {
+    if (!loading) {
       loadVocabularies();
     }
-  }, [user]);
+  }, [user, loading]);
 
   const loadVocabularies = async () => {
     try {
       setLoadingVocabs(true);
-      const { data, error } = await supabase
-        .from("vocabularies")
-        .select(`
-          id,
-          name,
-          description,
-          language,
-          created_at,
-          words:words(count)
-        `)
-        .eq("user_id", user?.id)
-        .order("created_at", { ascending: false });
+      
+      if (user) {
+        // Load from Supabase
+        const { data, error } = await supabase
+          .from("vocabularies")
+          .select(`
+            id,
+            name,
+            description,
+            language,
+            created_at,
+            words:words(count)
+          `)
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const vocabsWithCount = data?.map(v => ({
-        ...v,
-        words_count: v.words?.[0]?.count || 0,
-      })) || [];
+        const vocabsWithCount = data?.map(v => ({
+          ...v,
+          words_count: v.words?.[0]?.count || 0,
+        })) || [];
 
-      setVocabularies(vocabsWithCount);
+        setVocabularies(vocabsWithCount);
+      } else {
+        // Load from localStorage
+        const { localStorageService } = await import("@/services/localStorageService");
+        const localVocabs = localStorageService.getVocabularies();
+        const vocabsWithCount = localVocabs.map(v => {
+          const words = localStorageService.getWordsByVocabulary(v.id);
+          return {
+            ...v,
+            words_count: words.length,
+          };
+        });
+        setVocabularies(vocabsWithCount);
+      }
     } catch (error) {
       console.error("Error loading vocabularies:", error);
       toast.error("단어장을 불러오는데 실패했습니다.");
@@ -82,12 +92,17 @@ const Vocabularies = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("vocabularies")
-        .delete()
-        .eq("id", id);
+      if (user) {
+        const { error } = await supabase
+          .from("vocabularies")
+          .delete()
+          .eq("id", id);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        const { localStorageService } = await import("@/services/localStorageService");
+        localStorageService.deleteVocabulary(id);
+      }
 
       toast.success("단어장이 삭제되었습니다.");
       loadVocabularies();
