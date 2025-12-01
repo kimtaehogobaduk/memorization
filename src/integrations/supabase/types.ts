@@ -293,6 +293,7 @@ export type Database = {
           created_at: string | null
           full_name: string | null
           id: string
+          status_message: string | null
           updated_at: string | null
           username: string | null
         }
@@ -301,6 +302,7 @@ export type Database = {
           created_at?: string | null
           full_name?: string | null
           id: string
+          status_message?: string | null
           updated_at?: string | null
           username?: string | null
         }
@@ -309,6 +311,7 @@ export type Database = {
           created_at?: string | null
           full_name?: string | null
           id?: string
+          status_message?: string | null
           updated_at?: string | null
           username?: string | null
         }
@@ -364,6 +367,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_settings: {
+        Row: {
+          answer_reveal_delay: number | null
+          auto_play_audio: boolean | null
+          created_at: string | null
+          id: string
+          theme: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          answer_reveal_delay?: number | null
+          auto_play_audio?: boolean | null
+          created_at?: string | null
+          id?: string
+          theme?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          answer_reveal_delay?: number | null
+          auto_play_audio?: boolean | null
+          created_at?: string | null
+          id?: string
+          theme?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       vocabularies: {
         Row: {

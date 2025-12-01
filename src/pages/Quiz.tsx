@@ -33,8 +33,25 @@ const Quiz = () => {
   useEffect(() => {
     if (id && user) {
       loadQuizData();
+      loadUserSettings();
     }
   }, [id, user, chapterId]);
+
+  const loadUserSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from("user_settings")
+        .select("answer_reveal_delay")
+        .eq("user_id", user?.id)
+        .single();
+
+      if (data && data.answer_reveal_delay) {
+        setAnswerDelay([data.answer_reveal_delay]);
+      }
+    } catch (error) {
+      console.error("Error loading user settings:", error);
+    }
+  };
 
   const loadQuizData = async () => {
     try {
