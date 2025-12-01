@@ -137,7 +137,14 @@ const Study = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">로딩 중...</div>
+        <div className="text-center">
+          <img 
+            src={new URL('@/assets/junsuk-08.png', import.meta.url).href} 
+            alt="Junsuk surprised" 
+            className="w-40 h-40 mx-auto mb-6 animate-bounce"
+          />
+          <p className="text-2xl font-semibold">로딩 중...</p>
+        </div>
       </div>
     );
   }
