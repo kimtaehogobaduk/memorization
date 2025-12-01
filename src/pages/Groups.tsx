@@ -5,7 +5,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Users } from "lucide-react";
+import { Plus, Users, LogIn } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -105,9 +105,14 @@ const Groups = () => {
       <Header
         title="그룹"
         action={
-          <Button size="icon" onClick={() => navigate("/groups/new")}>
-            <Plus className="w-5 h-5" />
-          </Button>
+          <div className="flex gap-2">
+            <Button size="icon" variant="outline" onClick={() => navigate("/groups/join")}>
+              <LogIn className="w-5 h-5" />
+            </Button>
+            <Button size="icon" onClick={() => navigate("/groups/new")}>
+              <Plus className="w-5 h-5" />
+            </Button>
+          </div>
         }
       />
       
@@ -121,12 +126,18 @@ const Groups = () => {
             <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
             <h2 className="text-xl font-semibold mb-2">아직 그룹이 없습니다</h2>
             <p className="text-muted-foreground mb-6">
-              그룹을 만들어 함께 학습해보세요!
+              그룹을 만들거나 가입해서 함께 학습해보세요!
             </p>
-            <Button onClick={() => navigate("/groups/new")}>
-              <Plus className="w-5 h-5 mr-2" />
-              그룹 만들기
-            </Button>
+            <div className="flex gap-3 justify-center">
+              <Button onClick={() => navigate("/groups/join")} variant="outline">
+                <LogIn className="w-5 h-5 mr-2" />
+                그룹 가입
+              </Button>
+              <Button onClick={() => navigate("/groups/new")}>
+                <Plus className="w-5 h-5 mr-2" />
+                그룹 만들기
+              </Button>
+            </div>
           </motion.div>
         ) : (
           <div className="space-y-4">
