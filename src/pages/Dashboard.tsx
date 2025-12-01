@@ -245,13 +245,25 @@ const Dashboard = () => {
                 <p className="text-lg text-muted-foreground mb-4">
                   다른 사람들이 만든 단어장을 탐색하고 학습해보세요! 🌍
                 </p>
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 text-sm flex-wrap">
                   <span className="px-3 py-1 bg-white/80 backdrop-blur rounded-full font-medium text-accent">
                     무료로 사용
                   </span>
                   <span className="px-3 py-1 bg-white/80 backdrop-blur rounded-full font-medium text-accent">
                     로그인 불필요
                   </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/vocabularies/generate");
+                    }}
+                    className="ml-auto text-xs bg-primary/10 hover:bg-primary/20"
+                  >
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    AI 생성
+                  </Button>
                 </div>
               </div>
             </CardContent>
