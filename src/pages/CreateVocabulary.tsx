@@ -210,6 +210,21 @@ const CreateVocabulary = () => {
     <div className="min-h-screen bg-background pb-20">
       <Header title="새 단어장 만들기" showBack />
       
+      {/* Junsuk studying encouragement */}
+      <div className="max-w-2xl mx-auto px-4 pt-4">
+        <div className="bg-gradient-card rounded-lg p-4 mb-4 flex items-center gap-4">
+          <img 
+            src={new URL('@/assets/junsuk-27-2.png', import.meta.url).href} 
+            alt="Junsuk studying" 
+            className="w-16 h-16"
+          />
+          <div>
+            <p className="font-semibold text-sm">준섹이와 함께 단어장을 만들어봐요!</p>
+            <p className="text-xs text-muted-foreground">차근차근 입력하면 완성됩니다</p>
+          </div>
+        </div>
+      </div>
+      
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* 페이지 0: 단어장 정보 */}
         {currentPage === 0 && (

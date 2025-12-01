@@ -208,7 +208,16 @@ const Study = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* Background Junsuk */}
+      <div className="absolute bottom-10 right-10 opacity-20 pointer-events-none hidden md:block">
+        <img 
+          src={new URL('@/assets/junsuk-19-2.png', import.meta.url).href} 
+          alt="Junsuk relaxing" 
+          className="w-48 h-48"
+        />
+      </div>
+      
       <Header title={vocabularyName} showBack onBack={() => navigate(`/vocabularies/${id}`)} />
       
       <div className="max-w-screen-xl mx-auto px-4 py-6">

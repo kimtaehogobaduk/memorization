@@ -164,6 +164,21 @@ const Quiz = () => {
         onBack={() => navigate(`/vocabularies/${id}`)}
       />
       
+      {/* Junsuk study encouragement */}
+      <div className="max-w-screen-xl mx-auto px-4 pt-4">
+        <div className="bg-gradient-card rounded-lg p-4 mb-4 flex items-center gap-4">
+          <img 
+            src={new URL('@/assets/junsuk-26-2.png', import.meta.url).href} 
+            alt="Junsuk studying hard" 
+            className="w-16 h-16"
+          />
+          <div>
+            <p className="font-semibold text-sm">열심히 공부해봐요!</p>
+            <p className="text-xs text-muted-foreground">퀴즈 설정을 선택하고 시작해보세요</p>
+          </div>
+        </div>
+      </div>
+      
       <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
         <Card>
           <CardHeader>

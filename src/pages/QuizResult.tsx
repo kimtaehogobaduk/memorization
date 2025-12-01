@@ -9,6 +9,8 @@ import junsuk30 from "@/assets/junsuk-30.png";
 import junsuk01 from "@/assets/junsuk-01.png";
 import junsuk27 from "@/assets/junsuk-27.png";
 import junsuk04 from "@/assets/junsuk-04.png";
+import junsuk13 from "@/assets/junsuk-13.png";
+import junsuk15 from "@/assets/junsuk-15.png";
 
 interface IncorrectWord {
   id: string;
@@ -49,17 +51,21 @@ const QuizResult = () => {
 
   // 점수에 따라 준섹 이미지 선택
   const getJunsukImage = () => {
+    if (percentage === 100) return junsuk15; // 완벽 - 꽃 들고 행복
     if (percentage >= 90) return junsuk30; // 기쁜 표정
     if (percentage >= 70) return junsuk01; // 일반 표정
     if (percentage >= 50) return junsuk27; // 약간 걱정
-    return junsuk04; // 걱정하는 표정
+    if (percentage >= 30) return junsuk04; // 걱정하는 표정
+    return junsuk13; // 어지러워하는 표정
   };
 
   const getJunsukMessage = () => {
+    if (percentage === 100) return "완벽해요! 최고예요! 🌟";
     if (percentage >= 90) return "완벽해요! 🎉";
     if (percentage >= 70) return "잘했어요! 👏";
     if (percentage >= 50) return "조금만 더 힘내요! 💪";
-    return "다시 한번 도전해봐요! 📚";
+    if (percentage >= 30) return "다시 한번 도전해봐요! 📚";
+    return "천천히 복습해봐요! 🔄";
   };
 
   const handleRetryIncorrect = () => {

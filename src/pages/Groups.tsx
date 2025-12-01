@@ -131,7 +131,11 @@ const Groups = () => {
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-12"
           >
-            <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <img 
+              src={new URL('@/assets/junsuk-22.png', import.meta.url).href} 
+              alt="Junsuk peace signs" 
+              className="w-40 h-40 mx-auto mb-4"
+            />
             <h2 className="text-xl font-semibold mb-2">아직 그룹이 없습니다</h2>
             <p className="text-muted-foreground mb-6">
               그룹을 만들거나 가입해서 함께 학습해보세요!

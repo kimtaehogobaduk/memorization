@@ -212,6 +212,21 @@ const Settings = () => {
     <div className="min-h-screen bg-background pb-20">
       <Header title="설정" />
       
+      {/* Junsuk welcome */}
+      <div className="max-w-screen-xl mx-auto px-4 pt-4">
+        <div className="bg-gradient-card rounded-lg p-4 mb-4 flex items-center gap-4">
+          <img 
+            src={new URL('@/assets/junsuk-15.png', import.meta.url).href} 
+            alt="Junsuk happy" 
+            className="w-16 h-16"
+          />
+          <div>
+            <p className="font-semibold text-sm">환영합니다!</p>
+            <p className="text-xs text-muted-foreground">설정을 변경하여 나만의 학습 환경을 만들어보세요</p>
+          </div>
+        </div>
+      </div>
+      
       <div className="max-w-screen-xl mx-auto px-4 py-6">
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">

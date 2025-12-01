@@ -347,10 +347,17 @@ const Admin = () => {
       <div className="max-w-screen-xl mx-auto px-4 py-6">
         {/* Stats Overview */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-            <Shield className="w-6 h-6 text-primary" />
-            전체 통계
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <Shield className="w-6 h-6 text-primary" />
+              전체 통계
+            </h2>
+            <img 
+              src={new URL('@/assets/junsuk-23.png', import.meta.url).href} 
+              alt="Admin Junsuk" 
+              className="w-20 h-20"
+            />
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {[
               { icon: Users, label: "전체 사용자", value: stats.totalUsers, color: "text-primary" },
