@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2 } from "lucide-react";
+import { WordManager } from "@/components/WordManager";
 
 interface Chapter {
   id: string;
@@ -224,8 +225,25 @@ const EditVocabulary = () => {
           </TabsContent>
 
           <TabsContent value="words">
-            <div className="text-center py-8 text-muted-foreground">
-              단어 관리 기능은 곧 추가됩니다.
+            <div className="space-y-4">
+              {words.map((word) => (
+                <WordManager
+                  key={word.id}
+                  word={word}
+                  vocabularyId={id!}
+                  onUpdate={loadVocabulary}
+                  onDelete={async () => {
+                    try {
+                      await supabase.from("words").delete().eq("id", word.id);
+                      toast.success("단어가 삭제되었습니다!");
+                      loadVocabulary();
+                    } catch (error) {
+                      console.error("Error deleting word:", error);
+                      toast.error("단어 삭제에 실패했습니다.");
+                    }
+                  }}
+                />
+              ))}
             </div>
           </TabsContent>
         </Tabs>

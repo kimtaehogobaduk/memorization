@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import Vocabularies from "./pages/Vocabularies";
 import CreateVocabulary from "./pages/CreateVocabulary";
+import ExcelUpload from "./pages/ExcelUpload";
 import EditVocabulary from "./pages/EditVocabulary";
 import VocabularyDetail from "./pages/VocabularyDetail";
 import Study from "./pages/Study";
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/vocabularies" element={<Vocabularies />} />
           <Route path="/vocabularies/new" element={<CreateVocabulary />} />
+          <Route path="/vocabularies/excel" element={<ExcelUpload />} />
           <Route path="/vocabularies/:id" element={<VocabularyDetail />} />
           <Route path="/vocabularies/:id/edit" element={<EditVocabulary />} />
           <Route path="/study/:id" element={<Study />} />
