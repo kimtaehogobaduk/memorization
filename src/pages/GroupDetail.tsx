@@ -29,7 +29,6 @@ interface Group {
   is_public: boolean;
   requires_approval: boolean;
   owner_id: string;
-  daily_word_goal: number;
   vocabulary_id: string | null;
 }
 
@@ -250,11 +249,6 @@ const GroupDetail = () => {
                     <Users className="w-6 h-6 mx-auto mb-2 text-primary" />
                     <p className="text-2xl font-bold">{members.length}</p>
                     <p className="text-sm text-muted-foreground">구성원</p>
-                  </div>
-                  <div className="text-center p-4 bg-muted rounded-lg">
-                    <Target className="w-6 h-6 mx-auto mb-2 text-success" />
-                    <p className="text-2xl font-bold">{group.daily_word_goal}</p>
-                    <p className="text-sm text-muted-foreground">일일 목표</p>
                   </div>
                 </div>
               </CardContent>
