@@ -45,6 +45,7 @@ const CreateVocabulary = () => {
     { id: "1", word: "", meaning: "", example: "", note: "", part_of_speech: "", pronunciation: "", detailed_meaning: "", example_translation: "", frequency: 0, difficulty: 0, image_url: "" },
   ]);
   const [currentPage, setCurrentPage] = useState(0); // 0: 단어장 정보, 1+: 각 단어
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const addWord = () => {
     const newId = (words.length + 1).toString();
@@ -88,6 +89,36 @@ const CreateVocabulary = () => {
 
   const goToPage = (page: number) => {
     setCurrentPage(page);
+  };
+
+  const handleImageUpload = async (wordId: string, file: File) => {
+    if (!file) return;
+
+    try {
+      setUploadingImage(true);
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `temp/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('word-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('word-images')
+        .getPublicUrl(filePath);
+
+      updateWord(wordId, 'image_url', publicUrl);
+      toast.success("이미지가 업로드되었습니다!");
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast.error("이미지 업로드에 실패했습니다.");
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -244,15 +275,33 @@ const CreateVocabulary = () => {
                 {/* Image Upload */}
                 <div className="space-y-2">
                   <Label>이미지 (선택)</Label>
+                  {currentWord.image_url && (
+                    <img src={currentWord.image_url} alt="Preview" className="w-full h-32 object-cover rounded-lg mb-2" />
+                  )}
                   <label>
                     <div className="h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors">
                       <div className="text-center text-sm text-muted-foreground">
-                        <Upload className="w-6 h-6 mx-auto mb-2" />
-                        <div>단어 이미지를</div>
-                        <div>지정해 주세요</div>
+                        {uploadingImage ? (
+                          <div>업로드 중...</div>
+                        ) : (
+                          <>
+                            <Upload className="w-6 h-6 mx-auto mb-2" />
+                            <div>단어 이미지를</div>
+                            <div>지정해 주세요</div>
+                          </>
+                        )}
                       </div>
                     </div>
-                    <input type="file" accept="image/*" className="hidden" />
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(currentWord.id, file);
+                      }}
+                      disabled={uploadingImage}
+                    />
                   </label>
                 </div>
 
