@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      bookshelf_vocabularies: {
+        Row: {
+          bookshelf_id: string
+          created_at: string | null
+          id: string
+          vocabulary_id: string
+        }
+        Insert: {
+          bookshelf_id: string
+          created_at?: string | null
+          id?: string
+          vocabulary_id: string
+        }
+        Update: {
+          bookshelf_id?: string
+          created_at?: string | null
+          id?: string
+          vocabulary_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookshelf_vocabularies_bookshelf_id_fkey"
+            columns: ["bookshelf_id"]
+            isOneToOne: false
+            referencedRelation: "bookshelves"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookshelf_vocabularies_vocabulary_id_fkey"
+            columns: ["vocabulary_id"]
+            isOneToOne: false
+            referencedRelation: "vocabularies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bookshelves: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       chapters: {
         Row: {
           created_at: string | null
