@@ -4,14 +4,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Users, Plus, Sparkles, Trophy, Target, Share2, Brain, Upload, Globe } from "lucide-react";
+import { BookOpen, Users, Plus, Sparkles, Trophy, Target, Share2, Brain, Upload, Globe, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 import junsuk01 from "@/assets/junsuk-01.png";
 import junsuk30 from "@/assets/junsuk-30.png";
 import junsuk27 from "@/assets/junsuk-27.png";
 
 const Dashboard = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -64,6 +64,13 @@ const Dashboard = () => {
       path: "/vocabularies/excel",
       emoji: "📊"
     },
+    ...(isAdmin ? [{ 
+      icon: Shield, 
+      label: "관리자 페이지", 
+      color: "from-red-500 to-orange-500",
+      path: "/admin",
+      emoji: "🛡️"
+    }] : []),
   ];
 
   return (
