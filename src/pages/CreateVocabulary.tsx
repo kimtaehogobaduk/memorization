@@ -25,6 +25,12 @@ interface WordInput {
   example: string;
   note: string;
   part_of_speech: string;
+  pronunciation: string;
+  detailed_meaning: string;
+  example_translation: string;
+  frequency: number;
+  difficulty: number;
+  image_url: string;
 }
 
 const CreateVocabulary = () => {
@@ -35,12 +41,12 @@ const CreateVocabulary = () => {
   const [description, setDescription] = useState("");
   const [language, setLanguage] = useState("english");
   const [words, setWords] = useState<WordInput[]>([
-    { id: "1", word: "", meaning: "", example: "", note: "", part_of_speech: "" },
+    { id: "1", word: "", meaning: "", example: "", note: "", part_of_speech: "", pronunciation: "", detailed_meaning: "", example_translation: "", frequency: 0, difficulty: 0, image_url: "" },
   ]);
 
   const addWord = () => {
     const newId = (words.length + 1).toString();
-    setWords([...words, { id: newId, word: "", meaning: "", example: "", note: "", part_of_speech: "" }]);
+    setWords([...words, { id: newId, word: "", meaning: "", example: "", note: "", part_of_speech: "", pronunciation: "", detailed_meaning: "", example_translation: "", frequency: 0, difficulty: 0, image_url: "" }]);
   };
 
   const removeWord = (id: string) => {
@@ -169,7 +175,7 @@ const CreateVocabulary = () => {
         <div className="space-y-4">
           {words.map((word, index) => (
             <Card key={word.id}>
-              <CardContent className="p-4 space-y-3">
+              <CardContent className="p-4 space-y-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-muted-foreground">
                     단어 {index + 1}
@@ -186,14 +192,68 @@ const CreateVocabulary = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Image Upload */}
+                  <div className="space-y-2">
+                    <Label>이미지 (선택)</Label>
+                    <div className="h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="text-center text-sm text-muted-foreground">
+                        <div className="mb-2">📷</div>
+                        <div>단어 이미지를</div>
+                        <div>지정해 주세요</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Frequency and Difficulty */}
+                  <div className="md:col-span-2 space-y-3">
+                    <div className="space-y-2">
+                      <Label>사용빈도</Label>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => updateWord(word.id, "frequency", star.toString())}
+                            className="transition-colors"
+                          >
+                            <span className={`text-2xl ${word.frequency >= star ? 'text-warning' : 'text-muted'}`}>
+                              {word.frequency >= star ? '★' : '☆'}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>난이도</Label>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => updateWord(word.id, "difficulty", star.toString())}
+                            className="transition-colors"
+                          >
+                            <span className={`text-2xl ${word.difficulty >= star ? 'text-warning' : 'text-muted'}`}>
+                              {word.difficulty >= star ? '★' : '☆'}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Word Input Fields */}
+                <div className="space-y-3">
                   <div className="space-y-2">
                     <Label htmlFor={`word-${word.id}`}>단어 *</Label>
                     <Input
                       id={`word-${word.id}`}
                       value={word.word}
                       onChange={(e) => updateWord(word.id, "word", e.target.value)}
-                      placeholder="단어 입력"
+                      placeholder="단어"
                     />
                   </div>
 
@@ -203,17 +263,27 @@ const CreateVocabulary = () => {
                       id={`meaning-${word.id}`}
                       value={word.meaning}
                       onChange={(e) => updateWord(word.id, "meaning", e.target.value)}
-                      placeholder="뜻 입력"
+                      placeholder="뜻"
                     />
                   </div>
 
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor={`example-${word.id}`}>예문 (선택)</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor={`detailed-meaning-${word.id}`}>자세한 뜻 (선택)</Label>
                     <Input
-                      id={`example-${word.id}`}
-                      value={word.example}
-                      onChange={(e) => updateWord(word.id, "example", e.target.value)}
-                      placeholder="예문 입력"
+                      id={`detailed-meaning-${word.id}`}
+                      value={word.detailed_meaning}
+                      onChange={(e) => updateWord(word.id, "detailed_meaning", e.target.value)}
+                      placeholder="자세한 뜻(음성)"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`pronunciation-${word.id}`}>발음 (선택)</Label>
+                    <Input
+                      id={`pronunciation-${word.id}`}
+                      value={word.pronunciation}
+                      onChange={(e) => updateWord(word.id, "pronunciation", e.target.value)}
+                      placeholder="발음(음성)"
                     />
                   </div>
 
@@ -223,17 +293,37 @@ const CreateVocabulary = () => {
                       id={`part_of_speech-${word.id}`}
                       value={word.part_of_speech}
                       onChange={(e) => updateWord(word.id, "part_of_speech", e.target.value)}
-                      placeholder="예: 명사, 동사"
+                      placeholder="한글 발음(음성)"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor={`note-${word.id}`}>메모 (선택)</Label>
+                    <Label htmlFor={`example-${word.id}`}>예문 (선택)</Label>
+                    <Input
+                      id={`example-${word.id}`}
+                      value={word.example}
+                      onChange={(e) => updateWord(word.id, "example", e.target.value)}
+                      placeholder="예문(음성)"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`example-translation-${word.id}`}>예문 뜻 (선택)</Label>
+                    <Input
+                      id={`example-translation-${word.id}`}
+                      value={word.example_translation}
+                      onChange={(e) => updateWord(word.id, "example_translation", e.target.value)}
+                      placeholder="예문 뜻(음성)"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`note-${word.id}`}>추가 메모 (선택)</Label>
                     <Input
                       id={`note-${word.id}`}
                       value={word.note}
                       onChange={(e) => updateWord(word.id, "note", e.target.value)}
-                      placeholder="메모 입력"
+                      placeholder="추가 예문 1 뜻(음성)"
                     />
                   </div>
                 </div>
