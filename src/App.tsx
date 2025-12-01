@@ -40,11 +40,11 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/vocabularies" element={<Vocabularies />} />
-          <Route path="/vocabularies/public" element={<PublicVocabularies />} />
           <Route path="/vocabularies/new" element={<CreateVocabulary />} />
           <Route path="/vocabularies/excel" element={<ExcelUpload />} />
-          <Route path="/vocabularies/:id" element={<VocabularyDetail />} />
+          <Route path="/vocabularies/public" element={<PublicVocabularies />} />
           <Route path="/vocabularies/:id/edit" element={<EditVocabulary />} />
+          <Route path="/vocabularies/:id" element={<VocabularyDetail />} />
           <Route path="/study/:id" element={<Study />} />
           <Route path="/quiz/:id" element={<Quiz />} />
           <Route path="/quiz/:id/multiple" element={<QuizMultipleChoice />} />
