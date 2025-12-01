@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      chapters: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          order_index: number
+          updated_at: string | null
+          vocabulary_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          order_index?: number
+          updated_at?: string | null
+          vocabulary_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+          updated_at?: string | null
+          vocabulary_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chapters_vocabulary_id_fkey"
+            columns: ["vocabulary_id"]
+            isOneToOne: false
+            referencedRelation: "vocabularies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_members: {
         Row: {
           group_id: string
@@ -212,6 +250,7 @@ export type Database = {
       }
       words: {
         Row: {
+          chapter_id: string | null
           created_at: string | null
           example: string | null
           id: string
@@ -224,6 +263,7 @@ export type Database = {
           word: string
         }
         Insert: {
+          chapter_id?: string | null
           created_at?: string | null
           example?: string | null
           id?: string
@@ -236,6 +276,7 @@ export type Database = {
           word: string
         }
         Update: {
+          chapter_id?: string | null
           created_at?: string | null
           example?: string | null
           id?: string
@@ -248,6 +289,13 @@ export type Database = {
           word?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "words_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "words_vocabulary_id_fkey"
             columns: ["vocabulary_id"]
