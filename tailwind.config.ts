@@ -55,15 +55,24 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        junsuk: {
+          blue: "hsl(var(--junsuk-blue))",
+          yellow: "hsl(var(--junsuk-yellow))",
+          skin: "hsl(var(--junsuk-skin))",
+          brown: "hsl(var(--junsuk-brown))",
+        },
       },
       backgroundImage: {
         'gradient-primary': 'var(--gradient-primary)',
         'gradient-card': 'var(--gradient-card)',
+        'gradient-hero': 'var(--gradient-hero)',
+        'gradient-junsuk': 'var(--gradient-junsuk)',
       },
       boxShadow: {
         'sm': 'var(--shadow-sm)',
         'DEFAULT': 'var(--shadow)',
         'lg': 'var(--shadow-lg)',
+        'junsuk': 'var(--shadow-junsuk)',
       },
       transitionDuration: {
         'fast': 'var(--transition-fast)',

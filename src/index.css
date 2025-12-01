@@ -8,7 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 180 20% 99%;
+    --background: 210 40% 98%;
     --foreground: 220 18% 15%;
 
     --card: 0 0% 100%;
@@ -17,7 +17,7 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 220 18% 15%;
 
-    --primary: 174 62% 47%;
+    --primary: 200 90% 55%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96%;
@@ -26,8 +26,13 @@ All colors MUST be HSL.
     --muted: 210 40% 96%;
     --muted-foreground: 220 13% 46%;
 
-    --accent: 174 62% 47%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 45 95% 60%;
+    --accent-foreground: 220 18% 15%;
+
+    --junsuk-blue: 200 90% 55%;
+    --junsuk-yellow: 45 95% 60%;
+    --junsuk-skin: 25 80% 80%;
+    --junsuk-brown: 30 30% 30%;
 
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
@@ -40,16 +45,19 @@ All colors MUST be HSL.
 
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 174 62% 47%;
+    --ring: 200 90% 55%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
-    --gradient-primary: linear-gradient(135deg, hsl(174 62% 47%), hsl(180 65% 58%));
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(180 20% 98%));
+    --gradient-primary: linear-gradient(135deg, hsl(200 90% 55%), hsl(180 85% 60%));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 40% 98%));
+    --gradient-hero: linear-gradient(135deg, hsl(200 90% 95%), hsl(45 95% 95%));
+    --gradient-junsuk: linear-gradient(135deg, hsl(200 90% 70%), hsl(45 95% 75%));
     
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 25px -3px rgb(0 0 0 / 0.1);
+    --shadow-junsuk: 0 8px 30px -5px rgb(45 105 240 / 0.3);
     
     --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
