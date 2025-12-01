@@ -32,12 +32,15 @@ const QuizMultipleChoice = () => {
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
   const [timer, setTimer] = useState(0);
+  const [incorrectWords, setIncorrectWords] = useState<Word[]>([]);
 
   const questionType = searchParams.get("type") || "meaning-to-word";
   const choiceCount = parseInt(searchParams.get("choices") || "4");
   const isRandom = searchParams.get("random") === "true";
-  const answerDelay = parseInt(searchParams.get("delay") || "3");
+  const answerDelay = parseFloat(searchParams.get("delay") || "2");
   const chapterId = searchParams.get("chapter");
+  const isRetry = searchParams.get("retry") === "true";
+  const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
 
   useEffect(() => {
     if (id && user) {
@@ -65,13 +68,17 @@ const QuizMultipleChoice = () => {
     try {
       setLoading(true);
 
-      const query = supabase
+      let query = supabase
         .from("words")
         .select("id, word, meaning, part_of_speech")
         .eq("vocabulary_id", id);
 
       if (chapterId) {
-        query.eq("chapter_id", chapterId);
+        query = query.eq("chapter_id", chapterId);
+      }
+
+      if (isRetry && incorrectIds.length > 0) {
+        query = query.in("id", incorrectIds);
       }
 
       const { data, error } = await query;
@@ -79,7 +86,7 @@ const QuizMultipleChoice = () => {
       if (error) throw error;
 
       let wordsData = data || [];
-      if (isRandom) {
+      if (isRandom && !isRetry) {
         wordsData = wordsData.sort(() => Math.random() - 0.5);
       }
 
@@ -120,14 +127,32 @@ const QuizMultipleChoice = () => {
 
     if (correct) {
       setScore(score + 1);
+    } else {
+      setIncorrectWords([...incorrectWords, currentWord]);
     }
 
     setTimeout(() => {
       if (currentIndex < words.length - 1) {
         setCurrentIndex(currentIndex + 1);
       } else {
-        toast.success(`퀴즈 완료! ${score + (correct ? 1 : 0)}/${words.length} 정답`);
-        navigate(`/vocabularies/${id}`);
+        const finalScore = score + (correct ? 1 : 0);
+        const finalIncorrect = correct ? incorrectWords : [...incorrectWords, currentWord];
+        
+        const params = new URLSearchParams({
+          score: finalScore.toString(),
+          total: words.length.toString(),
+          incorrect: encodeURIComponent(JSON.stringify(finalIncorrect)),
+          quizType: "multiple",
+          questionType,
+          choices: choiceCount.toString(),
+          delay: answerDelay.toString(),
+        });
+        
+        if (chapterId) {
+          params.append("chapter", chapterId);
+        }
+        
+        navigate(`/quiz/${id}/result?${params.toString()}`);
       }
     }, answerDelay * 1000);
   };

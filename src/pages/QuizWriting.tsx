@@ -30,10 +30,13 @@ const QuizWriting = () => {
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [incorrectWords, setIncorrectWords] = useState<Word[]>([]);
 
   const isRandom = searchParams.get("random") === "true";
-  const answerDelay = parseInt(searchParams.get("delay") || "3");
+  const answerDelay = parseFloat(searchParams.get("delay") || "2");
   const chapterId = searchParams.get("chapter");
+  const isRetry = searchParams.get("retry") === "true";
+  const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
 
   useEffect(() => {
     if (id && user) {
@@ -45,13 +48,17 @@ const QuizWriting = () => {
     try {
       setLoading(true);
 
-      const query = supabase
+      let query = supabase
         .from("words")
         .select("id, word, meaning")
         .eq("vocabulary_id", id);
 
       if (chapterId) {
-        query.eq("chapter_id", chapterId);
+        query = query.eq("chapter_id", chapterId);
+      }
+
+      if (isRetry && incorrectIds.length > 0) {
+        query = query.in("id", incorrectIds);
       }
 
       const { data, error } = await query;
@@ -59,7 +66,7 @@ const QuizWriting = () => {
       if (error) throw error;
 
       let wordsData = data || [];
-      if (isRandom) {
+      if (isRandom && !isRetry) {
         wordsData = wordsData.sort(() => Math.random() - 0.5);
       }
 
@@ -90,6 +97,8 @@ const QuizWriting = () => {
 
     if (correct) {
       setScore(score + 1);
+    } else {
+      setIncorrectWords([...incorrectWords, currentWord]);
     }
 
     setTimeout(() => {
@@ -99,8 +108,22 @@ const QuizWriting = () => {
         setIsSubmitted(false);
         setIsCorrect(null);
       } else {
-        toast.success(`퀴즈 완료! ${score + (correct ? 1 : 0)}/${words.length} 정답`);
-        navigate(`/vocabularies/${id}`);
+        const finalScore = score + (correct ? 1 : 0);
+        const finalIncorrect = correct ? incorrectWords : [...incorrectWords, currentWord];
+        
+        const params = new URLSearchParams({
+          score: finalScore.toString(),
+          total: words.length.toString(),
+          incorrect: encodeURIComponent(JSON.stringify(finalIncorrect)),
+          quizType: "writing",
+          delay: answerDelay.toString(),
+        });
+        
+        if (chapterId) {
+          params.append("chapter", chapterId);
+        }
+        
+        navigate(`/quiz/${id}/result?${params.toString()}`);
       }
     }, answerDelay * 1000);
   };

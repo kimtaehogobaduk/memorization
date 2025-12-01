@@ -36,10 +36,13 @@ const QuizMatching = () => {
   const [selectedRight, setSelectedRight] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [incorrectWords, setIncorrectWords] = useState<Word[]>([]);
 
   const isRandom = searchParams.get("random") === "true";
   const chapterId = searchParams.get("chapter");
   const wordsPerPage = 6;
+  const isRetry = searchParams.get("retry") === "true";
+  const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
 
   useEffect(() => {
     if (id && user) {
@@ -57,13 +60,17 @@ const QuizMatching = () => {
     try {
       setLoading(true);
 
-      const query = supabase
+      let query = supabase
         .from("words")
         .select("id, word, meaning")
         .eq("vocabulary_id", id);
 
       if (chapterId) {
-        query.eq("chapter_id", chapterId);
+        query = query.eq("chapter_id", chapterId);
+      }
+
+      if (isRetry && incorrectIds.length > 0) {
+        query = query.in("id", incorrectIds);
       }
 
       const { data, error } = await query;
@@ -71,7 +78,7 @@ const QuizMatching = () => {
       if (error) throw error;
 
       let wordsData = data || [];
-      if (isRandom) {
+      if (isRandom && !isRetry) {
         wordsData = wordsData.sort(() => Math.random() - 0.5);
       }
 
@@ -141,11 +148,30 @@ const QuizMatching = () => {
           if (nextPage < totalPages) {
             setCurrentPage(nextPage);
           } else {
-            toast.success(`퀴즈 완료! ${score + 1}/${allWords.length} 정답`);
-            navigate(`/vocabularies/${id}`);
+            const params = new URLSearchParams({
+              score: (score + 1).toString(),
+              total: allWords.length.toString(),
+              incorrect: encodeURIComponent(JSON.stringify(incorrectWords)),
+              quizType: "matching",
+              delay: "2",
+            });
+            
+            if (chapterId) {
+              params.append("chapter", chapterId);
+            }
+            
+            navigate(`/quiz/${id}/result?${params.toString()}`);
           }
         }, 1000);
       }
+    } else if (selectedLeft && selectedLeft !== id) {
+      // Wrong match - track incorrect word
+      const incorrectWord = allWords.find(w => w.id === selectedLeft);
+      if (incorrectWord && !incorrectWords.find(w => w.id === incorrectWord.id)) {
+        setIncorrectWords([...incorrectWords, incorrectWord]);
+      }
+      setSelectedLeft(null);
+      setSelectedRight(null);
     }
   };
 
