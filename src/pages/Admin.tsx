@@ -273,6 +273,40 @@ const Admin = () => {
     }
   };
 
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`정말 "${userName}" 사용자를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("인증 세션이 만료되었습니다.");
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || '사용자 삭제 실패');
+      }
+
+      toast.success("사용자가 삭제되었습니다.");
+      loadUsers();
+      loadStats();
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast.error(error instanceof Error ? error.message : "사용자 삭제 실패");
+    }
+  };
+
   const filteredUsers = users.filter(u => 
     u.profile?.full_name?.toLowerCase().includes(userSearch.toLowerCase()) ||
     u.profile?.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
@@ -394,9 +428,23 @@ const Admin = () => {
                                 가입일: {new Date(u.created_at).toLocaleDateString()}
                               </p>
                             </div>
-                            <Badge variant={u.role === "admin" ? "default" : "secondary"}>
-                              {u.role === "admin" ? "관리자" : "사용자"}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={u.role === "admin" ? "default" : "secondary"}>
+                                {u.role === "admin" ? "관리자" : "사용자"}
+                              </Badge>
+                              {u.role !== "admin" && (
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleDeleteUser(
+                                    u.id, 
+                                    u.profile?.full_name || u.profile?.username || "이름 없음"
+                                  )}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
