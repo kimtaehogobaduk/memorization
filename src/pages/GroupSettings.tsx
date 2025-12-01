@@ -333,12 +333,11 @@ const GroupSettings = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="vocabulary">대표 단어장</Label>
-                <Select value={vocabularyId} onValueChange={setVocabularyId}>
+                <Select value={vocabularyId || undefined} onValueChange={(value) => setVocabularyId(value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="단어장을 선택하세요 (선택사항)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">선택 안 함</SelectItem>
                     {vocabularies.map((vocab) => (
                       <SelectItem key={vocab.id} value={vocab.id}>
                         {vocab.name}
@@ -346,6 +345,17 @@ const GroupSettings = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {vocabularyId && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVocabularyId("")}
+                    className="text-muted-foreground"
+                  >
+                    선택 해제
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
