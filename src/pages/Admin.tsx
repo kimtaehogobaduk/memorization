@@ -88,13 +88,12 @@ const Admin = () => {
   const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
+    // 로그인 안 되어 있으면 로그인 페이지로만 보냄
     if (!loading && !user) {
       navigate("/auth");
-    } else if (!loading && user && !isAdmin) {
-      toast.error("접근 권한이 없습니다.");
-      navigate("/");
     }
-  }, [user, loading, isAdmin, navigate]);
+  }, [user, loading, navigate]);
+
 
   useEffect(() => {
     if (user && isAdmin) {
@@ -290,13 +289,22 @@ const Admin = () => {
     g.description?.toLowerCase().includes(groupSearch.toLowerCase())
   );
 
-  if (loading || !isAdmin) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">로딩 중...</div>
       </div>
     );
   }
+
+  if (!loading && user && !isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center text-destructive">관리자 권한이 필요한 페이지입니다.</div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="min-h-screen bg-background pb-20">
