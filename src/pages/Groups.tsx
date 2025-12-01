@@ -14,6 +14,7 @@ interface Group {
   id: string;
   name: string;
   description: string | null;
+  cover_image_url: string | null;
   member_count: number;
   is_owner: boolean;
 }
@@ -47,6 +48,7 @@ const Groups = () => {
           id,
           name,
           description,
+          cover_image_url,
           owner_id,
           group_members(count)
         `)
@@ -60,6 +62,7 @@ const Groups = () => {
             id,
             name,
             description,
+            cover_image_url,
             owner_id,
             group_members(count)
           )
@@ -71,6 +74,7 @@ const Groups = () => {
           id: g.id,
           name: g.name,
           description: g.description,
+          cover_image_url: g.cover_image_url,
           member_count: g.group_members?.[0]?.count || 0,
           is_owner: true,
         })) || []),
@@ -78,6 +82,7 @@ const Groups = () => {
           id: m.groups.id,
           name: m.groups.name,
           description: m.groups.description,
+          cover_image_url: m.groups.cover_image_url,
           member_count: m.groups.group_members?.[0]?.count || 0,
           is_owner: false,
         })) || []),
@@ -159,8 +164,20 @@ const Groups = () => {
                   onClick={() => navigate(`/groups/${group.id}`)}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                    <div className="flex items-start gap-4">
+                      {group.cover_image_url ? (
+                        <img
+                          src={group.cover_image_url}
+                          alt={group.name}
+                          className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-20 h-20 rounded-lg bg-gradient-junsuk flex items-center justify-center flex-shrink-0">
+                          <Users className="w-10 h-10 text-white" />
+                        </div>
+                      )}
+                      
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold text-lg">{group.name}</h3>
                           {group.is_owner && (
@@ -170,7 +187,7 @@ const Groups = () => {
                           )}
                         </div>
                         {group.description && (
-                          <p className="text-sm text-muted-foreground mb-2">
+                          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
                             {group.description}
                           </p>
                         )}

@@ -12,9 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { LogOut, User, Upload, Settings as SettingsIcon, Zap } from "lucide-react";
+import { LogOut, User, Upload, Settings as SettingsIcon, Zap, BookOpen, TrendingUp, Award, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 
 const Settings = () => {
   const { user, loading, signOut } = useAuth();
@@ -33,6 +34,14 @@ const Settings = () => {
   const [answerDelay, setAnswerDelay] = useState(2.0);
   const [autoPlayAudio, setAutoPlayAudio] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
+  
+  // Stats state
+  const [stats, setStats] = useState({
+    vocabularies: 0,
+    words: 0,
+    memorized: 0,
+    groups: 0,
+  });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -44,6 +53,7 @@ const Settings = () => {
     if (user) {
       loadProfile();
       loadUserSettings();
+      loadStats();
     }
   }, [user]);
 
@@ -180,6 +190,27 @@ const Settings = () => {
     }
   };
 
+  const loadStats = async () => {
+    try {
+      const [vocabResult, groupsResult, progressResult] = await Promise.all([
+        supabase.from("vocabularies").select("id", { count: "exact" }).eq("user_id", user?.id),
+        supabase.from("group_members").select("id", { count: "exact" }).eq("user_id", user?.id),
+        supabase.from("study_progress").select("id, is_memorized", { count: "exact" }).eq("user_id", user?.id),
+      ]);
+
+      const memorizedCount = progressResult.data?.filter(p => p.is_memorized).length || 0;
+
+      setStats({
+        vocabularies: vocabResult.count || 0,
+        words: progressResult.count || 0,
+        memorized: memorizedCount,
+        groups: groupsResult.count || 0,
+      });
+    } catch (error) {
+      console.error("Error loading stats:", error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -194,10 +225,14 @@ const Settings = () => {
       
       <div className="max-w-screen-xl mx-auto px-4 py-6">
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="profile">
               <User className="w-4 h-4 mr-2" />
               프로필
+            </TabsTrigger>
+            <TabsTrigger value="stats">
+              <TrendingUp className="w-4 h-4 mr-2" />
+              통계
             </TabsTrigger>
             <TabsTrigger value="quiz">
               <Zap className="w-4 h-4 mr-2" />
@@ -305,6 +340,40 @@ const Settings = () => {
                   <LogOut className="w-5 h-5 mr-3" />
                   로그아웃
                 </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="stats" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>학습 통계</CardTitle>
+                <CardDescription>내 학습 현황을 한눈에 확인하세요</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { icon: BookOpen, label: "내 단어장", value: stats.vocabularies, color: "text-primary" },
+                    { icon: TrendingUp, label: "학습한 단어", value: stats.words, color: "text-success" },
+                    { icon: Award, label: "외운 단어", value: stats.memorized, color: "text-warning" },
+                    { icon: Users, label: "참여 그룹", value: stats.groups, color: "text-accent" },
+                  ].map((stat, index) => (
+                    <motion.div
+                      key={stat.label}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <Card className="bg-gradient-card">
+                        <CardContent className="p-6">
+                          <stat.icon className={`w-8 h-8 mb-3 ${stat.color}`} />
+                          <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
+                          <p className="text-2xl font-bold">{stat.value}</p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
