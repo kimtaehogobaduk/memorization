@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import junsuk30 from "@/assets/junsuk-30.png";
+import junsuk01 from "@/assets/junsuk-01.png";
+import junsuk27 from "@/assets/junsuk-27.png";
+import junsuk04 from "@/assets/junsuk-04.png";
 
 interface IncorrectWord {
   id: string;
@@ -42,6 +46,21 @@ const QuizResult = () => {
   const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
   const correctCount = score;
   const incorrectCount = total - score;
+
+  // 점수에 따라 준섹 이미지 선택
+  const getJunsukImage = () => {
+    if (percentage >= 90) return junsuk30; // 기쁜 표정
+    if (percentage >= 70) return junsuk01; // 일반 표정
+    if (percentage >= 50) return junsuk27; // 약간 걱정
+    return junsuk04; // 걱정하는 표정
+  };
+
+  const getJunsukMessage = () => {
+    if (percentage >= 90) return "완벽해요! 🎉";
+    if (percentage >= 70) return "잘했어요! 👏";
+    if (percentage >= 50) return "조금만 더 힘내요! 💪";
+    return "다시 한번 도전해봐요! 📚";
+  };
 
   const handleRetryIncorrect = () => {
     if (incorrectWords.length === 0) return;
@@ -100,30 +119,63 @@ const QuizResult = () => {
       />
       
       <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
-        {/* Score Card */}
+        {/* Score Card with Junsuk */}
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.5 }}
         >
-          <Card className="p-8 bg-gradient-to-br from-primary/20 to-primary/5 border-primary/20">
-            <div className="text-center">
+          <Card className="p-8 bg-gradient-junsuk border-2 border-junsuk-blue/30 shadow-junsuk">
+            <div className="text-center space-y-6">
+              {/* Junsuk Character */}
               <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                className="text-7xl font-bold text-primary mb-4"
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ 
+                  delay: 0.2, 
+                  type: "spring", 
+                  stiffness: 180,
+                  damping: 12
+                }}
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                className="w-40 h-40 mx-auto"
               >
-                {percentage}%
+                <img 
+                  src={getJunsukImage()} 
+                  alt="준섹이" 
+                  className="w-full h-full object-contain drop-shadow-2xl"
+                />
               </motion.div>
-              <div className="flex justify-center gap-8 text-sm">
-                <div className="flex items-center gap-2">
+
+              {/* Score */}
+              <div>
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
+                  className="text-7xl font-extrabold text-junsuk-blue mb-2"
+                >
+                  {percentage}%
+                </motion.div>
+                <motion.p
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="text-2xl font-bold text-foreground"
+                >
+                  {getJunsukMessage()}
+                </motion.p>
+              </div>
+
+              {/* Stats */}
+              <div className="flex justify-center gap-8 text-base">
+                <div className="flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-md">
                   <CheckCircle2 className="w-5 h-5 text-success" />
-                  <span>학습수: <span className="font-semibold">{correctCount}/{total}</span></span>
+                  <span>학습수: <span className="font-bold">{correctCount}/{total}</span></span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-md">
                   <XCircle className="w-5 h-5 text-destructive" />
-                  <span>복습수: <span className="font-semibold">{incorrectCount}/{total}</span></span>
+                  <span>복습수: <span className="font-bold">{incorrectCount}/{total}</span></span>
                 </div>
               </div>
             </div>
