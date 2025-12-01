@@ -27,6 +27,7 @@ import PublicGroups from "./pages/PublicGroups";
 import PublicVocabularies from "./pages/PublicVocabularies";
 import GenerateVocabularies from "./pages/GenerateVocabularies";
 import Settings from "./pages/Settings";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,6 +66,7 @@ const App = () => (
           <Route path="/groups/:id" element={<GroupDetail />} />
           <Route path="/groups/:id/settings" element={<GroupSettings />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/admin" element={<Admin />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

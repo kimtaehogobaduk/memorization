@@ -1,13 +1,17 @@
-import { Home, BookOpen, Users, Settings, Share2 } from "lucide-react";
+import { Home, BookOpen, Users, Settings, Share2, Shield } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 export const BottomNav = () => {
+  const { isAdmin } = useAuth();
+  
   const navItems = [
     { to: "/", icon: Home, label: "홈" },
     { to: "/vocabularies", icon: BookOpen, label: "단어장" },
     { to: "/vocabularies/public", icon: Share2, label: "공유" },
     { to: "/groups", icon: Users, label: "그룹" },
+    ...(isAdmin ? [{ to: "/admin", icon: Shield, label: "관리" }] : []),
     { to: "/settings", icon: Settings, label: "설정" },
   ];
 
