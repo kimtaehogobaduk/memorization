@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { LogOut, User, Upload, Settings as SettingsIcon, Zap, BookOpen, TrendingUp, Award, Users } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { LogOut, User, Upload, Settings as SettingsIcon, Zap, BookOpen, TrendingUp, Award, Users, Type } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -33,6 +34,7 @@ const Settings = () => {
   // Quiz settings state
   const [answerDelay, setAnswerDelay] = useState(2.0);
   const [autoPlayAudio, setAutoPlayAudio] = useState(false);
+  const [quizFontSize, setQuizFontSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [settingsLoading, setSettingsLoading] = useState(false);
   
   // Stats state
@@ -92,6 +94,7 @@ const Settings = () => {
       if (data) {
         setAnswerDelay(data.answer_reveal_delay || 2.0);
         setAutoPlayAudio(data.auto_play_audio || false);
+        setQuizFontSize((data.quiz_font_size as 'small' | 'medium' | 'large') || 'medium');
       }
     } catch (error) {
       console.error("Error loading settings:", error);
@@ -176,6 +179,7 @@ const Settings = () => {
           user_id: user?.id,
           answer_reveal_delay: answerDelay,
           auto_play_audio: autoPlayAudio,
+          quiz_font_size: quizFontSize,
           updated_at: new Date().toISOString(),
         });
 
@@ -408,6 +412,40 @@ const Settings = () => {
                     <span>1초</span>
                     <span>5초</span>
                   </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Type className="w-4 h-4" />
+                      퀴즈 글자 크기
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      문제와 보기의 글자 크기를 조절합니다
+                    </p>
+                  </div>
+                  <RadioGroup value={quizFontSize} onValueChange={(value) => setQuizFontSize(value as 'small' | 'medium' | 'large')}>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="small" id="small" />
+                      <Label htmlFor="small" className="font-normal cursor-pointer">
+                        작게
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="medium" id="medium" />
+                      <Label htmlFor="medium" className="font-normal cursor-pointer">
+                        보통 (기본)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="large" id="large" />
+                      <Label htmlFor="large" className="font-normal cursor-pointer">
+                        크게
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
 
                 <Separator />

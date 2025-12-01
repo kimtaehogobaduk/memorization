@@ -33,6 +33,7 @@ const QuizMultipleChoice = () => {
   const [loading, setLoading] = useState(true);
   const [timer, setTimer] = useState(0);
   const [incorrectWords, setIncorrectWords] = useState<Word[]>([]);
+  const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium');
 
   const questionType = searchParams.get("type") || "meaning-to-word";
   const choiceCount = parseInt(searchParams.get("choices") || "4");
@@ -47,8 +48,25 @@ const QuizMultipleChoice = () => {
   useEffect(() => {
     if ((id || (vocabIds && vocabIds.length > 0)) && user) {
       loadWords();
+      loadUserSettings();
     }
   }, [id, idsParam, user]);
+
+  const loadUserSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from("user_settings")
+        .select("quiz_font_size")
+        .eq("user_id", user?.id)
+        .single();
+      
+      if (data?.quiz_font_size) {
+        setFontSize(data.quiz_font_size as 'small' | 'medium' | 'large');
+      }
+    } catch (error) {
+      console.error("Error loading settings:", error);
+    }
+  };
 
   useEffect(() => {
     if (words.length > 0 && currentIndex < words.length) {
@@ -194,6 +212,9 @@ const QuizMultipleChoice = () => {
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+  
+  const questionSizeClass = fontSize === 'small' ? 'text-2xl' : fontSize === 'large' ? 'text-5xl' : 'text-4xl';
+  const choiceSizeClass = fontSize === 'small' ? 'text-base' : fontSize === 'large' ? 'text-2xl' : 'text-lg';
 
   return (
     <div className="min-h-screen bg-background">
@@ -229,9 +250,9 @@ const QuizMultipleChoice = () => {
                 <p className="text-sm opacity-80 mb-4">
                   {questionType === "meaning-to-word" ? "뜻에 해당하는 단어는?" : "단어의 뜻은?"}
                 </p>
-                <h2 className="text-4xl font-bold mb-2">{question}</h2>
+                <h2 className={cn("font-bold mb-2", questionSizeClass)}>{question}</h2>
                 {currentWord.part_of_speech && questionType === "word-to-meaning" && (
-                  <p className="text-lg opacity-90 mt-2">{currentWord.part_of_speech}</p>
+                  <p className={cn("opacity-90 mt-2", fontSize === 'small' ? 'text-base' : fontSize === 'large' ? 'text-xl' : 'text-lg')}>{currentWord.part_of_speech}</p>
                 )}
               </Card>
 
@@ -255,7 +276,8 @@ const QuizMultipleChoice = () => {
                       key={index}
                       variant="outline"
                       className={cn(
-                        "w-full h-auto py-4 text-lg justify-start",
+                        "w-full h-auto py-4 justify-start",
+                        choiceSizeClass,
                         bgColor,
                         selectedAnswer !== null && "cursor-default"
                       )}
