@@ -93,7 +93,11 @@ const QuizResult = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Header title="퀴즈 결과" showBack />
+      <Header 
+        title="퀴즈 결과" 
+        showBack 
+        onBack={() => navigate(`/vocabularies/${id}`)}
+      />
       
       <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
         {/* Score Card */}

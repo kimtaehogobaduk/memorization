@@ -114,6 +114,7 @@ const VocabularyDetail = () => {
       <Header
         title={vocabulary.name}
         showBack
+        onBack={() => navigate("/vocabularies")}
         action={
           isOwner && (
             <Button

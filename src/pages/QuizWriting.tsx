@@ -154,7 +154,7 @@ const QuizWriting = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header title="주관식 퀴즈" showBack />
+      <Header title="주관식 퀴즈" showBack onBack={() => navigate(`/quiz/${id}`)} />
       
       <div className="max-w-screen-xl mx-auto px-4 py-6">
         <div className="mb-6">
