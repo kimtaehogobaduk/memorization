@@ -31,6 +31,7 @@ const QuizWriting = () => {
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
   const [incorrectWords, setIncorrectWords] = useState<Word[]>([]);
+  const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium');
 
   const isRandom = searchParams.get("random") === "true";
   const answerDelay = parseFloat(searchParams.get("delay") || "2");
@@ -43,8 +44,25 @@ const QuizWriting = () => {
   useEffect(() => {
     if ((id || (vocabIds && vocabIds.length > 0)) && user) {
       loadWords();
+      loadUserSettings();
     }
   }, [id, idsParam, user]);
+
+  const loadUserSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from("user_settings")
+        .select("quiz_font_size")
+        .eq("user_id", user?.id)
+        .single();
+      
+      if (data?.quiz_font_size) {
+        setFontSize(data.quiz_font_size as 'small' | 'medium' | 'large');
+      }
+    } catch (error) {
+      console.error("Error loading settings:", error);
+    }
+  };
 
   const loadWords = async () => {
     try {
@@ -159,6 +177,10 @@ const QuizWriting = () => {
 
   const currentWord = words[currentIndex];
   const progress = ((currentIndex + 1) / words.length) * 100;
+  
+  const questionSizeClass = fontSize === 'small' ? 'text-2xl' : fontSize === 'large' ? 'text-5xl' : 'text-3xl';
+  const inputSizeClass = fontSize === 'small' ? 'text-base' : fontSize === 'large' ? 'text-2xl' : 'text-xl';
+  const answerSizeClass = fontSize === 'small' ? 'text-lg' : fontSize === 'large' ? 'text-3xl' : 'text-2xl';
 
   return (
     <div className="min-h-screen bg-background">
@@ -189,7 +211,7 @@ const QuizWriting = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 다음 뜻에 해당하는 단어를 입력하세요
               </p>
-              <h2 className="text-3xl font-bold mb-2">{currentWord.meaning}</h2>
+              <h2 className={`font-bold mb-2 ${questionSizeClass}`}>{currentWord.meaning}</h2>
             </Card>
 
             <div className="space-y-4">
@@ -202,7 +224,7 @@ const QuizWriting = () => {
                   }
                 }}
                 placeholder="단어를 입력하세요"
-                className="text-xl py-6"
+                className={`py-6 ${inputSizeClass}`}
                 disabled={isSubmitted}
                 autoFocus
               />
@@ -224,12 +246,12 @@ const QuizWriting = () => {
                         <X className="w-6 h-6 text-destructive" />
                       )}
                       <div className="flex-1">
-                        <p className="font-semibold">
+                        <p className={`font-semibold ${fontSize === 'small' ? 'text-base' : fontSize === 'large' ? 'text-xl' : 'text-lg'}`}>
                           {isCorrect ? "정답입니다!" : "틀렸습니다"}
                         </p>
                         {!isCorrect && (
-                          <p className="text-sm mt-1">
-                            정답: <span className="font-semibold">{currentWord.word}</span>
+                          <p className={`mt-1 ${fontSize === 'small' ? 'text-sm' : fontSize === 'large' ? 'text-lg' : 'text-base'}`}>
+                            정답: <span className={`font-semibold ${answerSizeClass}`}>{currentWord.word}</span>
                           </p>
                         )}
                       </div>
