@@ -23,6 +23,7 @@ import JoinGroup from "./pages/JoinGroup";
 import GroupDetail from "./pages/GroupDetail";
 import GroupSettings from "./pages/GroupSettings";
 import PublicGroups from "./pages/PublicGroups";
+import PublicVocabularies from "./pages/PublicVocabularies";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/vocabularies" element={<Vocabularies />} />
+          <Route path="/vocabularies/public" element={<PublicVocabularies />} />
           <Route path="/vocabularies/new" element={<CreateVocabulary />} />
           <Route path="/vocabularies/excel" element={<ExcelUpload />} />
           <Route path="/vocabularies/:id" element={<VocabularyDetail />} />

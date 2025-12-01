@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Edit, FileText, Brain, Play } from "lucide-react";
+import { Edit, FileText, Brain, Play, Volume2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -108,6 +108,17 @@ const VocabularyDetail = () => {
     : words;
 
   const isOwner = vocabulary?.user_id === user?.id;
+
+  const speak = (text: string) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      window.speechSynthesis.speak(utterance);
+    } else {
+      toast.error("음성 재생을 지원하지 않는 브라우저입니다.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-6">
@@ -258,6 +269,17 @@ const VocabularyDetail = () => {
                         </span>
                       )}
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        speak(word.word);
+                      }}
+                      className="text-primary"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </Button>
                   </div>
                   <p className="text-foreground mb-2">{word.meaning}</p>
                   {word.example && (

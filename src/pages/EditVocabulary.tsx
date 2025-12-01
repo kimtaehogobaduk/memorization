@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +41,7 @@ const EditVocabulary = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [language, setLanguage] = useState("english");
+  const [isPublic, setIsPublic] = useState(false);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [words, setWords] = useState<Word[]>([]);
   const [activeTab, setActiveTab] = useState("info");
@@ -62,6 +64,7 @@ const EditVocabulary = () => {
         setName(vocab.name);
         setDescription(vocab.description || "");
         setLanguage(vocab.language);
+        setIsPublic(vocab.is_public || false);
       }
 
       const { data: chaptersData } = await supabase
@@ -90,7 +93,7 @@ const EditVocabulary = () => {
     try {
       await supabase
         .from("vocabularies")
-        .update({ name, description, language })
+        .update({ name, description, language, is_public: isPublic })
         .eq("id", id);
 
       toast.success("단어장이 수정되었습니다!");
@@ -186,6 +189,15 @@ const EditVocabulary = () => {
                       <SelectItem value="korean">한국어</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="is-public">공개 단어장</Label>
+                  <Switch
+                    id="is-public"
+                    checked={isPublic}
+                    onCheckedChange={setIsPublic}
+                  />
                 </div>
 
                 <Button onClick={handleSave} disabled={loading} className="w-full">

@@ -5,7 +5,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, BookOpen, Trash2 } from "lucide-react";
+import { Plus, BookOpen, Trash2, Share2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -126,6 +126,9 @@ const Vocabularies = () => {
         title="내 단어장"
         action={
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate("/vocabularies/public")}>
+              <Share2 className="w-4 h-4" />
+            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate("/vocabularies/excel")}>
               Excel
             </Button>
