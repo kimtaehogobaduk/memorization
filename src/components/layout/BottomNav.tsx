@@ -1,4 +1,4 @@
-import { Home, BookOpen, Users, Settings } from "lucide-react";
+import { Home, BookOpen, Users, Settings, Share2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
 
@@ -6,6 +6,7 @@ export const BottomNav = () => {
   const navItems = [
     { to: "/", icon: Home, label: "홈" },
     { to: "/vocabularies", icon: BookOpen, label: "단어장" },
+    { to: "/vocabularies/public", icon: Share2, label: "공유" },
     { to: "/groups", icon: Users, label: "그룹" },
     { to: "/settings", icon: Settings, label: "설정" },
   ];
