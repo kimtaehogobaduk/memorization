@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -15,6 +16,7 @@ interface Message {
   created_at: string;
   full_name: string | null;
   username: string | null;
+  avatar_url: string | null;
 }
 
 interface GroupChatProps {
@@ -55,7 +57,7 @@ export const GroupChat = ({ groupId }: GroupChatProps) => {
           messagesData.map(async (message) => {
             const { data: profile } = await supabase
               .from("profiles")
-              .select("full_name, username")
+              .select("full_name, username, avatar_url")
               .eq("id", message.user_id)
               .single();
 
@@ -63,6 +65,7 @@ export const GroupChat = ({ groupId }: GroupChatProps) => {
               ...message,
               full_name: profile?.full_name || null,
               username: profile?.username || null,
+              avatar_url: profile?.avatar_url || null,
             };
           })
         );
@@ -88,7 +91,7 @@ export const GroupChat = ({ groupId }: GroupChatProps) => {
         async (payload) => {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("full_name, username")
+            .select("full_name, username, avatar_url")
             .eq("id", payload.new.user_id)
             .single();
 
@@ -96,6 +99,7 @@ export const GroupChat = ({ groupId }: GroupChatProps) => {
             ...payload.new,
             full_name: profile?.full_name || null,
             username: profile?.username || null,
+            avatar_url: profile?.avatar_url || null,
           } as Message;
 
           setMessages((prev) => [...prev, newMsg]);
@@ -145,8 +149,16 @@ export const GroupChat = ({ groupId }: GroupChatProps) => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.02 }}
-              className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
+              className={`flex ${isOwn ? "justify-end" : "justify-start"} gap-2`}
             >
+              {!isOwn && (
+                <Avatar className="w-8 h-8 flex-shrink-0">
+                  <AvatarImage src={message.avatar_url || undefined} />
+                  <AvatarFallback>
+                    {(message.full_name || message.username || "U").charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              )}
               <div className={`max-w-[70%] ${isOwn ? "items-end" : "items-start"} flex flex-col`}>
                 {!isOwn && (
                   <span className="text-xs text-muted-foreground mb-1">
@@ -165,6 +177,14 @@ export const GroupChat = ({ groupId }: GroupChatProps) => {
                   </CardContent>
                 </Card>
               </div>
+              {isOwn && (
+                <Avatar className="w-8 h-8 flex-shrink-0">
+                  <AvatarImage src={message.avatar_url || undefined} />
+                  <AvatarFallback>
+                    {(message.full_name || message.username || "U").charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              )}
             </motion.div>
           );
         })}
