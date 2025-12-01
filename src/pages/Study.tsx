@@ -31,7 +31,9 @@ const Study = () => {
   const [vocabularyName, setVocabularyName] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("word-only");
 
+  const isRandom = searchParams.get("random") === "true";
   const chapterId = searchParams.get("chapter");
+  const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
 
   useEffect(() => {
     if (id && user) {
@@ -53,20 +55,29 @@ const Study = () => {
         setVocabularyName(vocabData.name);
       }
 
-      const query = supabase
+      let query = supabase
         .from("words")
         .select("id, word, meaning, example")
         .eq("vocabulary_id", id);
 
       if (chapterId) {
-        query.eq("chapter_id", chapterId);
+        query = query.eq("chapter_id", chapterId);
+      }
+
+      if (incorrectIds.length > 0) {
+        query = query.in("id", incorrectIds);
       }
 
       const { data, error } = await query.order("order_index", { ascending: true });
 
       if (error) throw error;
 
-      setWords(data || []);
+      let wordsData = data || [];
+      if (isRandom && incorrectIds.length === 0) {
+        wordsData = wordsData.sort(() => Math.random() - 0.5);
+      }
+
+      setWords(wordsData);
     } catch (error) {
       console.error("Error loading words:", error);
       toast.error("단어를 불러오는데 실패했습니다.");
