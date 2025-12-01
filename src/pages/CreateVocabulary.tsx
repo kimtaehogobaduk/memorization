@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ChevronDown, Upload } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface WordInput {
   id: string;
@@ -43,6 +44,7 @@ const CreateVocabulary = () => {
   const [words, setWords] = useState<WordInput[]>([
     { id: "1", word: "", meaning: "", example: "", note: "", part_of_speech: "", pronunciation: "", detailed_meaning: "", example_translation: "", frequency: 0, difficulty: 0, image_url: "" },
   ]);
+  const [expandedWords, setExpandedWords] = useState<Set<string>>(new Set());
 
   const addWord = () => {
     const newId = (words.length + 1).toString();
@@ -55,8 +57,18 @@ const CreateVocabulary = () => {
     }
   };
 
-  const updateWord = (id: string, field: keyof WordInput, value: string) => {
+  const updateWord = (id: string, field: keyof WordInput, value: string | number) => {
     setWords(words.map(w => w.id === id ? { ...w, [field]: value } : w));
+  };
+
+  const toggleExpanded = (id: string) => {
+    const newExpanded = new Set(expandedWords);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedWords(newExpanded);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -196,13 +208,16 @@ const CreateVocabulary = () => {
                   {/* Image Upload */}
                   <div className="space-y-2">
                     <Label>이미지 (선택)</Label>
-                    <div className="h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors">
-                      <div className="text-center text-sm text-muted-foreground">
-                        <div className="mb-2">📷</div>
-                        <div>단어 이미지를</div>
-                        <div>지정해 주세요</div>
+                    <label>
+                      <div className="h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors">
+                        <div className="text-center text-sm text-muted-foreground">
+                          <Upload className="w-6 h-6 mx-auto mb-2" />
+                          <div>단어 이미지를</div>
+                          <div>지정해 주세요</div>
+                        </div>
                       </div>
-                    </div>
+                      <input type="file" accept="image/*" className="hidden" />
+                    </label>
                   </div>
 
                   {/* Frequency and Difficulty */}
@@ -214,7 +229,7 @@ const CreateVocabulary = () => {
                           <button
                             key={star}
                             type="button"
-                            onClick={() => updateWord(word.id, "frequency", star.toString())}
+                            onClick={() => updateWord(word.id, "frequency", star)}
                             className="transition-colors"
                           >
                             <span className={`text-2xl ${word.frequency >= star ? 'text-warning' : 'text-muted'}`}>
@@ -232,7 +247,7 @@ const CreateVocabulary = () => {
                           <button
                             key={star}
                             type="button"
-                            onClick={() => updateWord(word.id, "difficulty", star.toString())}
+                            onClick={() => updateWord(word.id, "difficulty", star)}
                             className="transition-colors"
                           >
                             <span className={`text-2xl ${word.difficulty >= star ? 'text-warning' : 'text-muted'}`}>
@@ -267,65 +282,56 @@ const CreateVocabulary = () => {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor={`detailed-meaning-${word.id}`}>자세한 뜻 (선택)</Label>
-                    <Input
-                      id={`detailed-meaning-${word.id}`}
-                      value={word.detailed_meaning}
-                      onChange={(e) => updateWord(word.id, "detailed_meaning", e.target.value)}
-                      placeholder="자세한 뜻(음성)"
-                    />
-                  </div>
+                  <Collapsible open={expandedWords.has(word.id)} onOpenChange={() => toggleExpanded(word.id)}>
+                    <CollapsibleTrigger asChild>
+                      <Button type="button" variant="ghost" size="sm" className="w-full justify-between">
+                        더보기
+                        <ChevronDown className={`w-4 h-4 transition-transform ${expandedWords.has(word.id) ? 'rotate-180' : ''}`} />
+                      </Button>
+                    </CollapsibleTrigger>
+                    
+                    <CollapsibleContent className="space-y-3 mt-3">
+                      <div className="space-y-2">
+                        <Label htmlFor={`example-${word.id}`}>예문 (선택)</Label>
+                        <Input
+                          id={`example-${word.id}`}
+                          value={word.example}
+                          onChange={(e) => updateWord(word.id, "example", e.target.value)}
+                          placeholder="예문"
+                        />
+                      </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor={`pronunciation-${word.id}`}>발음 (선택)</Label>
-                    <Input
-                      id={`pronunciation-${word.id}`}
-                      value={word.pronunciation}
-                      onChange={(e) => updateWord(word.id, "pronunciation", e.target.value)}
-                      placeholder="발음(음성)"
-                    />
-                  </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`part_of_speech-${word.id}`}>품사 (선택)</Label>
+                        <Input
+                          id={`part_of_speech-${word.id}`}
+                          value={word.part_of_speech}
+                          onChange={(e) => updateWord(word.id, "part_of_speech", e.target.value)}
+                          placeholder="예: 명사, 동사"
+                        />
+                      </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor={`part_of_speech-${word.id}`}>품사 (선택)</Label>
-                    <Input
-                      id={`part_of_speech-${word.id}`}
-                      value={word.part_of_speech}
-                      onChange={(e) => updateWord(word.id, "part_of_speech", e.target.value)}
-                      placeholder="한글 발음(음성)"
-                    />
-                  </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`pronunciation-${word.id}`}>발음 (선택)</Label>
+                        <Input
+                          id={`pronunciation-${word.id}`}
+                          value={word.pronunciation}
+                          onChange={(e) => updateWord(word.id, "pronunciation", e.target.value)}
+                          placeholder="발음 기호"
+                        />
+                      </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor={`example-${word.id}`}>예문 (선택)</Label>
-                    <Input
-                      id={`example-${word.id}`}
-                      value={word.example}
-                      onChange={(e) => updateWord(word.id, "example", e.target.value)}
-                      placeholder="예문(음성)"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor={`example-translation-${word.id}`}>예문 뜻 (선택)</Label>
-                    <Input
-                      id={`example-translation-${word.id}`}
-                      value={word.example_translation}
-                      onChange={(e) => updateWord(word.id, "example_translation", e.target.value)}
-                      placeholder="예문 뜻(음성)"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor={`note-${word.id}`}>추가 메모 (선택)</Label>
-                    <Input
-                      id={`note-${word.id}`}
-                      value={word.note}
-                      onChange={(e) => updateWord(word.id, "note", e.target.value)}
-                      placeholder="추가 예문 1 뜻(음성)"
-                    />
-                  </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`note-${word.id}`}>메모 (선택)</Label>
+                        <Input
+                          id={`note-${word.id}`}
+                          value={word.note}
+                          onChange={(e) => updateWord(word.id, "note", e.target.value)}
+                          placeholder="추가 메모"
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </div>
               </CardContent>
             </Card>

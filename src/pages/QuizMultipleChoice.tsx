@@ -15,6 +15,7 @@ interface Word {
   id: string;
   word: string;
   meaning: string;
+  part_of_speech: string | null;
 }
 
 const QuizMultipleChoice = () => {
@@ -30,6 +31,7 @@ const QuizMultipleChoice = () => {
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [timer, setTimer] = useState(0);
 
   const questionType = searchParams.get("type") || "meaning-to-word";
   const choiceCount = parseInt(searchParams.get("choices") || "4");
@@ -46,8 +48,18 @@ const QuizMultipleChoice = () => {
   useEffect(() => {
     if (words.length > 0 && currentIndex < words.length) {
       generateChoices();
+      setTimer(0);
     }
   }, [currentIndex, words]);
+
+  useEffect(() => {
+    if (selectedAnswer === null && words.length > 0) {
+      const interval = setInterval(() => {
+        setTimer(prev => prev + 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedAnswer, words]);
 
   const loadWords = async () => {
     try {
@@ -55,7 +67,7 @@ const QuizMultipleChoice = () => {
 
       const query = supabase
         .from("words")
-        .select("id, word, meaning")
+        .select("id, word, meaning, part_of_speech")
         .eq("vocabulary_id", id);
 
       if (chapterId) {
@@ -144,6 +156,11 @@ const QuizMultipleChoice = () => {
   const currentWord = words[currentIndex];
   const progress = ((currentIndex + 1) / words.length) * 100;
   const question = questionType === "meaning-to-word" ? currentWord.meaning : currentWord.word;
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -155,9 +172,14 @@ const QuizMultipleChoice = () => {
             <span className="text-sm text-muted-foreground">
               {currentIndex + 1} / {words.length}
             </span>
-            <span className="text-sm font-medium">
-              정답: {score} / {currentIndex + (isCorrect !== null ? 1 : 0)}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium px-3 py-1 rounded-full bg-primary/10 text-primary">
+                ⏱ {formatTime(timer)}
+              </span>
+              <span className="text-sm font-medium">
+                정답: {score} / {currentIndex + (isCorrect !== null ? 1 : 0)}
+              </span>
+            </div>
           </div>
           <Progress value={progress} className="h-2" />
         </div>
@@ -170,11 +192,14 @@ const QuizMultipleChoice = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              <Card className="p-8 text-center bg-gradient-card">
-                <p className="text-sm text-muted-foreground mb-4">
+              <Card className="p-8 text-center bg-primary text-primary-foreground">
+                <p className="text-sm opacity-80 mb-4">
                   {questionType === "meaning-to-word" ? "뜻에 해당하는 단어는?" : "단어의 뜻은?"}
                 </p>
-                <h2 className="text-3xl font-bold mb-2">{question}</h2>
+                <h2 className="text-4xl font-bold mb-2">{question}</h2>
+                {currentWord.part_of_speech && questionType === "word-to-meaning" && (
+                  <p className="text-lg opacity-90 mt-2">{currentWord.part_of_speech}</p>
+                )}
               </Card>
 
               <div className="grid grid-cols-1 gap-3 mt-6">

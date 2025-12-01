@@ -22,11 +22,11 @@ const Quiz = () => {
   const [wordCount, setWordCount] = useState(0);
 
   // Quiz settings
-  const [quizType, setQuizType] = useState<"multiple" | "writing" | "matching">("multiple");
+  const [quizType, setQuizType] = useState<"multiple" | "writing" | "matching" | "random">("multiple");
   const [questionType, setQuestionType] = useState<"word-to-meaning" | "meaning-to-word">("meaning-to-word");
   const [choiceCount, setChoiceCount] = useState(4);
   const [isRandomOrder, setIsRandomOrder] = useState(true);
-  const [answerDelay, setAnswerDelay] = useState([3]);
+  const [answerDelay, setAnswerDelay] = useState([2]);
 
   const chapterId = searchParams.get("chapter");
 
@@ -87,7 +87,21 @@ const Quiz = () => {
       params.append("chapter", chapterId);
     }
 
-    if (quizType === "multiple") {
+    if (quizType === "random") {
+      // Random type - randomly pick one of the quiz types
+      const types = ["multiple", "writing", "matching"];
+      const randomType = types[Math.floor(Math.random() * types.length)];
+      
+      if (randomType === "multiple") {
+        params.append("type", questionType);
+        params.append("choices", choiceCount.toString());
+        navigate(`/quiz/${id}/multiple?${params.toString()}`);
+      } else if (randomType === "writing") {
+        navigate(`/quiz/${id}/writing?${params.toString()}`);
+      } else {
+        navigate(`/quiz/${id}/matching?${params.toString()}`);
+      }
+    } else if (quizType === "multiple") {
       params.append("type", questionType);
       params.append("choices", choiceCount.toString());
       navigate(`/quiz/${id}/multiple?${params.toString()}`);
@@ -116,6 +130,12 @@ const Quiz = () => {
       icon: Grid3x3,
       title: "단어 짝짓기",
       description: "단어와 뜻 연결하기",
+    },
+    {
+      type: "random",
+      icon: Brain,
+      title: "모든 유형 랜덤풀기",
+      description: "여러 유형을 랜덤하게 풀기",
     },
   ];
 
@@ -220,9 +240,9 @@ const Quiz = () => {
                 <Slider
                   value={answerDelay}
                   onValueChange={setAnswerDelay}
-                  min={1}
-                  max={10}
-                  step={1}
+                  min={1.5}
+                  max={3}
+                  step={0.5}
                   className="w-full"
                 />
               </div>

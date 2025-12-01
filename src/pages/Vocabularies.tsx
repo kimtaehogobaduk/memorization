@@ -110,9 +110,14 @@ const Vocabularies = () => {
       <Header
         title="내 단어장"
         action={
-          <Button size="icon" onClick={() => navigate("/vocabularies/new")}>
-            <Plus className="w-5 h-5" />
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate("/vocabularies/excel")}>
+              Excel
+            </Button>
+            <Button size="icon" onClick={() => navigate("/vocabularies/new")}>
+              <Plus className="w-5 h-5" />
+            </Button>
+          </div>
         }
       />
       
