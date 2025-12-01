@@ -47,20 +47,27 @@ const GenerateVocabularies = () => {
     addLog("단어장 생성을 시작합니다...");
 
     try {
+      let totalProcessed = 0;
+
       for (let batch = 0; batch < totalBatches; batch++) {
         setCurrentBatch(batch + 1);
         const startIndex = batch * batchSize;
         addLog(`배치 ${batch + 1}/${totalBatches} 생성 중... (${startIndex + 1}-${Math.min(startIndex + batchSize, totalVocabularies)})`);
+        console.log("[GenerateVocabularies] Starting batch", batch + 1, "startIndex", startIndex);
 
         const result = await generateBatch(startIndex);
+        console.log("[GenerateVocabularies] Batch result", result);
         
-        if (result.success) {
+        if (result?.success) {
+          totalProcessed += result.processed ?? batchSize;
           addLog(`배치 ${batch + 1} 완료: ${result.processed}개 단어장 생성됨`);
         } else {
-          addLog(`배치 ${batch + 1} 실패: ${result.error || '알 수 없는 오류'}`);
+          addLog(`배치 ${batch + 1} 실패: ${result?.error || '알 수 없는 오류'}`);
         }
 
-        setProgress(((batch + 1) / totalBatches) * 100);
+        const nextProgress = Math.min(100, (totalProcessed / totalVocabularies) * 100);
+        console.log("[GenerateVocabularies] Progress", nextProgress);
+        setProgress(nextProgress);
 
         // Add a small delay between batches to avoid rate limiting
         if (batch < totalBatches - 1) {
@@ -72,7 +79,8 @@ const GenerateVocabularies = () => {
       toast.success(`${totalVocabularies}개의 단어장이 생성되었습니다!`);
     } catch (error) {
       console.error("Error generating vocabularies:", error);
-      addLog(`오류 발생: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      addLog(`오류 발생: ${message}`);
       toast.error("단어장 생성 중 오류가 발생했습니다.");
     } finally {
       setIsGenerating(false);
