@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Check, X } from "lucide-react";
+import { Check, X, Eye, EyeOff, FileText } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -17,8 +17,11 @@ interface Word {
   example: string | null;
 }
 
+type ViewMode = "word-only" | "meaning-only" | "both" | "example";
+
 const Study = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [words, setWords] = useState<Word[]>([]);
@@ -26,6 +29,9 @@ const Study = () => {
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [vocabularyName, setVocabularyName] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("word-only");
+
+  const chapterId = searchParams.get("chapter");
 
   useEffect(() => {
     if (id && user) {
@@ -47,11 +53,16 @@ const Study = () => {
         setVocabularyName(vocabData.name);
       }
 
-      const { data, error } = await supabase
+      const query = supabase
         .from("words")
         .select("id, word, meaning, example")
-        .eq("vocabulary_id", id)
-        .order("order_index", { ascending: true });
+        .eq("vocabulary_id", id);
+
+      if (chapterId) {
+        query.eq("chapter_id", chapterId);
+      }
+
+      const { data, error } = await query.order("order_index", { ascending: true });
 
       if (error) throw error;
 
@@ -136,6 +147,44 @@ const Study = () => {
   const currentWord = words[currentIndex];
   const progress = ((currentIndex + 1) / words.length) * 100;
 
+  const renderCardContent = () => {
+    switch (viewMode) {
+      case "word-only":
+        return (
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground mb-4">단어</p>
+            <h2 className="text-4xl font-bold">{currentWord.word}</h2>
+          </div>
+        );
+      case "meaning-only":
+        return (
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground mb-4">뜻</p>
+            <h2 className="text-2xl font-bold">{currentWord.meaning}</h2>
+          </div>
+        );
+      case "both":
+        return (
+          <div className="text-center">
+            <h2 className="text-3xl font-bold mb-4">{currentWord.word}</h2>
+            <p className="text-xl text-muted-foreground">{currentWord.meaning}</p>
+          </div>
+        );
+      case "example":
+        return (
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">{currentWord.word}</h2>
+            <p className="text-lg text-muted-foreground mb-3">{currentWord.meaning}</p>
+            {currentWord.example && (
+              <p className="text-sm text-muted-foreground italic">
+                {currentWord.example}
+              </p>
+            )}
+          </div>
+        );
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header title={vocabularyName} showBack />
@@ -151,6 +200,41 @@ const Study = () => {
           <Progress value={progress} className="h-2" />
         </div>
 
+        {/* View Mode Buttons */}
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          <Button
+            variant={viewMode === "word-only" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("word-only")}
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            단어만
+          </Button>
+          <Button
+            variant={viewMode === "meaning-only" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("meaning-only")}
+          >
+            <EyeOff className="w-4 h-4 mr-1" />
+            뜻만
+          </Button>
+          <Button
+            variant={viewMode === "both" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("both")}
+          >
+            단어+뜻
+          </Button>
+          <Button
+            variant={viewMode === "example" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("example")}
+          >
+            <FileText className="w-4 h-4 mr-1" />
+            예문 포함
+          </Button>
+        </div>
+
         <div className="flex items-center justify-center" style={{ minHeight: '400px' }}>
           <AnimatePresence mode="wait">
             <motion.div
@@ -161,73 +245,31 @@ const Study = () => {
               transition={{ duration: 0.3 }}
               className="w-full max-w-md"
             >
-              <Card
-                className="p-8 cursor-pointer bg-gradient-card shadow-lg"
-                onClick={() => setFlipped(!flipped)}
-              >
-                <motion.div
-                  initial={false}
-                  animate={{ rotateY: flipped ? 180 : 0 }}
-                  transition={{ duration: 0.6 }}
-                  style={{ transformStyle: "preserve-3d" }}
-                >
-                  {!flipped ? (
-                    <div className="text-center" style={{ backfaceVisibility: "hidden" }}>
-                      <p className="text-sm text-muted-foreground mb-4">단어</p>
-                      <h2 className="text-4xl font-bold mb-6">{currentWord.word}</h2>
-                      <p className="text-sm text-muted-foreground">
-                        카드를 터치하여 뜻 보기
-                      </p>
-                    </div>
-                  ) : (
-                    <div
-                      className="text-center"
-                      style={{
-                        backfaceVisibility: "hidden",
-                        transform: "rotateY(180deg)",
-                      }}
-                    >
-                      <p className="text-sm text-muted-foreground mb-4">뜻</p>
-                      <h2 className="text-2xl font-bold mb-4">{currentWord.meaning}</h2>
-                      {currentWord.example && (
-                        <p className="text-sm text-muted-foreground italic">
-                          {currentWord.example}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </motion.div>
+              <Card className="p-8 bg-gradient-card shadow-lg">
+                {renderCardContent()}
               </Card>
 
-              {flipped && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-6 flex gap-4"
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-6 flex gap-4"
+              >
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handleAnswer(false)}
                 >
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAnswer(false);
-                    }}
-                  >
-                    <X className="w-5 h-5 mr-2 text-destructive" />
-                    모르겠어요
-                  </Button>
-                  <Button
-                    className="flex-1 bg-success hover:bg-success/90"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAnswer(true);
-                    }}
-                  >
-                    <Check className="w-5 h-5 mr-2" />
-                    알아요
-                  </Button>
-                </motion.div>
-              )}
+                  <X className="w-5 h-5 mr-2 text-destructive" />
+                  모르겠어요
+                </Button>
+                <Button
+                  className="flex-1 bg-success hover:bg-success/90"
+                  onClick={() => handleAnswer(true)}
+                >
+                  <Check className="w-5 h-5 mr-2" />
+                  알아요
+                </Button>
+              </motion.div>
             </motion.div>
           </AnimatePresence>
         </div>

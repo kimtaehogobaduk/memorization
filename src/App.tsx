@@ -7,8 +7,13 @@ import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import Vocabularies from "./pages/Vocabularies";
 import CreateVocabulary from "./pages/CreateVocabulary";
+import EditVocabulary from "./pages/EditVocabulary";
 import VocabularyDetail from "./pages/VocabularyDetail";
 import Study from "./pages/Study";
+import Quiz from "./pages/Quiz";
+import QuizMultipleChoice from "./pages/QuizMultipleChoice";
+import QuizWriting from "./pages/QuizWriting";
+import QuizMatching from "./pages/QuizMatching";
 import Groups from "./pages/Groups";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -27,7 +32,12 @@ const App = () => (
           <Route path="/vocabularies" element={<Vocabularies />} />
           <Route path="/vocabularies/new" element={<CreateVocabulary />} />
           <Route path="/vocabularies/:id" element={<VocabularyDetail />} />
+          <Route path="/vocabularies/:id/edit" element={<EditVocabulary />} />
           <Route path="/study/:id" element={<Study />} />
+          <Route path="/quiz/:id" element={<Quiz />} />
+          <Route path="/quiz/:id/multiple" element={<QuizMultipleChoice />} />
+          <Route path="/quiz/:id/writing" element={<QuizWriting />} />
+          <Route path="/quiz/:id/matching" element={<QuizMatching />} />
           <Route path="/groups" element={<Groups />} />
           <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
