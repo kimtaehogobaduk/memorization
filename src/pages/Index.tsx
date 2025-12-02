@@ -32,7 +32,7 @@ const Index = () => {
         className="max-w-md w-full space-y-6"
       >
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold">Word Master</h1>
+          <h1 className="text-4xl font-bold">암기준섹</h1>
           <p className="text-muted-foreground">효과적인 단어 학습 플랫폼</p>
         </div>
 
