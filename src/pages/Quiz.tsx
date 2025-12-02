@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { Brain, CheckSquare, Edit3, Grid3x3 } from "lucide-react";
+import { Brain, CheckSquare, Edit3, Grid3x3, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -91,6 +91,171 @@ const Quiz = () => {
     } catch (error) {
       console.error("Error loading quiz data:", error);
       toast.error("퀴즈 데이터를 불러오는데 실패했습니다.");
+    }
+  };
+
+  const exportToTestPaper = async () => {
+    try {
+      const query = supabase
+        .from("words")
+        .select("word, meaning, part_of_speech")
+        .eq("vocabulary_id", id);
+
+      if (chapterId) {
+        query.eq("chapter_id", chapterId);
+      }
+
+      const { data: words, error } = await query;
+
+      if (error) throw error;
+      if (!words || words.length === 0) {
+        toast.error("단어가 없습니다.");
+        return;
+      }
+
+      // Shuffle words if random order is enabled
+      const shuffledWords = isRandomOrder 
+        ? [...words].sort(() => Math.random() - 0.5)
+        : words;
+
+      // Generate test paper HTML
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>${vocabularyName} 시험지</title>
+          <style>
+            @media print {
+              @page { margin: 2cm; }
+              body { margin: 0; }
+              .page-break { page-break-before: always; }
+            }
+            body {
+              font-family: 'Malgun Gothic', sans-serif;
+              max-width: 21cm;
+              margin: 0 auto;
+              padding: 20px;
+              line-height: 1.6;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 3px solid #333;
+              padding-bottom: 15px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 24px;
+            }
+            .header .info {
+              margin-top: 10px;
+              font-size: 14px;
+              color: #666;
+            }
+            .question {
+              margin-bottom: 25px;
+              padding: 10px 0;
+              border-bottom: 1px dashed #ddd;
+            }
+            .question-number {
+              font-weight: bold;
+              display: inline-block;
+              min-width: 40px;
+            }
+            .question-content {
+              display: inline;
+              font-size: 16px;
+            }
+            .answer-blank {
+              border-bottom: 1px solid #333;
+              display: inline-block;
+              min-width: 200px;
+              margin-left: 10px;
+            }
+            .answer-section {
+              margin-top: 40px;
+            }
+            .answer-section h2 {
+              text-align: center;
+              margin-bottom: 30px;
+              padding-bottom: 10px;
+              border-bottom: 2px solid #333;
+            }
+            .answer-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 15px;
+            }
+            .answer-item {
+              padding: 8px;
+              background: #f5f5f5;
+              border-radius: 4px;
+            }
+            .answer-number {
+              font-weight: bold;
+              margin-right: 8px;
+            }
+            .pos {
+              color: #666;
+              font-size: 12px;
+              margin-left: 5px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${vocabularyName} 시험지</h1>
+            <div class="info">
+              ${chapterName ? chapterName + " • " : ""}총 ${shuffledWords.length}문제
+            </div>
+          </div>
+
+          <div class="questions">
+            ${shuffledWords.map((word, index) => `
+              <div class="question">
+                <span class="question-number">${index + 1}.</span>
+                <span class="question-content">
+                  ${questionType === "word-to-meaning" ? word.word : word.meaning}
+                  ${word.part_of_speech ? `<span class="pos">(${word.part_of_speech})</span>` : ""}
+                </span>
+                <span class="answer-blank"></span>
+              </div>
+            `).join("")}
+          </div>
+
+          <div class="page-break"></div>
+
+          <div class="answer-section">
+            <h2>정답</h2>
+            <div class="answer-grid">
+              ${shuffledWords.map((word, index) => `
+                <div class="answer-item">
+                  <span class="answer-number">${index + 1}.</span>
+                  <span>${questionType === "word-to-meaning" ? word.meaning : word.word}</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Open in new window and trigger print
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+        }, 250);
+      }
+
+      toast.success("시험지가 생성되었습니다!");
+    } catch (error) {
+      console.error("Error exporting test paper:", error);
+      toast.error("시험지 생성에 실패했습니다.");
     }
   };
 
@@ -283,14 +448,27 @@ const Quiz = () => {
           </CardContent>
         </Card>
 
-        <Button
-          onClick={startQuiz}
-          className="w-full"
-          size="lg"
-          disabled={wordCount === 0}
-        >
-          퀴즈 시작하기
-        </Button>
+        <div className="space-y-3">
+          <Button
+            onClick={startQuiz}
+            className="w-full"
+            size="lg"
+            disabled={wordCount === 0}
+          >
+            퀴즈 시작하기
+          </Button>
+
+          <Button
+            onClick={exportToTestPaper}
+            variant="outline"
+            className="w-full"
+            size="lg"
+            disabled={wordCount === 0}
+          >
+            <Printer className="w-5 h-5 mr-2" />
+            시험지로 내보내기
+          </Button>
+        </div>
       </div>
     </div>
   );
