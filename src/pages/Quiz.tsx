@@ -118,6 +118,148 @@ const Quiz = () => {
         ? [...words].sort(() => Math.random() - 0.5)
         : words;
 
+      // Determine quiz type for export (if random, pick one)
+      let exportQuizType = quizType;
+      if (quizType === "random") {
+        const types = ["multiple", "writing", "matching"] as const;
+        exportQuizType = types[Math.floor(Math.random() * types.length)];
+      }
+
+      let questionsHtml = "";
+      let answersHtml = "";
+
+      // Generate content based on quiz type
+      if (exportQuizType === "multiple") {
+        // Multiple choice with choices
+        questionsHtml = shuffledWords.map((word, index) => {
+          // Generate wrong choices
+          const wrongChoices = shuffledWords
+            .filter(w => w.word !== word.word)
+            .sort(() => Math.random() - 0.5)
+            .slice(0, choiceCount - 1);
+          
+          const correctAnswer = questionType === "word-to-meaning" ? word.meaning : word.word;
+          const allChoices = [...wrongChoices.map(w => 
+            questionType === "word-to-meaning" ? w.meaning : w.word
+          ), correctAnswer].sort(() => Math.random() - 0.5);
+
+          const question = questionType === "word-to-meaning" ? word.word : word.meaning;
+
+          return `
+            <div class="question">
+              <div class="question-number">${index + 1}.</div>
+              <div class="question-content">
+                ${question}
+                ${word.part_of_speech ? `<span class="pos">(${word.part_of_speech})</span>` : ""}
+              </div>
+              <div class="choices">
+                ${allChoices.map((choice, i) => `
+                  <div class="choice">
+                    <span class="choice-marker">${["①", "②", "③", "④", "⑤", "⑥"][i]}</span> ${choice}
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        answersHtml = `
+          <div class="answer-grid">
+            ${shuffledWords.map((word, index) => {
+              const answer = questionType === "word-to-meaning" ? word.meaning : word.word;
+              return `
+                <div class="answer-item">
+                  <span class="answer-number">${index + 1}.</span>
+                  <span>${answer}</span>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        `;
+
+      } else if (exportQuizType === "writing") {
+        // Writing/Short answer
+        questionsHtml = shuffledWords.map((word, index) => {
+          const question = questionType === "word-to-meaning" ? word.word : word.meaning;
+          return `
+            <div class="question">
+              <span class="question-number">${index + 1}.</span>
+              <span class="question-content">
+                ${question}
+                ${word.part_of_speech ? `<span class="pos">(${word.part_of_speech})</span>` : ""}
+              </span>
+              <span class="answer-blank"></span>
+            </div>
+          `;
+        }).join("");
+
+        answersHtml = `
+          <div class="answer-grid">
+            ${shuffledWords.map((word, index) => {
+              const answer = questionType === "word-to-meaning" ? word.meaning : word.word;
+              return `
+                <div class="answer-item">
+                  <span class="answer-number">${index + 1}.</span>
+                  <span>${answer}</span>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        `;
+
+      } else if (exportQuizType === "matching") {
+        // Matching (show words and meanings separately to match)
+        const leftSide = shuffledWords.map(w => w.word);
+        const rightSide = [...shuffledWords].sort(() => Math.random() - 0.5).map(w => w.meaning);
+
+        questionsHtml = `
+          <div class="matching-container">
+            <div class="matching-column">
+              <h3>단어</h3>
+              ${leftSide.map((word, index) => `
+                <div class="matching-item">
+                  <span class="matching-number">${index + 1}.</span>
+                  <span>${word}</span>
+                  <span class="matching-blank">( )</span>
+                </div>
+              `).join("")}
+            </div>
+            <div class="matching-column">
+              <h3>뜻</h3>
+              ${rightSide.map((meaning, index) => `
+                <div class="matching-item">
+                  <span class="matching-letter">${String.fromCharCode(65 + index)}.</span>
+                  <span>${meaning}</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        `;
+
+        answersHtml = `
+          <div class="answer-grid">
+            ${shuffledWords.map((word, index) => {
+              const meaningIndex = rightSide.findIndex(m => m === word.meaning);
+              const letter = String.fromCharCode(65 + meaningIndex);
+              return `
+                <div class="answer-item">
+                  <span class="answer-number">${index + 1}.</span>
+                  <span>${letter}</span>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        `;
+      }
+
+      const quizTypeLabel = 
+        exportQuizType === "multiple" ? "객관식" :
+        exportQuizType === "writing" ? "주관식" :
+        "단어 짝짓기";
+
+      const questionTypeLabel = 
+        questionType === "word-to-meaning" ? "단어 → 뜻" : "뜻 → 단어";
+
       // Generate test paper HTML
       const html = `
         <!DOCTYPE html>
@@ -167,11 +309,51 @@ const Quiz = () => {
               display: inline;
               font-size: 16px;
             }
+            .choices {
+              margin-top: 10px;
+              margin-left: 40px;
+            }
+            .choice {
+              margin: 8px 0;
+              font-size: 15px;
+            }
+            .choice-marker {
+              display: inline-block;
+              min-width: 30px;
+              font-weight: bold;
+            }
             .answer-blank {
               border-bottom: 1px solid #333;
               display: inline-block;
               min-width: 200px;
               margin-left: 10px;
+            }
+            .matching-container {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 30px;
+              margin: 20px 0;
+            }
+            .matching-column h3 {
+              text-align: center;
+              margin-bottom: 15px;
+              padding-bottom: 10px;
+              border-bottom: 2px solid #333;
+            }
+            .matching-item {
+              margin: 12px 0;
+              padding: 8px;
+              background: #f9f9f9;
+              border-radius: 4px;
+            }
+            .matching-number, .matching-letter {
+              font-weight: bold;
+              display: inline-block;
+              min-width: 30px;
+            }
+            .matching-blank {
+              margin-left: 10px;
+              font-weight: bold;
             }
             .answer-section {
               margin-top: 40px;
@@ -207,35 +389,19 @@ const Quiz = () => {
           <div class="header">
             <h1>${vocabularyName} 시험지</h1>
             <div class="info">
-              ${chapterName ? chapterName + " • " : ""}총 ${shuffledWords.length}문제
+              ${chapterName ? chapterName + " • " : ""}${quizTypeLabel}${exportQuizType === "multiple" ? " (" + questionTypeLabel + ")" : ""} • 총 ${shuffledWords.length}문제
             </div>
           </div>
 
           <div class="questions">
-            ${shuffledWords.map((word, index) => `
-              <div class="question">
-                <span class="question-number">${index + 1}.</span>
-                <span class="question-content">
-                  ${questionType === "word-to-meaning" ? word.word : word.meaning}
-                  ${word.part_of_speech ? `<span class="pos">(${word.part_of_speech})</span>` : ""}
-                </span>
-                <span class="answer-blank"></span>
-              </div>
-            `).join("")}
+            ${questionsHtml}
           </div>
 
           <div class="page-break"></div>
 
           <div class="answer-section">
             <h2>정답</h2>
-            <div class="answer-grid">
-              ${shuffledWords.map((word, index) => `
-                <div class="answer-item">
-                  <span class="answer-number">${index + 1}.</span>
-                  <span>${questionType === "word-to-meaning" ? word.meaning : word.word}</span>
-                </div>
-              `).join("")}
-            </div>
+            ${answersHtml}
           </div>
         </body>
         </html>
