@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Edit, FileText, Brain, Play, Volume2 } from "lucide-react";
+import { Edit, FileText, Brain, Play, Volume2, Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -152,6 +152,12 @@ const VocabularyDetail = () => {
     } else {
       toast.error("음성 재생을 지원하지 않는 브라우저입니다.");
     }
+  };
+
+  const openDictionary = (word: string) => {
+    const encodedWord = encodeURIComponent(word);
+    const url = `https://en.dict.naver.com/#/search?query=${encodedWord}`;
+    window.open(url, 'naverDict', 'width=800,height=600,scrollbars=yes,resizable=yes');
   };
 
   return (
@@ -303,17 +309,31 @@ const VocabularyDetail = () => {
                         </span>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        speak(word.word);
-                      }}
-                      className="text-primary"
-                    >
-                      <Volume2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          speak(word.word);
+                        }}
+                        className="text-primary"
+                      >
+                        <Volume2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDictionary(word.word);
+                        }}
+                        className="text-muted-foreground hover:text-primary"
+                        title="사전에서 검색"
+                      >
+                        <Search className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                   <p className="text-foreground mb-2">{word.meaning}</p>
                   {word.example && (
