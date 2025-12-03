@@ -66,7 +66,7 @@ serve(async (req) => {
                   },
                   pronunciation: {
                     type: "string",
-                    description: "Korean phonetic pronunciation (한글 발음). Example: 'apple' → '애플', 'beautiful' → '뷰티풀'"
+                    description: "IPA phonetic pronunciation in dictionary format. Example: 'happy' → '/ˈhæp.i/', 'beautiful' → '/ˈbjuː.tɪ.fəl/', 'apple' → '/ˈæp.əl/'. Use standard IPA symbols."
                   }
                 },
                 required: ["meaning", "example", "part_of_speech", "pronunciation"],

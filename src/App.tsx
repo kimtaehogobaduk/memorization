@@ -32,6 +32,7 @@ import PublicVocabularies from "./pages/PublicVocabularies";
 import GenerateVocabularies from "./pages/GenerateVocabularies";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
+import PhoneticGuide from "./pages/PhoneticGuide";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -106,6 +107,7 @@ const App = () => {
                   <Route path="/groups/:id/settings" element={<GroupSettings />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/admin" element={<Admin />} />
+                  <Route path="/phonetic-guide" element={<PhoneticGuide />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
