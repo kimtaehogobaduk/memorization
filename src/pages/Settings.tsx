@@ -45,6 +45,7 @@ const Settings = () => {
   const [answerDelay, setAnswerDelay] = useState(2.0);
   const [autoPlayAudio, setAutoPlayAudio] = useState(false);
   const [quizFontSize, setQuizFontSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [aiAutoMeaning, setAiAutoMeaning] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
   
   // Stats state
@@ -105,6 +106,7 @@ const Settings = () => {
         setAnswerDelay(data.answer_reveal_delay || 2.0);
         setAutoPlayAudio(data.auto_play_audio || false);
         setQuizFontSize((data.quiz_font_size as 'small' | 'medium' | 'large') || 'medium');
+        setAiAutoMeaning(data.ai_auto_meaning || false);
       }
     } catch (error) {
       console.error("Error loading settings:", error);
@@ -174,6 +176,7 @@ const Settings = () => {
           answer_reveal_delay: answerDelay,
           auto_play_audio: autoPlayAudio,
           quiz_font_size: quizFontSize,
+          ai_auto_meaning: aiAutoMeaning,
           updated_at: new Date().toISOString(),
         });
 
@@ -585,6 +588,22 @@ const Settings = () => {
                       </Label>
                     </div>
                   </RadioGroup>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label htmlFor="aiAutoMeaning">뜻 AI 자동 입력</Label>
+                    <p className="text-sm text-muted-foreground">
+                      단어장 만들 때 AI가 뜻을 자동 입력
+                    </p>
+                  </div>
+                  <Switch
+                    id="aiAutoMeaning"
+                    checked={aiAutoMeaning}
+                    onCheckedChange={setAiAutoMeaning}
+                  />
                 </div>
 
                 <Separator />

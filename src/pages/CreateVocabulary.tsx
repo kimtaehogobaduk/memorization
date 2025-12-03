@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
@@ -17,7 +17,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
-import { Plus, Trash2, ChevronDown, Upload } from "lucide-react";
+import { Plus, Trash2, ChevronDown, Upload, Sparkles, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface WordInput {
@@ -47,6 +47,78 @@ const CreateVocabulary = () => {
   ]);
   const [currentPage, setCurrentPage] = useState(0); // 0: 단어장 정보, 1+: 각 단어
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [aiAutoMeaning, setAiAutoMeaning] = useState(false);
+  const [fetchingMeaning, setFetchingMeaning] = useState<string | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load user settings
+  useEffect(() => {
+    if (user) {
+      loadUserSettings();
+    }
+  }, [user]);
+
+  const loadUserSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from("user_settings")
+        .select("ai_auto_meaning")
+        .eq("user_id", user?.id)
+        .single();
+      
+      if (data) {
+        setAiAutoMeaning(data.ai_auto_meaning || false);
+      }
+    } catch (error) {
+      console.error("Error loading settings:", error);
+    }
+  };
+
+  const fetchAIMeaning = useCallback(async (wordId: string, word: string) => {
+    if (!word.trim() || !aiAutoMeaning) return;
+    
+    setFetchingMeaning(wordId);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-word-meaning`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ word: word.trim() }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.meaning) {
+          setWords(prev => prev.map(w => 
+            w.id === wordId && !w.meaning ? { ...w, meaning: data.meaning } : w
+          ));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching AI meaning:", error);
+    } finally {
+      setFetchingMeaning(null);
+    }
+  }, [aiAutoMeaning]);
+
+  const handleWordChange = (wordId: string, value: string) => {
+    updateWord(wordId, "word", value);
+    
+    // Debounced AI meaning fetch
+    if (aiAutoMeaning && value.trim()) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        const currentWord = words.find(w => w.id === wordId);
+        if (currentWord && !currentWord.meaning) {
+          fetchAIMeaning(wordId, value);
+        }
+      }, 500); // 500ms debounce
+    }
+  };
 
   const addWord = () => {
     const newId = (words.length + 1).toString();
@@ -365,17 +437,30 @@ const CreateVocabulary = () => {
               {/* Word Input Fields */}
               <div className="space-y-3">
                 <div className="space-y-2">
-                  <Label htmlFor={`word-${currentWord.id}`}>단어 *</Label>
+                  <Label htmlFor={`word-${currentWord.id}`} className="flex items-center gap-2">
+                    단어 *
+                    {aiAutoMeaning && (
+                      <span className="text-xs text-primary flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" />
+                        AI 뜻 자동입력
+                      </span>
+                    )}
+                  </Label>
                   <Input
                     id={`word-${currentWord.id}`}
                     value={currentWord.word}
-                    onChange={(e) => updateWord(currentWord.id, "word", e.target.value)}
+                    onChange={(e) => handleWordChange(currentWord.id, e.target.value)}
                     placeholder="단어"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor={`meaning-${currentWord.id}`}>뜻 *</Label>
+                  <Label htmlFor={`meaning-${currentWord.id}`} className="flex items-center gap-2">
+                    뜻 *
+                    {fetchingMeaning === currentWord.id && (
+                      <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                    )}
+                  </Label>
                   <Input
                     id={`meaning-${currentWord.id}`}
                     value={currentWord.meaning}
