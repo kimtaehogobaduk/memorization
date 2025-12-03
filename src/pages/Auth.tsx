@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { BookOpen, Users, Sparkles, Heart, Trophy } from "lucide-react";
+import { BookOpen, Users, Sparkles, Heart, Trophy, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import junsuk01 from "@/assets/junsuk-01.png";
 import junsuk30 from "@/assets/junsuk-30.png";
@@ -17,6 +17,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { signUp, signIn } = useAuth();
   const navigate = useNavigate();
 
@@ -173,16 +174,25 @@ const Auth = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="password" className="font-semibold">비밀번호</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="h-11"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="h-11 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
                   {isSignUp && (
                     <p className="text-sm text-muted-foreground">6자 이상 입력해주세요</p>
                   )}
