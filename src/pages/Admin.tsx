@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   Users, 
   BookOpen, 
@@ -23,6 +30,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+
+type AppRole = "admin" | "elder" | "user";
 
 interface StatsData {
   totalUsers: number;
@@ -41,7 +50,7 @@ interface UserData {
     full_name: string | null;
     username: string | null;
   };
-  role?: string;
+  role?: AppRole;
 }
 
 interface VocabularyData {
@@ -149,7 +158,7 @@ const Admin = () => {
         .from("user_roles")
         .select("user_id, role");
 
-      const rolesMap = new Map(rolesData?.map(r => [r.user_id, r.role]) || []);
+      const rolesMap = new Map(rolesData?.map(r => [r.user_id, r.role as AppRole]) || []);
 
       const usersWithRoles: UserData[] = (profilesData || []).map(profile => ({
         id: profile.id,
@@ -307,6 +316,46 @@ const Admin = () => {
     }
   };
 
+  const handleChangeRole = async (userId: string, newRole: AppRole) => {
+    try {
+      // First, delete existing role
+      await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userId);
+
+      // Then insert the new role
+      const { error } = await supabase
+        .from("user_roles")
+        .insert({ user_id: userId, role: newRole });
+
+      if (error) throw error;
+
+      toast.success(`역할이 ${getRoleName(newRole)}(으)로 변경되었습니다.`);
+      loadUsers();
+    } catch (error) {
+      console.error("Error changing role:", error);
+      toast.error("역할 변경 실패");
+    }
+  };
+
+  const getRoleName = (role: AppRole): string => {
+    switch (role) {
+      case "admin": return "관리자";
+      case "elder": return "장로";
+      case "user": return "사용자";
+      default: return "사용자";
+    }
+  };
+
+  const getRoleBadgeVariant = (role: AppRole): "default" | "secondary" | "outline" => {
+    switch (role) {
+      case "admin": return "default";
+      case "elder": return "secondary";
+      default: return "outline";
+    }
+  };
+
   const filteredUsers = users.filter(u => 
     u.profile?.full_name?.toLowerCase().includes(userSearch.toLowerCase()) ||
     u.profile?.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
@@ -423,9 +472,9 @@ const Admin = () => {
                     {filteredUsers.map((u) => (
                       <Card key={u.id}>
                         <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <p className="font-medium">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">
                                 {u.profile?.full_name || u.profile?.username || "이름 없음"}
                               </p>
                               <p className="text-sm text-muted-foreground">
@@ -436,10 +485,20 @@ const Admin = () => {
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Badge variant={u.role === "admin" ? "default" : "secondary"}>
-                                {u.role === "admin" ? "관리자" : "사용자"}
-                              </Badge>
-                              {u.role !== "admin" && (
+                              <Select
+                                value={u.role || "user"}
+                                onValueChange={(value) => handleChangeRole(u.id, value as AppRole)}
+                              >
+                                <SelectTrigger className="w-24">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="admin">관리자</SelectItem>
+                                  <SelectItem value="elder">장로</SelectItem>
+                                  <SelectItem value="user">사용자</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {u.id !== user?.id && (
                                 <Button
                                   size="sm"
                                   variant="destructive"
