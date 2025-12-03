@@ -13,7 +13,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { LogOut, User, Upload, Settings as SettingsIcon, Zap, BookOpen, TrendingUp, Award, Users, Type } from "lucide-react";
+import { LogOut, User, Upload, Settings as SettingsIcon, Zap, BookOpen, TrendingUp, Award, Users, Type, Lock, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
@@ -31,6 +31,15 @@ const Settings = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   // Quiz settings state
   const [answerDelay, setAnswerDelay] = useState(2.0);
@@ -333,6 +342,136 @@ const Settings = () => {
                 {profileLoading ? "저장 중..." : "프로필 저장"}
               </Button>
             </form>
+
+            {/* Password Change Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="w-5 h-5" />
+                  비밀번호 변경
+                </CardTitle>
+                <CardDescription>
+                  계정 보안을 위해 비밀번호를 정기적으로 변경해주세요
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="currentPassword">현재 비밀번호</Label>
+                  <div className="relative">
+                    <Input
+                      id="currentPassword"
+                      type={showCurrentPassword ? "text" : "password"}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="현재 비밀번호 입력"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword">새 비밀번호</Label>
+                  <div className="relative">
+                    <Input
+                      id="newPassword"
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="새 비밀번호 입력 (6자 이상)"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">새 비밀번호 확인</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="새 비밀번호 다시 입력"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={async () => {
+                    if (!currentPassword || !newPassword || !confirmPassword) {
+                      toast.error("모든 필드를 입력해주세요.");
+                      return;
+                    }
+                    if (newPassword.length < 6) {
+                      toast.error("새 비밀번호는 6자 이상이어야 합니다.");
+                      return;
+                    }
+                    if (newPassword !== confirmPassword) {
+                      toast.error("새 비밀번호가 일치하지 않습니다.");
+                      return;
+                    }
+
+                    setPasswordLoading(true);
+                    try {
+                      // First verify current password by re-authenticating
+                      const { error: signInError } = await supabase.auth.signInWithPassword({
+                        email: user?.email || "",
+                        password: currentPassword,
+                      });
+
+                      if (signInError) {
+                        toast.error("현재 비밀번호가 올바르지 않습니다.");
+                        setPasswordLoading(false);
+                        return;
+                      }
+
+                      // Update password
+                      const { error } = await supabase.auth.updateUser({
+                        password: newPassword,
+                      });
+
+                      if (error) throw error;
+
+                      toast.success("비밀번호가 변경되었습니다!");
+                      setCurrentPassword("");
+                      setNewPassword("");
+                      setConfirmPassword("");
+                    } catch (error: any) {
+                      console.error("Error changing password:", error);
+                      toast.error("비밀번호 변경에 실패했습니다: " + error.message);
+                    } finally {
+                      setPasswordLoading(false);
+                    }
+                  }}
+                  className="w-full"
+                  disabled={passwordLoading}
+                >
+                  {passwordLoading ? "변경 중..." : "비밀번호 변경"}
+                </Button>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardContent className="p-4">
