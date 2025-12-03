@@ -625,6 +625,24 @@ const Settings = () => {
                   />
                 </div>
 
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label>발음 기호 가이드</Label>
+                    <p className="text-sm text-muted-foreground">
+                      IPA 발음 기호 읽는 법 배우기
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/phonetic-guide")}
+                  >
+                    보기
+                  </Button>
+                </div>
+
                 <Button
                   onClick={handleSettingsUpdate}
                   className="w-full"
