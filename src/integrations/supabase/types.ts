@@ -454,6 +454,7 @@ export type Database = {
       }
       user_settings: {
         Row: {
+          ai_auto_meaning: boolean | null
           answer_reveal_delay: number | null
           auto_play_audio: boolean | null
           created_at: string | null
@@ -464,6 +465,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_auto_meaning?: boolean | null
           answer_reveal_delay?: number | null
           auto_play_audio?: boolean | null
           created_at?: string | null
@@ -474,6 +476,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_auto_meaning?: boolean | null
           answer_reveal_delay?: number | null
           auto_play_audio?: boolean | null
           created_at?: string | null
