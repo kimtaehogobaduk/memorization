@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuizSound } from "@/hooks/useQuizSound";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -27,6 +28,7 @@ const QuizMatching = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { playMatchSound, playIncorrectSound } = useQuizSound();
   
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
@@ -131,6 +133,7 @@ const QuizMatching = () => {
 
     // Check match
     if (selectedLeft && selectedLeft === id) {
+      playMatchSound();
       setLeftPairs(leftPairs.map(p => 
         p.id === id ? { ...p, matched: true } : p
       ));
@@ -174,6 +177,7 @@ const QuizMatching = () => {
       }
     } else if (selectedLeft && selectedLeft !== id) {
       // Wrong match - track incorrect word
+      playIncorrectSound();
       const incorrectWord = allWords.find(w => w.id === selectedLeft);
       if (incorrectWord && !incorrectWords.find(w => w.id === incorrectWord.id)) {
         setIncorrectWords([...incorrectWords, incorrectWord]);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuizSound } from "@/hooks/useQuizSound";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ const QuizWriting = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { playCorrectSound, playIncorrectSound } = useQuizSound();
   
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -117,8 +119,10 @@ const QuizWriting = () => {
     setIsCorrect(correct);
 
     if (correct) {
+      playCorrectSound();
       setScore(score + 1);
     } else {
+      playIncorrectSound();
       setIncorrectWords([...incorrectWords, currentWord]);
     }
 
