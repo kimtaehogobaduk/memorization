@@ -67,11 +67,16 @@ const CreateVocabulary = () => {
       
       if (response.ok) {
         const data = await response.json();
-        if (data.meaning) {
-          setWords(prev => prev.map(w => 
-            w.id === wordId && !w.meaning ? { ...w, meaning: data.meaning } : w
-          ));
-        }
+        setWords(prev => prev.map(w => {
+          if (w.id !== wordId) return w;
+          return {
+            ...w,
+            meaning: data.meaning || w.meaning,
+            example: data.example || w.example,
+            part_of_speech: data.part_of_speech || w.part_of_speech,
+            pronunciation: data.pronunciation || w.pronunciation,
+          };
+        }));
       }
     } catch (error) {
       console.error("Error fetching AI meaning:", error);
@@ -83,17 +88,14 @@ const CreateVocabulary = () => {
   const handleWordChange = (wordId: string, value: string) => {
     updateWord(wordId, "word", value);
     
-    // Debounced AI meaning fetch
+    // Debounced AI fetch - always fetch when word changes
     if (aiAutoMeaning && value.trim()) {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
       debounceTimerRef.current = setTimeout(() => {
-        const currentWord = words.find(w => w.id === wordId);
-        if (currentWord && !currentWord.meaning) {
-          fetchAIMeaning(wordId, value);
-        }
-      }, 500); // 500ms debounce
+        fetchAIMeaning(wordId, value);
+      }, 600); // 600ms debounce
     }
   };
 
