@@ -51,29 +51,6 @@ const CreateVocabulary = () => {
   const [fetchingMeaning, setFetchingMeaning] = useState<string | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load user settings
-  useEffect(() => {
-    if (user) {
-      loadUserSettings();
-    }
-  }, [user]);
-
-  const loadUserSettings = async () => {
-    try {
-      const { data } = await supabase
-        .from("user_settings")
-        .select("ai_auto_meaning")
-        .eq("user_id", user?.id)
-        .single();
-      
-      if (data) {
-        setAiAutoMeaning(data.ai_auto_meaning || false);
-      }
-    } catch (error) {
-      console.error("Error loading settings:", error);
-    }
-  };
-
   const fetchAIMeaning = useCallback(async (wordId: string, word: string) => {
     if (!word.trim() || !aiAutoMeaning) return;
     
@@ -338,6 +315,17 @@ const CreateVocabulary = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              <Button
+                type="button"
+                variant={aiAutoMeaning ? "default" : "outline"}
+                className="w-full flex items-center gap-2"
+                onClick={() => setAiAutoMeaning(!aiAutoMeaning)}
+              >
+                <Sparkles className="w-4 h-4" />
+                뜻 AI 자동 입력
+                {aiAutoMeaning && <span className="ml-auto text-xs">켜짐</span>}
+              </Button>
             </CardContent>
           </Card>
         )}

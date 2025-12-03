@@ -45,7 +45,6 @@ const Settings = () => {
   const [answerDelay, setAnswerDelay] = useState(2.0);
   const [autoPlayAudio, setAutoPlayAudio] = useState(false);
   const [quizFontSize, setQuizFontSize] = useState<'small' | 'medium' | 'large'>('medium');
-  const [aiAutoMeaning, setAiAutoMeaning] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
   
   // Stats state
@@ -106,7 +105,6 @@ const Settings = () => {
         setAnswerDelay(data.answer_reveal_delay || 2.0);
         setAutoPlayAudio(data.auto_play_audio || false);
         setQuizFontSize((data.quiz_font_size as 'small' | 'medium' | 'large') || 'medium');
-        setAiAutoMeaning(data.ai_auto_meaning || false);
       }
     } catch (error) {
       console.error("Error loading settings:", error);
@@ -169,18 +167,39 @@ const Settings = () => {
     setSettingsLoading(true);
 
     try {
-      const { error } = await supabase
+      // First check if settings exist
+      const { data: existingSettings } = await supabase
         .from("user_settings")
-        .upsert({
-          user_id: user?.id,
-          answer_reveal_delay: answerDelay,
-          auto_play_audio: autoPlayAudio,
-          quiz_font_size: quizFontSize,
-          ai_auto_meaning: aiAutoMeaning,
-          updated_at: new Date().toISOString(),
-        });
+        .select("id")
+        .eq("user_id", user?.id)
+        .single();
 
-      if (error) throw error;
+      if (existingSettings) {
+        // Update existing settings
+        const { error } = await supabase
+          .from("user_settings")
+          .update({
+            answer_reveal_delay: answerDelay,
+            auto_play_audio: autoPlayAudio,
+            quiz_font_size: quizFontSize,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", user?.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new settings
+        const { error } = await supabase
+          .from("user_settings")
+          .insert({
+            user_id: user?.id,
+            answer_reveal_delay: answerDelay,
+            auto_play_audio: autoPlayAudio,
+            quiz_font_size: quizFontSize,
+          });
+
+        if (error) throw error;
+      }
 
       toast.success("설정이 저장되었습니다!");
     } catch (error) {
@@ -588,22 +607,6 @@ const Settings = () => {
                       </Label>
                     </div>
                   </RadioGroup>
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <Label htmlFor="aiAutoMeaning">뜻 AI 자동 입력</Label>
-                    <p className="text-sm text-muted-foreground">
-                      단어장 만들 때 AI가 뜻을 자동 입력
-                    </p>
-                  </div>
-                  <Switch
-                    id="aiAutoMeaning"
-                    checked={aiAutoMeaning}
-                    onCheckedChange={setAiAutoMeaning}
-                  />
                 </div>
 
                 <Separator />
