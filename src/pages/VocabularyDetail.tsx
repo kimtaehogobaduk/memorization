@@ -4,7 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Edit, FileText, Brain, Play, Volume2, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Edit, FileText, Brain, Play, Volume2, Search, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -43,6 +44,7 @@ const VocabularyDetail = () => {
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
+  const [dictionaryWord, setDictionaryWord] = useState<string | null>(null);
 
   useEffect(() => {
     if (id && user) {
@@ -155,9 +157,7 @@ const VocabularyDetail = () => {
   };
 
   const openDictionary = (word: string) => {
-    const encodedWord = encodeURIComponent(word);
-    const url = `https://en.dict.naver.com/#/search?query=${encodedWord}`;
-    window.open(url, 'naverDict', 'width=800,height=600,scrollbars=yes,resizable=yes');
+    setDictionaryWord(word);
   };
 
   return (
@@ -363,6 +363,26 @@ const VocabularyDetail = () => {
           </div>
         )}
       </div>
+
+      {/* Dictionary Popup */}
+      <Dialog open={!!dictionaryWord} onOpenChange={(open) => !open && setDictionaryWord(null)}>
+        <DialogContent className="max-w-3xl h-[80vh] p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-2 border-b">
+            <DialogTitle className="flex items-center justify-between">
+              <span>"{dictionaryWord}" 사전 검색</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 h-full">
+            {dictionaryWord && (
+              <iframe
+                src={`https://en.dict.naver.com/#/search?query=${encodeURIComponent(dictionaryWord)}`}
+                className="w-full h-[calc(80vh-60px)] border-0"
+                title="네이버 사전"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
