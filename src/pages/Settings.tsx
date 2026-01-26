@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useTutorial } from "@/hooks/useTutorial";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
+import { TutorialOverlay } from "@/components/tutorial/TutorialOverlay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +15,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { LogOut, User, Upload, Settings as SettingsIcon, Zap, BookOpen, TrendingUp, Award, Users, Type, Lock, Eye, EyeOff } from "lucide-react";
+import { LogOut, User, Upload, Settings as SettingsIcon, Zap, BookOpen, TrendingUp, Award, Users, Type, Lock, Eye, EyeOff, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
@@ -22,6 +24,7 @@ import { motion } from "framer-motion";
 const Settings = () => {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
+  const { showTutorial, completeTutorial, closeTutorial, restartTutorial } = useTutorial();
   
   // Profile state
   const [profile, setProfile] = useState<any>(null);
@@ -643,6 +646,27 @@ const Settings = () => {
                   </Button>
                 </div>
 
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label className="flex items-center gap-2">
+                      <HelpCircle className="w-4 h-4" />
+                      튜토리얼 다시 보기
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      앱 사용법과 기능 소개를 다시 확인하세요
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={restartTutorial}
+                  >
+                    보기
+                  </Button>
+                </div>
+
                 <Button
                   onClick={handleSettingsUpdate}
                   className="w-full"
@@ -656,6 +680,13 @@ const Settings = () => {
         </Tabs>
       </div>
       <BottomNav />
+      
+      {/* Tutorial Overlay */}
+      <TutorialOverlay 
+        isOpen={showTutorial} 
+        onClose={closeTutorial} 
+        onComplete={completeTutorial} 
+      />
     </div>
   );
 };

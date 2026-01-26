@@ -458,6 +458,7 @@ export type Database = {
           answer_reveal_delay: number | null
           auto_play_audio: boolean | null
           created_at: string | null
+          has_completed_tutorial: boolean | null
           id: string
           quiz_font_size: string | null
           theme: string | null
@@ -469,6 +470,7 @@ export type Database = {
           answer_reveal_delay?: number | null
           auto_play_audio?: boolean | null
           created_at?: string | null
+          has_completed_tutorial?: boolean | null
           id?: string
           quiz_font_size?: string | null
           theme?: string | null
@@ -480,6 +482,7 @@ export type Database = {
           answer_reveal_delay?: number | null
           auto_play_audio?: boolean | null
           created_at?: string | null
+          has_completed_tutorial?: boolean | null
           id?: string
           quiz_font_size?: string | null
           theme?: string | null

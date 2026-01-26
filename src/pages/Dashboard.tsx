@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useTutorial } from "@/hooks/useTutorial";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { TutorialOverlay } from "@/components/tutorial/TutorialOverlay";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Users, Plus, Sparkles, Trophy, Target, Share2, Brain, Upload, Globe, Shield } from "lucide-react";
@@ -13,6 +15,7 @@ import junsuk27 from "@/assets/junsuk-27.png";
 const Dashboard = () => {
   const { user, loading, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const { showTutorial, completeTutorial, closeTutorial } = useTutorial();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -227,6 +230,13 @@ const Dashboard = () => {
 
       </div>
       <BottomNav />
+      
+      {/* Tutorial Overlay */}
+      <TutorialOverlay 
+        isOpen={showTutorial} 
+        onClose={closeTutorial} 
+        onComplete={completeTutorial} 
+      />
     </div>
   );
 };
