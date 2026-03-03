@@ -110,7 +110,7 @@ const CreateVocabulary = () => {
     updateWord(wordId, "word", value);
 
     const trimmed = value.trim();
-    if (aiAutoMeaning && trimmed.length >= 2) {
+    if (aiAutoMeaning && trimmed.length >= 3) {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
