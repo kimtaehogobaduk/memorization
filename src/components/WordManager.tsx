@@ -26,29 +26,24 @@ export const WordManager = ({ word, onUpdate, onDelete, vocabularyId, aiAutoMean
 
   const fetchAIMeaning = useCallback(async (wordText: string) => {
     if (!wordText.trim() || !aiAutoMeaning) return;
-    
+
     setFetchingMeaning(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-word-meaning`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ word: wordText.trim() }),
+      const { data, error } = await supabase.functions.invoke("get-word-meaning", {
+        body: { word: wordText.trim() },
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setEditedWord((prev: any) => ({
-          ...prev,
-          meaning: data.meaning || prev.meaning,
-          example: data.example || prev.example,
-          part_of_speech: data.part_of_speech || prev.part_of_speech,
-        }));
-      }
+
+      if (error) throw error;
+
+      setEditedWord((prev: any) => ({
+        ...prev,
+        meaning: data?.meaning || prev.meaning,
+        example: data?.example || prev.example,
+        part_of_speech: data?.part_of_speech || prev.part_of_speech,
+      }));
     } catch (error) {
       console.error("Error fetching AI meaning:", error);
+      toast.error("AI 뜻 자동입력에 실패했습니다.");
     } finally {
       setFetchingMeaning(false);
     }
