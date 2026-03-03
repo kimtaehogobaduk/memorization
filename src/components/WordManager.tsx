@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Trash2, Upload } from "lucide-react";
+import { ChevronDown, Trash2, Upload, Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
@@ -14,12 +14,58 @@ interface WordManagerProps {
   onUpdate: () => void;
   onDelete: () => void;
   vocabularyId: string;
+  aiAutoMeaning?: boolean;
 }
 
-export const WordManager = ({ word, onUpdate, onDelete, vocabularyId }: WordManagerProps) => {
+export const WordManager = ({ word, onUpdate, onDelete, vocabularyId, aiAutoMeaning = false }: WordManagerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editedWord, setEditedWord] = useState(word);
   const [uploading, setUploading] = useState(false);
+  const [fetchingMeaning, setFetchingMeaning] = useState(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const fetchAIMeaning = useCallback(async (wordText: string) => {
+    if (!wordText.trim() || !aiAutoMeaning) return;
+    
+    setFetchingMeaning(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-word-meaning`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ word: wordText.trim() }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setEditedWord((prev: any) => ({
+          ...prev,
+          meaning: data.meaning || prev.meaning,
+          example: data.example || prev.example,
+          part_of_speech: data.part_of_speech || prev.part_of_speech,
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching AI meaning:", error);
+    } finally {
+      setFetchingMeaning(false);
+    }
+  }, [aiAutoMeaning]);
+
+  const handleWordChange = (value: string) => {
+    setEditedWord({ ...editedWord, word: value });
+    
+    if (aiAutoMeaning && value.trim()) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        fetchAIMeaning(value);
+      }, 600);
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -138,15 +184,26 @@ export const WordManager = ({ word, onUpdate, onDelete, vocabularyId }: WordMana
             </div>
 
             <div className="space-y-2">
-              <Label>단어</Label>
+              <Label className="flex items-center gap-2">
+                단어
+                {aiAutoMeaning && (
+                  <span className="text-xs text-primary flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    AI 자동입력
+                  </span>
+                )}
+              </Label>
               <Input
                 value={editedWord.word}
-                onChange={(e) => setEditedWord({ ...editedWord, word: e.target.value })}
+                onChange={(e) => handleWordChange(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>뜻</Label>
+              <Label className="flex items-center gap-2">
+                뜻
+                {fetchingMeaning && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+              </Label>
               <Input
                 value={editedWord.meaning}
                 onChange={(e) => setEditedWord({ ...editedWord, meaning: e.target.value })}

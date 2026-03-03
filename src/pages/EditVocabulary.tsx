@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Sparkles, Loader2 } from "lucide-react";
 import { WordManager } from "@/components/WordManager";
 
 interface Chapter {
@@ -45,6 +45,17 @@ const EditVocabulary = () => {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [words, setWords] = useState<Word[]>([]);
   const [activeTab, setActiveTab] = useState("info");
+  const [aiAutoMeaning, setAiAutoMeaning] = useState(false);
+
+  // New word form state
+  const [newWord, setNewWord] = useState("");
+  const [newMeaning, setNewMeaning] = useState("");
+  const [newExample, setNewExample] = useState("");
+  const [newPartOfSpeech, setNewPartOfSpeech] = useState("");
+  const [newNote, setNewNote] = useState("");
+  const [addingWord, setAddingWord] = useState(false);
+  const [fetchingNewMeaning, setFetchingNewMeaning] = useState(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (id && user) {
@@ -85,6 +96,80 @@ const EditVocabulary = () => {
     } catch (error) {
       console.error("Error loading vocabulary:", error);
       toast.error("단어장을 불러오는데 실패했습니다.");
+    }
+  };
+
+  const fetchAIMeaningForNew = useCallback(async (wordText: string) => {
+    if (!wordText.trim() || !aiAutoMeaning) return;
+    
+    setFetchingNewMeaning(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-word-meaning`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ word: wordText.trim() }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.meaning) setNewMeaning(data.meaning);
+        if (data.example) setNewExample(data.example);
+        if (data.part_of_speech) setNewPartOfSpeech(data.part_of_speech);
+      }
+    } catch (error) {
+      console.error("Error fetching AI meaning:", error);
+    } finally {
+      setFetchingNewMeaning(false);
+    }
+  }, [aiAutoMeaning]);
+
+  const handleNewWordChange = (value: string) => {
+    setNewWord(value);
+    if (aiAutoMeaning && value.trim()) {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        fetchAIMeaningForNew(value);
+      }, 600);
+    }
+  };
+
+  const handleAddWord = async () => {
+    if (!newWord.trim() || !newMeaning.trim()) {
+      toast.error("단어와 뜻을 입력해주세요.");
+      return;
+    }
+
+    setAddingWord(true);
+    try {
+      const { error } = await supabase
+        .from("words")
+        .insert({
+          vocabulary_id: id,
+          word: newWord.trim(),
+          meaning: newMeaning.trim(),
+          example: newExample.trim() || null,
+          part_of_speech: newPartOfSpeech.trim() || null,
+          note: newNote.trim() || null,
+          order_index: words.length,
+        });
+
+      if (error) throw error;
+
+      toast.success("단어가 추가되었습니다!");
+      setNewWord("");
+      setNewMeaning("");
+      setNewExample("");
+      setNewPartOfSpeech("");
+      setNewNote("");
+      loadVocabulary();
+    } catch (error) {
+      console.error("Error adding word:", error);
+      toast.error("단어 추가에 실패했습니다.");
+    } finally {
+      setAddingWord(false);
     }
   };
 
@@ -238,12 +323,96 @@ const EditVocabulary = () => {
 
           <TabsContent value="words">
             <div className="space-y-4">
+              {/* AI Toggle */}
+              <Button
+                type="button"
+                variant={aiAutoMeaning ? "default" : "outline"}
+                className="w-full flex items-center gap-2"
+                onClick={() => setAiAutoMeaning(!aiAutoMeaning)}
+              >
+                <Sparkles className="w-4 h-4" />
+                뜻 AI 자동 입력
+                {aiAutoMeaning && <span className="ml-auto text-xs">켜짐</span>}
+              </Button>
+
+              {/* Add New Word Form */}
+              <Card>
+                <CardContent className="p-4 space-y-3">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    새 단어 추가
+                  </h3>
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      단어 *
+                      {aiAutoMeaning && (
+                        <span className="text-xs text-primary flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" />
+                          AI 자동입력
+                        </span>
+                      )}
+                    </Label>
+                    <Input
+                      value={newWord}
+                      onChange={(e) => handleNewWordChange(e.target.value)}
+                      placeholder="단어"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      뜻 *
+                      {fetchingNewMeaning && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+                    </Label>
+                    <Input
+                      value={newMeaning}
+                      onChange={(e) => setNewMeaning(e.target.value)}
+                      placeholder="뜻"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>예문 (선택)</Label>
+                    <Input
+                      value={newExample}
+                      onChange={(e) => setNewExample(e.target.value)}
+                      placeholder="예문"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>품사 (선택)</Label>
+                    <Input
+                      value={newPartOfSpeech}
+                      onChange={(e) => setNewPartOfSpeech(e.target.value)}
+                      placeholder="예: 명사, 동사"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>메모 (선택)</Label>
+                    <Input
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder="추가 메모"
+                    />
+                  </div>
+
+                  <Button onClick={handleAddWord} disabled={addingWord} className="w-full">
+                    {addingWord ? "추가 중..." : "단어 추가"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Existing Words */}
               {words.map((word) => (
                 <WordManager
                   key={word.id}
                   word={word}
                   vocabularyId={id!}
                   onUpdate={loadVocabulary}
+                  aiAutoMeaning={aiAutoMeaning}
                   onDelete={async () => {
                     try {
                       await supabase.from("words").delete().eq("id", word.id);
