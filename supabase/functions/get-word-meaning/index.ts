@@ -42,18 +42,6 @@ function parseRetryAfterToMs(retryAfter: string | null): number | null {
   return null;
 }
 
-function mapPartOfSpeechToKorean(pos?: string): string {
-  const normalized = (pos || "").toLowerCase();
-  if (normalized.includes("noun")) return "명사";
-  if (normalized.includes("verb")) return "동사";
-  if (normalized.includes("adjective")) return "형용사";
-  if (normalized.includes("adverb")) return "부사";
-  if (normalized.includes("pronoun")) return "대명사";
-  if (normalized.includes("preposition")) return "전치사";
-  if (normalized.includes("conjunction")) return "접속사";
-  if (normalized.includes("interjection")) return "감탄사";
-  return "";
-}
 
 async function callGeminiWithRetry(word: string, apiKey: string, maxRetries = 3): Promise<Response> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
