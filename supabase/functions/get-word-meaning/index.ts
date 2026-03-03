@@ -70,7 +70,7 @@ async function callGeminiWithRetry(word: string, apiKey: string, maxRetries = 3)
           {
             role: "system",
             content:
-              "Return ONLY JSON with keys: meaning, example, part_of_speech, pronunciation. meaning/part_of_speech in Korean, example in short English sentence, pronunciation in IPA format (/.../).",
+              "You are a Korean-English dictionary. Given an English word, return JSON with keys: meaning (한국어 뜻, 쉼표로 구분), example (짧은 영어 예문), part_of_speech (한국어 품사: 명사/동사/형용사/부사/전치사/접속사/감탄사/대명사), pronunciation (IPA 발음기호 /.../ 형식). meaning은 반드시 한국어로 작성하세요.",
           },
           {
             role: "user",
