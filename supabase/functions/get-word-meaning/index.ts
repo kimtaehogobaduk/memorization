@@ -119,31 +119,7 @@ function parseGeminiWordInfo(payload: any): WordInfo {
   }
 }
 
-async function fetchDictionaryFallback(word: string): Promise<WordInfo> {
-  try {
-    const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-    if (!response.ok) return EMPTY_RESULT;
-
-    const data = await response.json();
-    const entry = Array.isArray(data) ? data[0] : null;
-    const meaningEntry = entry?.meanings?.[0];
-    const definition = meaningEntry?.definitions?.[0];
-
-    const pronunciation =
-      entry?.phonetic ||
-      entry?.phonetics?.find((p: any) => typeof p?.text === "string")?.text ||
-      "";
-
-    return {
-      meaning: definition?.definition || "",
-      example: definition?.example || "",
-      part_of_speech: mapPartOfSpeechToKorean(meaningEntry?.partOfSpeech),
-      pronunciation,
-    };
-  } catch {
-    return EMPTY_RESULT;
-  }
-}
+// No dictionary fallback — Gemini provides Korean meanings directly
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
