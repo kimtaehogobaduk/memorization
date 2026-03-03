@@ -166,10 +166,8 @@ serve(async (req) => {
         const text = await geminiResponse.text();
         console.error("AI gateway error:", status, text);
 
-        // Do not bubble up 429 to client; provide graceful fallback instead
         if (status === 429) {
-          const fallback = await fetchDictionaryFallback(normalizedWord);
-          return fallback;
+          return EMPTY_RESULT;
         }
 
         throw new Error(`AI gateway error: ${status}`);
