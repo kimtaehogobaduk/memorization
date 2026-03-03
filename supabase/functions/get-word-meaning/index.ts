@@ -5,30 +5,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+// In-memory cache (persists while the edge function instance is warm)
+const cache = new Map<string, { meaning: string; example: string; part_of_speech: string; pronunciation: string }>();
 
-  try {
-    const { word } = await req.json();
-    
-    if (!word || word.trim().length === 0) {
-      return new Response(
-        JSON.stringify({ meaning: '', example: '', part_of_speech: '', pronunciation: '' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+async function callGeminiWithRetry(word: string, apiKey: string, retries = 2): Promise<Response> {
+  const delays = [2000, 4000];
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    if (!GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY is not configured');
-    }
-
+  for (let attempt = 0; attempt <= retries; attempt++) {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${GEMINI_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -40,7 +27,7 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: `Provide detailed dictionary information for: "${word.trim()}"`
+            content: `Provide detailed dictionary information for: "${word}"`
           }
         ],
         tools: [
@@ -79,14 +66,63 @@ serve(async (req) => {
       }),
     });
 
+    if (response.status === 429 && attempt < retries) {
+      // Consume body to avoid leak
+      await response.text();
+      console.log(`Rate limited, retrying in ${delays[attempt]}ms (attempt ${attempt + 1}/${retries})`);
+      await new Promise(r => setTimeout(r, delays[attempt]));
+      continue;
+    }
+
+    return response;
+  }
+
+  // Should never reach here, but just in case
+  throw new Error('Exhausted retries');
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { word } = await req.json();
+    
+    if (!word || word.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ meaning: '', example: '', part_of_speech: '', pronunciation: '' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const normalizedWord = word.trim().toLowerCase();
+
+    // Check cache first
+    const cached = cache.get(normalizedWord);
+    if (cached) {
+      console.log(`Cache hit for: ${normalizedWord}`);
+      return new Response(
+        JSON.stringify(cached),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is not configured');
+    }
+
+    const response = await callGeminiWithRetry(normalizedWord, GEMINI_API_KEY);
+
     if (!response.ok) {
+      const errorText = await response.text();
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded', meaning: '', example: '', part_of_speech: '', pronunciation: '' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      const errorText = await response.text();
       console.error('AI gateway error:', response.status, errorText);
       throw new Error(`AI gateway error: ${response.status}`);
     }
@@ -98,13 +134,18 @@ serve(async (req) => {
     if (toolCall?.function?.arguments) {
       try {
         const wordInfo = JSON.parse(toolCall.function.arguments);
+        const result = {
+          meaning: wordInfo.meaning || '',
+          example: wordInfo.example || '',
+          part_of_speech: wordInfo.part_of_speech || '',
+          pronunciation: wordInfo.pronunciation || ''
+        };
+
+        // Cache the result
+        cache.set(normalizedWord, result);
+
         return new Response(
-          JSON.stringify({
-            meaning: wordInfo.meaning || '',
-            example: wordInfo.example || '',
-            part_of_speech: wordInfo.part_of_speech || '',
-            pronunciation: wordInfo.pronunciation || ''
-          }),
+          JSON.stringify(result),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (parseError) {
@@ -112,7 +153,6 @@ serve(async (req) => {
       }
     }
 
-    // Fallback to regular content if tool call parsing fails
     return new Response(
       JSON.stringify({ meaning: '', example: '', part_of_speech: '', pronunciation: '' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
