@@ -140,11 +140,11 @@ const EditVocabulary = () => {
   const handleNewWordChange = (value: string) => {
     setNewWord(value);
     const trimmed = value.trim();
-    if (aiAutoMeaning && trimmed.length >= 2) {
+    if (aiAutoMeaning && trimmed.length >= 3) {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = setTimeout(() => {
         fetchAIMeaningForNew(trimmed);
-      }, 900);
+      }, 1500);
     }
   };
 

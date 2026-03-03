@@ -116,7 +116,7 @@ const CreateVocabulary = () => {
       }
       debounceTimerRef.current = setTimeout(() => {
         fetchAIMeaning(wordId, trimmed);
-      }, 1200);
+      }, 1500);
     }
   };
 
