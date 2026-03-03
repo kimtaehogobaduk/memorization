@@ -27,56 +27,74 @@ const CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 h
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function callAIWithRetry(
+// Try multiple models in order to avoid per-model rate limits
+const MODELS = ["gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.5-flash"];
+
+async function callGeminiWithFallback(
   word: string,
   apiKey: string,
-  maxRetries = 3
-): Promise<Response> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const response = await fetch(
-      "https://ai-gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          response_format: { type: "json_object" },
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a Korean-English dictionary. Given an English word, return JSON with keys: meaning (한국어 뜻, 쉼표로 구분), example (짧은 영어 예문), part_of_speech (한국어 품사: 명사/동사/형용사/부사/전치사/접속사/감탄사/대명사), pronunciation (IPA 발음기호 /.../ 형식). meaning은 반드시 한국어로 작성하세요.",
+): Promise<WordInfo> {
+  for (const model of MODELS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const response = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
             },
-            { role: "user", content: `Word: "${word}"` },
-          ],
-          temperature: 0.2,
-          max_tokens: 200,
-        }),
+            body: JSON.stringify({
+              model,
+              response_format: { type: "json_object" },
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    "You are a Korean-English dictionary. Given an English word, return JSON with keys: meaning (한국어 뜻, 쉼표로 구분), example (짧은 영어 예문), part_of_speech (한국어 품사: 명사/동사/형용사/부사/전치사/접속사/감탄사/대명사), pronunciation (IPA 발음기호 /.../ 형식). meaning은 반드시 한국어로 작성하세요.",
+                },
+                { role: "user", content: `Word: "${word}"` },
+              ],
+              temperature: 0.2,
+              max_tokens: 200,
+            }),
+          }
+        );
+
+        if (response.status === 429) {
+          await response.text();
+          console.log(`Model ${model} rate limited, trying next...`);
+          break; // Try next model instead of retrying same one
+        }
+
+        if (response.status >= 500) {
+          await response.text();
+          const waitMs = 1000 * (attempt + 1) + Math.floor(Math.random() * 500);
+          console.log(`Server error on ${model}, retrying in ${waitMs}ms`);
+          await sleep(waitMs);
+          continue;
+        }
+
+        if (!response.ok) {
+          const text = await response.text();
+          console.error(`Error from ${model}:`, response.status, text);
+          break;
+        }
+
+        const payload = await response.json();
+        const result = parseWordInfo(payload);
+        if (result.meaning) {
+          console.log(`Success with model: ${model}`);
+          return result;
+        }
+      } catch (err) {
+        console.error(`Exception with model ${model}:`, err);
       }
-    );
-
-    if (
-      (response.status === 429 || response.status >= 500) &&
-      attempt < maxRetries
-    ) {
-      await response.text(); // consume body
-      const waitMs =
-        Math.min(8000, 1000 * Math.pow(2, attempt)) +
-        Math.floor(Math.random() * 500);
-      console.log(
-        `Transient error (${response.status}), retry in ${waitMs}ms (${attempt + 1}/${maxRetries})`
-      );
-      await sleep(waitMs);
-      continue;
     }
-
-    return response;
   }
 
-  throw new Error("Max retries exceeded");
+  return EMPTY_RESULT;
 }
 
 function parseWordInfo(payload: any): WordInfo {
@@ -130,23 +148,12 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
-    const requestPromise = (async (): Promise<WordInfo> => {
-      const response = await callAIWithRetry(normalizedWord, LOVABLE_API_KEY);
-
-      if (!response.ok) {
-        const text = await response.text();
-        console.error("AI gateway error:", response.status, text);
-        return EMPTY_RESULT;
-      }
-
-      const payload = await response.json();
-      return parseWordInfo(payload);
-    })();
+    const requestPromise = callGeminiWithFallback(normalizedWord, GEMINI_API_KEY);
 
     inFlight.set(normalizedWord, requestPromise);
 
