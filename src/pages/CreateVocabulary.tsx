@@ -49,14 +49,12 @@ const CreateVocabulary = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [aiAutoMeaning, setAiAutoMeaning] = useState(false);
   const [fetchingMeaning, setFetchingMeaning] = useState<string | null>(null);
-  const [aiCooldownUntil, setAiCooldownUntil] = useState(0);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastRequestedWordRef = useRef<Record<string, string>>({});
 
   const fetchAIMeaning = useCallback(async (wordId: string, word: string) => {
     const trimmedWord = word.trim();
-    if (!trimmedWord || !aiAutoMeaning || trimmedWord.length < 2) return;
-    if (Date.now() < aiCooldownUntil) return;
+    if (!trimmedWord || !aiAutoMeaning || trimmedWord.length < 3) return;
 
     const normalizedWord = trimmedWord.toLowerCase();
     if (lastRequestedWordRef.current[wordId] === normalizedWord) return;
@@ -94,8 +92,7 @@ const CreateVocabulary = () => {
       console.error("Error fetching AI meaning:", error);
       const message = error instanceof Error ? error.message.toLowerCase() : "";
       if (message.includes("rate limit") || message.includes("429")) {
-        setAiCooldownUntil(Date.now() + 12000);
-        toast.error("요청이 많아요. 12초 후 다시 시도해주세요.");
+        toast.error("요청이 많아요. 잠시 후 다시 시도해주세요.");
       } else if (message.includes("payment") || message.includes("402")) {
         toast.error("AI 사용 한도를 확인해주세요.");
       } else {
@@ -104,7 +101,7 @@ const CreateVocabulary = () => {
     } finally {
       setFetchingMeaning(null);
     }
-  }, [aiAutoMeaning, aiCooldownUntil]);
+  }, [aiAutoMeaning]);
 
   const handleWordChange = (wordId: string, value: string) => {
     updateWord(wordId, "word", value);

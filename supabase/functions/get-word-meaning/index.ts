@@ -1,168 +1,227 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// In-memory cache (persists while the edge function instance is warm)
-const cache = new Map<string, { meaning: string; example: string; part_of_speech: string; pronunciation: string }>();
+type WordInfo = {
+  meaning: string;
+  example: string;
+  part_of_speech: string;
+  pronunciation: string;
+};
 
-async function callGeminiWithRetry(word: string, apiKey: string, retries = 2): Promise<Response> {
-  const delays = [2000, 4000];
+const EMPTY_RESULT: WordInfo = {
+  meaning: "",
+  example: "",
+  part_of_speech: "",
+  pronunciation: "",
+};
 
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`, {
-      method: 'POST',
+// Warm-instance cache + in-flight dedupe
+const cache = new Map<string, { data: WordInfo; expiresAt: number }>();
+const inFlight = new Map<string, Promise<WordInfo>>();
+const CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24h
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function parseRetryAfterToMs(retryAfter: string | null): number | null {
+  if (!retryAfter) return null;
+
+  const seconds = Number.parseInt(retryAfter, 10);
+  if (!Number.isNaN(seconds) && seconds > 0) {
+    return seconds * 1000;
+  }
+
+  const dateMs = new Date(retryAfter).getTime() - Date.now();
+  if (!Number.isNaN(dateMs) && dateMs > 0) {
+    return dateMs;
+  }
+
+  return null;
+}
+
+function mapPartOfSpeechToKorean(pos?: string): string {
+  const normalized = (pos || "").toLowerCase();
+  if (normalized.includes("noun")) return "명사";
+  if (normalized.includes("verb")) return "동사";
+  if (normalized.includes("adjective")) return "형용사";
+  if (normalized.includes("adverb")) return "부사";
+  if (normalized.includes("pronoun")) return "대명사";
+  if (normalized.includes("preposition")) return "전치사";
+  if (normalized.includes("conjunction")) return "접속사";
+  if (normalized.includes("interjection")) return "감탄사";
+  return "";
+}
+
+async function callGeminiWithRetry(word: string, apiKey: string, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: 'gemini-2.5-flash',
+        model: "gemini-2.5-flash",
+        response_format: { type: "json_object" },
         messages: [
           {
-            role: 'system',
-            content: `You are a dictionary assistant. Given a word (usually English), provide comprehensive information about it in Korean.`
+            role: "system",
+            content:
+              "Return ONLY JSON with keys: meaning, example, part_of_speech, pronunciation. meaning/part_of_speech in Korean, example in short English sentence, pronunciation in IPA format (/.../).",
           },
           {
-            role: 'user',
-            content: `Provide detailed dictionary information for: "${word}"`
-          }
+            role: "user",
+            content: `Word: "${word}"`,
+          },
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "provide_word_info",
-              description: "Provide comprehensive dictionary information for a word",
-              parameters: {
-                type: "object",
-                properties: {
-                  meaning: {
-                    type: "string",
-                    description: "Korean meaning(s) of the word. Include all common meanings separated by comma. Example: '사과, 사과나무' or '달리다, 운영하다, 작동하다'"
-                  },
-                  example: {
-                    type: "string",
-                    description: "A natural English example sentence using the word. Keep it short and educational."
-                  },
-                  part_of_speech: {
-                    type: "string",
-                    description: "Part of speech in Korean. Options: 명사, 동사, 형용사, 부사, 전치사, 접속사, 감탄사, 대명사"
-                  },
-                  pronunciation: {
-                    type: "string",
-                    description: "IPA phonetic pronunciation in dictionary format. Example: 'happy' → '/ˈhæp.i/', 'beautiful' → '/ˈbjuː.tɪ.fəl/', 'apple' → '/ˈæp.əl/'. Use standard IPA symbols."
-                  }
-                },
-                required: ["meaning", "example", "part_of_speech", "pronunciation"],
-                additionalProperties: false
-              }
-            }
-          }
-        ],
-        tool_choice: { type: "function", function: { name: "provide_word_info" } }
+        temperature: 0.2,
+        max_tokens: 180,
       }),
     });
 
-    if (response.status === 429 && attempt < retries) {
-      // Consume body to avoid leak
-      await response.text();
-      console.log(`Rate limited, retrying in ${delays[attempt]}ms (attempt ${attempt + 1}/${retries})`);
-      await new Promise(r => setTimeout(r, delays[attempt]));
+    if ((response.status === 429 || response.status >= 500) && attempt < maxRetries) {
+      const retryAfterMs = parseRetryAfterToMs(response.headers.get("retry-after"));
+      const exponentialMs = Math.min(8000, 1000 * Math.pow(2, attempt));
+      const jitterMs = Math.floor(Math.random() * 500);
+      const waitMs = (retryAfterMs ?? exponentialMs) + jitterMs;
+
+      await response.text(); // consume body
+      console.log(`Rate limited/transient error (${response.status}), retry in ${waitMs}ms (attempt ${attempt + 1}/${maxRetries})`);
+      await sleep(waitMs);
       continue;
     }
 
     return response;
   }
 
-  // Should never reach here, but just in case
-  throw new Error('Exhausted retries');
+  throw new Error("Max retries exceeded");
+}
+
+function parseGeminiWordInfo(payload: any): WordInfo {
+  const content = payload?.choices?.[0]?.message?.content;
+  if (!content || typeof content !== "string") {
+    return EMPTY_RESULT;
+  }
+
+  try {
+    const parsed = JSON.parse(content);
+    return {
+      meaning: parsed?.meaning || "",
+      example: parsed?.example || "",
+      part_of_speech: parsed?.part_of_speech || "",
+      pronunciation: parsed?.pronunciation || "",
+    };
+  } catch {
+    return EMPTY_RESULT;
+  }
+}
+
+async function fetchDictionaryFallback(word: string): Promise<WordInfo> {
+  try {
+    const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+    if (!response.ok) return EMPTY_RESULT;
+
+    const data = await response.json();
+    const entry = Array.isArray(data) ? data[0] : null;
+    const meaningEntry = entry?.meanings?.[0];
+    const definition = meaningEntry?.definitions?.[0];
+
+    const pronunciation =
+      entry?.phonetic ||
+      entry?.phonetics?.find((p: any) => typeof p?.text === "string")?.text ||
+      "";
+
+    return {
+      meaning: definition?.definition || "",
+      example: definition?.example || "",
+      part_of_speech: mapPartOfSpeechToKorean(meaningEntry?.partOfSpeech),
+      pronunciation,
+    };
+  } catch {
+    return EMPTY_RESULT;
+  }
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { word } = await req.json();
-    
-    if (!word || word.trim().length === 0) {
-      return new Response(
-        JSON.stringify({ meaning: '', example: '', part_of_speech: '', pronunciation: '' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const trimmedWord = typeof word === "string" ? word.trim() : "";
+
+    if (!trimmedWord) {
+      return new Response(JSON.stringify(EMPTY_RESULT), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const normalizedWord = word.trim().toLowerCase();
+    const normalizedWord = trimmedWord.toLowerCase();
+    const now = Date.now();
 
-    // Check cache first
     const cached = cache.get(normalizedWord);
-    if (cached) {
-      console.log(`Cache hit for: ${normalizedWord}`);
-      return new Response(
-        JSON.stringify(cached),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (cached && cached.expiresAt > now) {
+      return new Response(JSON.stringify(cached.data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (inFlight.has(normalizedWord)) {
+      const shared = await inFlight.get(normalizedWord)!;
+      return new Response(JSON.stringify(shared), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY is not configured');
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
-    const response = await callGeminiWithRetry(normalizedWord, GEMINI_API_KEY);
+    const requestPromise = (async (): Promise<WordInfo> => {
+      const geminiResponse = await callGeminiWithRetry(normalizedWord, GEMINI_API_KEY);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded', meaning: '', example: '', part_of_speech: '', pronunciation: '' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (!geminiResponse.ok) {
+        const status = geminiResponse.status;
+        const text = await geminiResponse.text();
+        console.error("AI gateway error:", status, text);
+
+        // Do not bubble up 429 to client; provide graceful fallback instead
+        if (status === 429) {
+          const fallback = await fetchDictionaryFallback(normalizedWord);
+          return fallback;
+        }
+
+        throw new Error(`AI gateway error: ${status}`);
       }
-      console.error('AI gateway error:', response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+
+      const payload = await geminiResponse.json();
+      const result = parseGeminiWordInfo(payload);
+      return result;
+    })();
+
+    inFlight.set(normalizedWord, requestPromise);
+
+    try {
+      const result = await requestPromise;
+      cache.set(normalizedWord, { data: result, expiresAt: now + CACHE_TTL_MS });
+
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } finally {
+      inFlight.delete(normalizedWord);
     }
-
-    const data = await response.json();
-    
-    // Parse tool call response
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (toolCall?.function?.arguments) {
-      try {
-        const wordInfo = JSON.parse(toolCall.function.arguments);
-        const result = {
-          meaning: wordInfo.meaning || '',
-          example: wordInfo.example || '',
-          part_of_speech: wordInfo.part_of_speech || '',
-          pronunciation: wordInfo.pronunciation || ''
-        };
-
-        // Cache the result
-        cache.set(normalizedWord, result);
-
-        return new Response(
-          JSON.stringify(result),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } catch (parseError) {
-        console.error('Error parsing tool call response:', parseError);
-      }
-    }
-
-    return new Response(
-      JSON.stringify({ meaning: '', example: '', part_of_speech: '', pronunciation: '' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
   } catch (error) {
-    console.error('Error in get-word-meaning:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error("Error in get-word-meaning:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
-      JSON.stringify({ error: errorMessage, meaning: '', example: '', part_of_speech: '', pronunciation: '' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: errorMessage, ...EMPTY_RESULT }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
