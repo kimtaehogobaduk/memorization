@@ -100,27 +100,38 @@ const EditVocabulary = () => {
   };
 
   const fetchAIMeaningForNew = useCallback(async (wordText: string) => {
-    if (!wordText.trim() || !aiAutoMeaning) return;
-    
+    const trimmedWord = wordText.trim();
+    if (!trimmedWord || !aiAutoMeaning) return;
+
     setFetchingNewMeaning(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-word-meaning`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ word: wordText.trim() }),
+      const { data, error } = await supabase.functions.invoke("get-word-meaning", {
+        body: { word: trimmedWord },
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.meaning) setNewMeaning(data.meaning);
-        if (data.example) setNewExample(data.example);
-        if (data.part_of_speech) setNewPartOfSpeech(data.part_of_speech);
+
+      if (error) {
+        let backendMessage = "";
+        const context = (error as { context?: Response }).context;
+        if (context) {
+          const parsed = await context.clone().json().catch(() => null);
+          backendMessage = parsed?.error ?? "";
+        }
+        throw new Error(backendMessage || error.message);
       }
+
+      if (data?.meaning) setNewMeaning(data.meaning);
+      if (data?.example) setNewExample(data.example);
+      if (data?.part_of_speech) setNewPartOfSpeech(data.part_of_speech);
     } catch (error) {
       console.error("Error fetching AI meaning:", error);
+      const message = error instanceof Error ? error.message.toLowerCase() : "";
+      if (message.includes("rate limit") || message.includes("429")) {
+        toast.error("요청이 많아요. 잠시 후 다시 시도해주세요.");
+      } else if (message.includes("payment") || message.includes("402")) {
+        toast.error("AI 사용 한도를 확인해주세요.");
+      } else {
+        toast.error("AI 뜻 자동입력에 실패했습니다.");
+      }
     } finally {
       setFetchingNewMeaning(false);
     }
@@ -128,11 +139,12 @@ const EditVocabulary = () => {
 
   const handleNewWordChange = (value: string) => {
     setNewWord(value);
-    if (aiAutoMeaning && value.trim()) {
+    const trimmed = value.trim();
+    if (aiAutoMeaning && trimmed.length >= 2) {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = setTimeout(() => {
-        fetchAIMeaningForNew(value);
-      }, 600);
+        fetchAIMeaningForNew(trimmed);
+      }, 900);
     }
   };
 

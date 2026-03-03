@@ -25,30 +25,41 @@ export const WordManager = ({ word, onUpdate, onDelete, vocabularyId, aiAutoMean
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchAIMeaning = useCallback(async (wordText: string) => {
-    if (!wordText.trim() || !aiAutoMeaning) return;
-    
+    const trimmedWord = wordText.trim();
+    if (!trimmedWord || !aiAutoMeaning) return;
+
     setFetchingMeaning(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-word-meaning`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ word: wordText.trim() }),
+      const { data, error } = await supabase.functions.invoke("get-word-meaning", {
+        body: { word: trimmedWord },
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setEditedWord((prev: any) => ({
-          ...prev,
-          meaning: data.meaning || prev.meaning,
-          example: data.example || prev.example,
-          part_of_speech: data.part_of_speech || prev.part_of_speech,
-        }));
+
+      if (error) {
+        let backendMessage = "";
+        const context = (error as { context?: Response }).context;
+        if (context) {
+          const parsed = await context.clone().json().catch(() => null);
+          backendMessage = parsed?.error ?? "";
+        }
+        throw new Error(backendMessage || error.message);
       }
+
+      setEditedWord((prev: any) => ({
+        ...prev,
+        meaning: data?.meaning || prev.meaning,
+        example: data?.example || prev.example,
+        part_of_speech: data?.part_of_speech || prev.part_of_speech,
+      }));
     } catch (error) {
       console.error("Error fetching AI meaning:", error);
+      const message = error instanceof Error ? error.message.toLowerCase() : "";
+      if (message.includes("rate limit") || message.includes("429")) {
+        toast.error("요청이 많아요. 잠시 후 다시 시도해주세요.");
+      } else if (message.includes("payment") || message.includes("402")) {
+        toast.error("AI 사용 한도를 확인해주세요.");
+      } else {
+        toast.error("AI 뜻 자동입력에 실패했습니다.");
+      }
     } finally {
       setFetchingMeaning(false);
     }
@@ -56,14 +67,15 @@ export const WordManager = ({ word, onUpdate, onDelete, vocabularyId, aiAutoMean
 
   const handleWordChange = (value: string) => {
     setEditedWord({ ...editedWord, word: value });
-    
-    if (aiAutoMeaning && value.trim()) {
+
+    const trimmed = value.trim();
+    if (aiAutoMeaning && trimmed.length >= 2) {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
       debounceTimerRef.current = setTimeout(() => {
-        fetchAIMeaning(value);
-      }, 600);
+        fetchAIMeaning(trimmed);
+      }, 900);
     }
   };
 
