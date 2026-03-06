@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { Brain, CheckSquare, Edit3, Grid3x3, Printer } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Brain, CheckSquare, Edit3, Grid3x3, Printer, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -22,11 +23,13 @@ const Quiz = () => {
   const [wordCount, setWordCount] = useState(0);
 
   // Quiz settings
-  const [quizType, setQuizType] = useState<"multiple" | "writing" | "matching" | "random">("multiple");
+  const [quizType, setQuizType] = useState<"multiple" | "writing" | "matching" | "random" | "ai">("multiple");
   const [questionType, setQuestionType] = useState<"word-to-meaning" | "meaning-to-word">("meaning-to-word");
   const [choiceCount, setChoiceCount] = useState(4);
   const [isRandomOrder, setIsRandomOrder] = useState(true);
   const [answerDelay, setAnswerDelay] = useState([2]);
+  const [aiDifficulty, setAiDifficulty] = useState<string>("중");
+  const [aiCustomRequest, setAiCustomRequest] = useState("");
 
   const chapterId = searchParams.get("chapter");
 
@@ -555,8 +558,16 @@ const Quiz = () => {
       params.append("chapter", chapterId);
     }
 
+    if (quizType === "ai") {
+      params.append("difficulty", aiDifficulty);
+      if (aiCustomRequest.trim()) {
+        params.append("customRequest", aiCustomRequest.trim());
+      }
+      navigate(`/quiz/${id}/ai?${params.toString()}`);
+      return;
+    }
+
     if (quizType === "random") {
-      // Random type - randomly pick one of the quiz types
       const types = ["multiple", "writing", "matching"];
       const randomType = types[Math.floor(Math.random() * types.length)];
       
@@ -604,6 +615,12 @@ const Quiz = () => {
       icon: Brain,
       title: "모든 유형 랜덤풀기",
       description: "여러 유형을 랜덤하게 풀기",
+    },
+    {
+      type: "ai",
+      icon: Sparkles,
+      title: "AI로 출제",
+      description: "AI가 다양한 유형의 문제를 만들어줘요",
     },
   ];
 
@@ -703,6 +720,59 @@ const Quiz = () => {
                   step={1}
                   className="w-full"
                 />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {quizType === "ai" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                AI 출제 설정
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>난이도</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { value: "하", label: "하", color: "bg-green-100 text-green-700 border-green-300" },
+                    { value: "중", label: "중", color: "bg-yellow-100 text-yellow-700 border-yellow-300" },
+                    { value: "상", label: "상", color: "bg-orange-100 text-orange-700 border-orange-300" },
+                    { value: "극상", label: "극상", color: "bg-red-100 text-red-700 border-red-300" },
+                  ].map((d) => (
+                    <button
+                      key={d.value}
+                      onClick={() => setAiDifficulty(d.value)}
+                      className={`py-2 px-3 rounded-lg border-2 text-sm font-bold transition-all ${
+                        aiDifficulty === d.value
+                          ? `${d.color} border-current scale-105 shadow-md`
+                          : "bg-muted text-muted-foreground border-transparent hover:border-muted-foreground/30"
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+                {aiDifficulty === "극상" && (
+                  <p className="text-xs text-destructive font-medium mt-1">
+                    ⚠️ 원어민도 틀릴 수 있는 극한 난이도입니다!
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>요청사항 (선택)</Label>
+                <Textarea
+                  value={aiCustomRequest}
+                  onChange={(e) => setAiCustomRequest(e.target.value)}
+                  placeholder="예: 의학 관련 문맥으로 출제해줘, 빈칸 채우기 위주로 해줘..."
+                  className="resize-none"
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">AI가 문제 생성 시 참고합니다.</p>
               </div>
             </CardContent>
           </Card>
