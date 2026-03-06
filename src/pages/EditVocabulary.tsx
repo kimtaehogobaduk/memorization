@@ -12,7 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Sparkles, Loader2 } from "lucide-react";
+import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
+import { Plus, Trash2, Sparkles, Loader2, Upload } from "lucide-react";
 import { WordManager } from "@/components/WordManager";
 
 interface Chapter {
@@ -33,6 +34,41 @@ interface Word {
   order_index: number;
 }
 
+interface Derivative {
+  word: string;
+  meaning: string;
+}
+
+interface NewWordInput {
+  word: string;
+  meaning: string;
+  example: string;
+  note: string;
+  part_of_speech: string;
+  pronunciation: string;
+  frequency: number;
+  difficulty: number;
+  image_url: string;
+  synonyms: string;
+  antonyms: string;
+  derivatives: Derivative[];
+}
+
+const emptyNewWord = (): NewWordInput => ({
+  word: "",
+  meaning: "",
+  example: "",
+  note: "",
+  part_of_speech: "",
+  pronunciation: "",
+  frequency: 0,
+  difficulty: 0,
+  image_url: "",
+  synonyms: "",
+  antonyms: "",
+  derivatives: [],
+});
+
 const EditVocabulary = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -47,14 +83,11 @@ const EditVocabulary = () => {
   const [activeTab, setActiveTab] = useState("info");
   const [aiAutoMeaning, setAiAutoMeaning] = useState(false);
 
-  // New word form state
-  const [newWord, setNewWord] = useState("");
-  const [newMeaning, setNewMeaning] = useState("");
-  const [newExample, setNewExample] = useState("");
-  const [newPartOfSpeech, setNewPartOfSpeech] = useState("");
-  const [newNote, setNewNote] = useState("");
+  // New word form state (matches CreateVocabulary format)
+  const [newWord, setNewWord] = useState<NewWordInput>(emptyNewWord());
   const [addingWord, setAddingWord] = useState(false);
   const [fetchingNewMeaning, setFetchingNewMeaning] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -119,9 +152,20 @@ const EditVocabulary = () => {
         throw new Error(backendMessage || error.message);
       }
 
-      if (data?.meaning) setNewMeaning(data.meaning);
-      if (data?.example) setNewExample(data.example);
-      if (data?.part_of_speech) setNewPartOfSpeech(data.part_of_speech);
+      setNewWord(prev => ({
+        ...prev,
+        meaning: data?.meaning || prev.meaning,
+        example: data?.example || prev.example,
+        part_of_speech: data?.part_of_speech || prev.part_of_speech,
+        pronunciation: data?.pronunciation || prev.pronunciation,
+        frequency: data?.frequency || prev.frequency,
+        difficulty: data?.difficulty || prev.difficulty,
+        synonyms: data?.synonyms || prev.synonyms,
+        antonyms: data?.antonyms || prev.antonyms,
+        derivatives: Array.isArray(data?.derivatives) && data.derivatives.length > 0
+          ? data.derivatives
+          : prev.derivatives,
+      }));
     } catch (error) {
       console.error("Error fetching AI meaning:", error);
       const message = error instanceof Error ? error.message.toLowerCase() : "";
@@ -138,7 +182,7 @@ const EditVocabulary = () => {
   }, [aiAutoMeaning]);
 
   const handleNewWordChange = (value: string) => {
-    setNewWord(value);
+    setNewWord(prev => ({ ...prev, word: value }));
     const trimmed = value.trim();
     if (aiAutoMeaning && trimmed.length >= 3) {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -148,8 +192,49 @@ const EditVocabulary = () => {
     }
   };
 
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
+    if (!validateImageFile(file, 5)) return;
+    try {
+      setUploadingImage(true);
+      const fileName = `${Math.random()}.jpg`;
+      const filePath = `temp/${fileName}`;
+      const publicUrl = await uploadImageWithRetry('word-images', filePath, file, {
+        compress: true,
+        maxSize: 600,
+      });
+      if (!publicUrl) { setUploadingImage(false); return; }
+      setNewWord(prev => ({ ...prev, image_url: publicUrl }));
+      toast.success("이미지가 업로드되었습니다!");
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast.error("이미지 업로드에 실패했습니다.");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const addDerivative = () => {
+    setNewWord(prev => ({ ...prev, derivatives: [...prev.derivatives, { word: "", meaning: "" }] }));
+  };
+
+  const updateDerivative = (index: number, field: "word" | "meaning", value: string) => {
+    setNewWord(prev => {
+      const newDerivatives = [...prev.derivatives];
+      newDerivatives[index] = { ...newDerivatives[index], [field]: value };
+      return { ...prev, derivatives: newDerivatives };
+    });
+  };
+
+  const removeDerivative = (index: number) => {
+    setNewWord(prev => ({
+      ...prev,
+      derivatives: prev.derivatives.filter((_, i) => i !== index),
+    }));
+  };
+
   const handleAddWord = async () => {
-    if (!newWord.trim() || !newMeaning.trim()) {
+    if (!newWord.word.trim() || !newWord.meaning.trim()) {
       toast.error("단어와 뜻을 입력해주세요.");
       return;
     }
@@ -160,22 +245,24 @@ const EditVocabulary = () => {
         .from("words")
         .insert({
           vocabulary_id: id,
-          word: newWord.trim(),
-          meaning: newMeaning.trim(),
-          example: newExample.trim() || null,
-          part_of_speech: newPartOfSpeech.trim() || null,
-          note: newNote.trim() || null,
+          word: newWord.word.trim(),
+          meaning: newWord.meaning.trim(),
+          example: newWord.example.trim() || null,
+          part_of_speech: newWord.part_of_speech.trim() || null,
+          note: newWord.note.trim() || null,
           order_index: words.length,
-        });
+          image_url: newWord.image_url || null,
+          frequency: newWord.frequency || 0,
+          difficulty: newWord.difficulty || 0,
+          synonyms: newWord.synonyms.trim() || null,
+          antonyms: newWord.antonyms.trim() || null,
+          derivatives: newWord.derivatives.length > 0 ? JSON.stringify(newWord.derivatives) : null,
+        } as any);
 
       if (error) throw error;
 
       toast.success("단어가 추가되었습니다!");
-      setNewWord("");
-      setNewMeaning("");
-      setNewExample("");
-      setNewPartOfSpeech("");
-      setNewNote("");
+      setNewWord(emptyNewWord());
       loadVocabulary();
     } catch (error) {
       console.error("Error adding word:", error);
@@ -254,31 +341,16 @@ const EditVocabulary = () => {
               <CardContent className="p-6 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">단어장 이름</Label>
-                  <Input
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="단어장 이름"
-                  />
+                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="단어장 이름" />
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="description">설명</Label>
-                  <Textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="단어장 설명"
-                    rows={3}
-                  />
+                  <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="단어장 설명" rows={3} />
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="language">언어</Label>
                   <Select value={language} onValueChange={setLanguage}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="english">영어</SelectItem>
                       <SelectItem value="chinese">중국어</SelectItem>
@@ -287,16 +359,10 @@ const EditVocabulary = () => {
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div className="flex items-center justify-between">
                   <Label htmlFor="is-public">공개 단어장</Label>
-                  <Switch
-                    id="is-public"
-                    checked={isPublic}
-                    onCheckedChange={setIsPublic}
-                  />
+                  <Switch id="is-public" checked={isPublic} onCheckedChange={setIsPublic} />
                 </div>
-
                 <Button onClick={handleSave} disabled={loading} className="w-full">
                   {loading ? "저장 중..." : "저장"}
                 </Button>
@@ -310,7 +376,6 @@ const EditVocabulary = () => {
                 <Plus className="w-4 h-4 mr-2" />
                 챕터 추가
               </Button>
-
               {chapters.map((chapter) => (
                 <Card key={chapter.id}>
                   <CardContent className="p-4 flex items-center justify-between">
@@ -320,11 +385,7 @@ const EditVocabulary = () => {
                         <p className="text-sm text-muted-foreground">{chapter.description}</p>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteChapter(chapter.id)}
-                    >
+                    <Button variant="ghost" size="icon" onClick={() => deleteChapter(chapter.id)}>
                       <Trash2 className="w-4 h-4 text-destructive" />
                     </Button>
                   </CardContent>
@@ -343,72 +404,156 @@ const EditVocabulary = () => {
                 onClick={() => setAiAutoMeaning(!aiAutoMeaning)}
               >
                 <Sparkles className="w-4 h-4" />
-                뜻 AI 자동 입력
+                AI 자동 입력 (뜻/빈도/난이도/유의어/반의어/파생어)
                 {aiAutoMeaning && <span className="ml-auto text-xs">켜짐</span>}
               </Button>
 
-              {/* Add New Word Form */}
+              {/* Add New Word Form - Same as CreateVocabulary */}
               <Card>
-                <CardContent className="p-4 space-y-3">
-                  <h3 className="font-semibold flex items-center gap-2">
+                <CardContent className="p-6 space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
                     <Plus className="w-4 h-4" />
                     새 단어 추가
                   </h3>
 
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      단어 *
-                      {aiAutoMeaning && (
-                        <span className="text-xs text-primary flex items-center gap-1">
-                          <Sparkles className="w-3 h-3" />
-                          AI 자동입력
-                        </span>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Image Upload */}
+                    <div className="space-y-2">
+                      <Label>이미지 (선택)</Label>
+                      {newWord.image_url && (
+                        <img src={newWord.image_url} alt="Preview" className="w-full h-32 object-cover rounded-lg mb-2" />
                       )}
-                    </Label>
-                    <Input
-                      value={newWord}
-                      onChange={(e) => handleNewWordChange(e.target.value)}
-                      placeholder="단어"
-                    />
+                      <label>
+                        <div className="h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors">
+                          <div className="text-center text-sm text-muted-foreground">
+                            {uploadingImage ? <div>업로드 중...</div> : (
+                              <>
+                                <Upload className="w-6 h-6 mx-auto mb-2" />
+                                <div>단어 이미지를</div>
+                                <div>지정해 주세요</div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); }} disabled={uploadingImage} />
+                      </label>
+                    </div>
+
+                    {/* Frequency and Difficulty */}
+                    <div className="md:col-span-2 space-y-3">
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          사용빈도
+                          {fetchingNewMeaning && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+                        </Label>
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button key={star} type="button" onClick={() => setNewWord(prev => ({ ...prev, frequency: star }))} className="transition-colors">
+                              <span className={`text-2xl ${newWord.frequency >= star ? 'text-warning' : 'text-muted'}`}>
+                                {newWord.frequency >= star ? '★' : '☆'}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>난이도</Label>
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button key={star} type="button" onClick={() => setNewWord(prev => ({ ...prev, difficulty: star }))} className="transition-colors">
+                              <span className={`text-2xl ${newWord.difficulty >= star ? 'text-warning' : 'text-muted'}`}>
+                                {newWord.difficulty >= star ? '★' : '☆'}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      뜻 *
-                      {fetchingNewMeaning && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
-                    </Label>
-                    <Input
-                      value={newMeaning}
-                      onChange={(e) => setNewMeaning(e.target.value)}
-                      placeholder="뜻"
-                    />
-                  </div>
+                  {/* Word Input Fields */}
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        단어 *
+                        {aiAutoMeaning && (
+                          <span className="text-xs text-primary flex items-center gap-1">
+                            <Sparkles className="w-3 h-3" />
+                            AI 자동입력
+                          </span>
+                        )}
+                      </Label>
+                      <Input value={newWord.word} onChange={(e) => handleNewWordChange(e.target.value)} placeholder="단어" />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label>예문 (선택)</Label>
-                    <Input
-                      value={newExample}
-                      onChange={(e) => setNewExample(e.target.value)}
-                      placeholder="예문"
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        뜻 *
+                        {fetchingNewMeaning && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+                      </Label>
+                      <Input value={newWord.meaning} onChange={(e) => setNewWord(prev => ({ ...prev, meaning: e.target.value }))} placeholder="뜻" />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label>품사 (선택)</Label>
-                    <Input
-                      value={newPartOfSpeech}
-                      onChange={(e) => setNewPartOfSpeech(e.target.value)}
-                      placeholder="예: 명사, 동사"
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label>예문 (선택)</Label>
+                      <Input value={newWord.example} onChange={(e) => setNewWord(prev => ({ ...prev, example: e.target.value }))} placeholder="예문" />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label>메모 (선택)</Label>
-                    <Input
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      placeholder="추가 메모"
-                    />
+                    <div className="space-y-2">
+                      <Label>품사 (선택)</Label>
+                      <Input value={newWord.part_of_speech} onChange={(e) => setNewWord(prev => ({ ...prev, part_of_speech: e.target.value }))} placeholder="예: 명사, 동사" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>발음 (선택)</Label>
+                      <Input value={newWord.pronunciation} onChange={(e) => setNewWord(prev => ({ ...prev, pronunciation: e.target.value }))} placeholder="발음 기호" />
+                    </div>
+
+                    {/* Synonyms */}
+                    <div className="space-y-2">
+                      <Label>유의어 (선택)</Label>
+                      <Input value={newWord.synonyms} onChange={(e) => setNewWord(prev => ({ ...prev, synonyms: e.target.value }))} placeholder="예: happy, joyful, glad" />
+                    </div>
+
+                    {/* Antonyms */}
+                    <div className="space-y-2">
+                      <Label>반의어 (선택)</Label>
+                      <Input value={newWord.antonyms} onChange={(e) => setNewWord(prev => ({ ...prev, antonyms: e.target.value }))} placeholder="예: sad, unhappy" />
+                    </div>
+
+                    {/* Derivatives */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center justify-between">
+                        <span>파생어 (선택)</span>
+                        <Button type="button" variant="outline" size="sm" onClick={addDerivative}>
+                          <Plus className="w-3 h-3 mr-1" /> 추가
+                        </Button>
+                      </Label>
+                      {newWord.derivatives.map((d, i) => (
+                        <div key={i} className="flex gap-2 items-center">
+                          <Input
+                            value={d.word}
+                            onChange={(e) => updateDerivative(i, "word", e.target.value)}
+                            placeholder="파생어"
+                            className="flex-1"
+                          />
+                          <Input
+                            value={d.meaning}
+                            onChange={(e) => updateDerivative(i, "meaning", e.target.value)}
+                            placeholder="뜻"
+                            className="flex-1"
+                          />
+                          <Button type="button" variant="ghost" size="icon" onClick={() => removeDerivative(i)}>
+                            <Trash2 className="w-3 h-3 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>메모 (선택)</Label>
+                      <Input value={newWord.note} onChange={(e) => setNewWord(prev => ({ ...prev, note: e.target.value }))} placeholder="추가 메모" />
+                    </div>
                   </div>
 
                   <Button onClick={handleAddWord} disabled={addingWord} className="w-full">
