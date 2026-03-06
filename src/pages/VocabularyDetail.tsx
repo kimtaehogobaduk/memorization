@@ -374,13 +374,13 @@ const VocabularyDetail = () => {
 
       {/* Flashcard Popup */}
       <Dialog open={flashcardIndex !== null} onOpenChange={(open) => { if (!open) setFlashcardIndex(null); }}>
-        <DialogContent className="max-w-sm p-0 overflow-hidden border-0 bg-transparent shadow-none [&>button]:hidden">
+        <DialogContent className="max-w-lg w-[95vw] p-0 overflow-hidden border-0 bg-transparent shadow-none [&>button]:hidden">
           {flashcardIndex !== null && filteredWords[flashcardIndex] && (() => {
             const fw = filteredWords[flashcardIndex];
             return (
               <div className="flex flex-col items-center gap-4">
                 <div
-                  className="w-full min-h-[280px] cursor-pointer perspective-1000"
+                  className="w-full min-h-[400px] cursor-pointer perspective-1000"
                   onClick={() => setFlashcardFlipped(!flashcardFlipped)}
                 >
                   <AnimatePresence mode="wait">
@@ -390,12 +390,12 @@ const VocabularyDetail = () => {
                       animate={{ rotateY: 0, opacity: 1 }}
                       exit={{ rotateY: -90, opacity: 0 }}
                       transition={{ duration: 0.25 }}
-                      className="w-full min-h-[280px] rounded-2xl bg-card border shadow-lg flex flex-col items-center justify-center p-6"
+                      className="w-full min-h-[400px] rounded-2xl bg-card border shadow-lg flex flex-col items-center justify-center p-8"
                     >
                       {!flashcardFlipped ? (
                         <div className="text-center">
                           <p className="text-xs text-muted-foreground mb-3">탭하면 뒤집기</p>
-                          <h2 className="text-3xl font-bold mb-2">{fw.word}</h2>
+                          <h2 className="text-4xl font-bold mb-3">{fw.word}</h2>
                           {fw.part_of_speech && (
                             <span className="text-sm text-muted-foreground">{fw.part_of_speech}</span>
                           )}
@@ -409,8 +409,8 @@ const VocabularyDetail = () => {
                           </Button>
                         </div>
                       ) : (
-                        <div className="text-center space-y-3">
-                          <h3 className="text-xl font-bold">{fw.meaning}</h3>
+                         <div className="text-center space-y-4">
+                          <h3 className="text-2xl font-bold">{fw.meaning}</h3>
                           {fw.example && (
                             <p className="text-sm text-muted-foreground italic">{fw.example}</p>
                           )}
