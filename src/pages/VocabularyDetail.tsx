@@ -300,7 +300,13 @@ const VocabularyDetail = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03 }}
             >
-              <Card>
+              <Card 
+                className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+                onClick={() => {
+                  setFlashcardIndex(index);
+                  setFlashcardFlipped(false);
+                }}
+              >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
