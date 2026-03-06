@@ -5,8 +5,8 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Edit, FileText, Brain, Play, Volume2, Search, X } from "lucide-react";
-import { motion } from "framer-motion";
+import { Edit, FileText, Brain, Play, Volume2, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -45,6 +45,8 @@ const VocabularyDetail = () => {
   const [loading, setLoading] = useState(true);
   const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
   const [dictionaryWord, setDictionaryWord] = useState<string | null>(null);
+  const [flashcardIndex, setFlashcardIndex] = useState<number | null>(null);
+  const [flashcardFlipped, setFlashcardFlipped] = useState(false);
 
   useEffect(() => {
     if (id && user) {
@@ -298,7 +300,13 @@ const VocabularyDetail = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03 }}
             >
-              <Card>
+              <Card 
+                className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+                onClick={() => {
+                  setFlashcardIndex(index);
+                  setFlashcardFlipped(false);
+                }}
+              >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
@@ -363,6 +371,83 @@ const VocabularyDetail = () => {
           </div>
         )}
       </div>
+
+      {/* Flashcard Popup */}
+      <Dialog open={flashcardIndex !== null} onOpenChange={(open) => { if (!open) setFlashcardIndex(null); }}>
+        <DialogContent className="max-w-sm p-0 overflow-hidden border-0 bg-transparent shadow-none [&>button]:hidden">
+          {flashcardIndex !== null && filteredWords[flashcardIndex] && (() => {
+            const fw = filteredWords[flashcardIndex];
+            return (
+              <div className="flex flex-col items-center gap-4">
+                <div
+                  className="w-full min-h-[280px] cursor-pointer perspective-1000"
+                  onClick={() => setFlashcardFlipped(!flashcardFlipped)}
+                >
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={flashcardFlipped ? "back" : "front"}
+                      initial={{ rotateY: 90, opacity: 0 }}
+                      animate={{ rotateY: 0, opacity: 1 }}
+                      exit={{ rotateY: -90, opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="w-full min-h-[280px] rounded-2xl bg-card border shadow-lg flex flex-col items-center justify-center p-6"
+                    >
+                      {!flashcardFlipped ? (
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-3">탭하면 뒤집기</p>
+                          <h2 className="text-3xl font-bold mb-2">{fw.word}</h2>
+                          {fw.part_of_speech && (
+                            <span className="text-sm text-muted-foreground">{fw.part_of_speech}</span>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="mt-3 text-primary"
+                            onClick={(e) => { e.stopPropagation(); speak(fw.word); }}
+                          >
+                            <Volume2 className="w-5 h-5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="text-center space-y-3">
+                          <h3 className="text-xl font-bold">{fw.meaning}</h3>
+                          {fw.example && (
+                            <p className="text-sm text-muted-foreground italic">{fw.example}</p>
+                          )}
+                          {fw.note && (
+                            <p className="text-xs text-muted-foreground">📝 {fw.note}</p>
+                          )}
+                        </div>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+                <div className="flex items-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={flashcardIndex <= 0}
+                    onClick={() => { setFlashcardIndex(flashcardIndex - 1); setFlashcardFlipped(false); }}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {flashcardIndex + 1} / {filteredWords.length}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={flashcardIndex >= filteredWords.length - 1}
+                    onClick={() => { setFlashcardIndex(flashcardIndex + 1); setFlashcardFlipped(false); }}
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Dictionary Popup */}
       <Dialog open={!!dictionaryWord} onOpenChange={(open) => !open && setDictionaryWord(null)}>
