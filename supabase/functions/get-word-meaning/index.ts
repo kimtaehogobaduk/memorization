@@ -22,34 +22,71 @@ const EMPTY_RESULT: WordInfo = {
 
 const cache = new Map<string, { data: WordInfo; expiresAt: number }>();
 const inFlight = new Map<string, Promise<WordInfo>>();
-const CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24h
+const CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 
-const MODELS = ["llama3.1-8b", "llama-3.3-70b", "gpt-oss-120b"];
+const MODELS = ["llama3.1-8b"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function extractJSON(raw: string): Record<string, unknown> {
+  // Strip markdown fences
+  let cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+
+  // Find first { and last }
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error("No JSON object found in response");
+  }
+  cleaned = cleaned.substring(start, end + 1);
+
+  // Fix common issues
+  cleaned = cleaned
+    .replace(/,\s*}/g, "}")
+    .replace(/,\s*]/g, "]")
+    .replace(/[\x00-\x1F\x7F]/g, (ch) => ch === "\n" || ch === "\t" ? " " : "");
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Try fixing unescaped backslashes
+    cleaned = cleaned.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      // Balance braces
+      const inStr = (cleaned.split('"').length - 1) % 2 === 1;
+      if (inStr) cleaned += '"';
+      let braces = 0;
+      for (const c of cleaned) {
+        if (c === "{") braces++;
+        if (c === "}") braces--;
+      }
+      while (braces > 0) { cleaned += "}"; braces--; }
+      cleaned = cleaned.replace(/,\s*}/g, "}");
+      return JSON.parse(cleaned);
+    }
+  }
+}
 
 function parseWordInfo(payload: any): WordInfo {
   const content = payload?.choices?.[0]?.message?.content;
   if (!content || typeof content !== "string") {
-    throw new Error("Cerebras 응답 포맷이 올바르지 않습니다.");
+    throw new Error("Empty response from Cerebras");
   }
 
-  try {
-    const parsed = JSON.parse(content);
-    const result: WordInfo = {
-      meaning: parsed?.meaning || "",
-      example: parsed?.example || "",
-      part_of_speech: parsed?.part_of_speech || "",
-      pronunciation: parsed?.pronunciation || "",
-    };
+  const parsed = extractJSON(content);
+  const result: WordInfo = {
+    meaning: String(parsed?.meaning || ""),
+    example: String(parsed?.example || ""),
+    part_of_speech: String(parsed?.part_of_speech || ""),
+    pronunciation: String(parsed?.pronunciation || ""),
+  };
 
-    if (!result.meaning) {
-      throw new Error("뜻(meaning) 필드가 비어 있습니다.");
-    }
-
-    return result;
-  } catch {
-    throw new Error("Cerebras JSON 파싱에 실패했습니다.");
+  if (!result.meaning) {
+    throw new Error("meaning field is empty");
   }
+
+  return result;
 }
 
 async function requestCerebrasModel(
@@ -66,17 +103,16 @@ async function requestCerebrasModel(
       },
       body: JSON.stringify({
         model,
-        response_format: { type: "json_object" },
         messages: [
           {
             role: "system",
             content:
-              "You are a Korean-English dictionary. Given an English word, return JSON with keys: meaning (한국어 뜻, 쉼표로 구분), example (짧은 영어 예문), part_of_speech (한국어 품사: 명사/동사/형용사/부사/전치사/접속사/감탄사/대명사), pronunciation (IPA 발음기호 /.../ 형식). meaning은 반드시 한국어로 작성하세요.",
+              'You are a Korean-English dictionary. Given an English word, return ONLY a JSON object (no markdown, no extra text) with keys: meaning (한국어 뜻, 쉼표로 구분), example (짧은 영어 예문), part_of_speech (한국어 품사: 명사/동사/형용사/부사/전치사/접속사/감탄사/대명사), pronunciation (IPA 발음기호 /.../ 형식). meaning은 반드시 한국어로 작성하세요.',
           },
-          { role: "user", content: `Word: \"${word}\"` },
+          { role: "user", content: `Word: "${word}"` },
         ],
         temperature: 0.2,
-        max_tokens: 220,
+        max_tokens: 300,
       }),
     });
 
@@ -89,8 +125,8 @@ async function requestCerebrasModel(
     }
 
     if (response.status >= 500) {
-      const waitMs = 1000 * (attempt + 1) + Math.floor(Math.random() * 400);
-      console.log(`[${model}] server error ${response.status}, retrying in ${waitMs}ms`);
+      const waitMs = 1000 * (attempt + 1);
+      console.log(`[${model}] server error ${response.status}, retrying`);
       await response.text();
       await sleep(waitMs);
       continue;
@@ -98,12 +134,9 @@ async function requestCerebrasModel(
 
     if (!response.ok) {
       const errorText = await response.text();
-
-      // 모델 접근 불가/모델 없음이면 다음 모델로 넘어가기 위해 에러 throw
       if (response.status === 404 || errorText.includes("model_not_found")) {
-        throw new Error(`[${model}] model unavailable: ${errorText}`);
+        throw new Error(`[${model}] model unavailable`);
       }
-
       throw new Error(`[${model}] request failed (${response.status}): ${errorText}`);
     }
 
@@ -111,10 +144,10 @@ async function requestCerebrasModel(
     return parseWordInfo(payload);
   }
 
-  throw new Error(`[${model}] rate limit or server error after retries`);
+  throw new Error(`[${model}] failed after retries`);
 }
 
-async function callCerebrasWithFallback(word: string, apiKey: string): Promise<WordInfo> {
+async function callCerebras(word: string, apiKey: string): Promise<WordInfo> {
   let lastError: Error | null = null;
 
   for (const model of MODELS) {
@@ -126,7 +159,6 @@ async function callCerebrasWithFallback(word: string, apiKey: string): Promise<W
       const message = err instanceof Error ? err.message : String(err);
       console.error(`Model ${model} failed:`, message);
       lastError = err instanceof Error ? err : new Error(message);
-      continue;
     }
   }
 
@@ -170,16 +202,12 @@ serve(async (req) => {
       throw new Error("CEREBRAS_API_KEY is not configured");
     }
 
-    const requestPromise = callCerebrasWithFallback(normalizedWord, CEREBRAS_API_KEY);
+    const requestPromise = callCerebras(normalizedWord, CEREBRAS_API_KEY);
     inFlight.set(normalizedWord, requestPromise);
 
     try {
       const result = await requestPromise;
-      cache.set(normalizedWord, {
-        data: result,
-        expiresAt: now + CACHE_TTL_MS,
-      });
-
+      cache.set(normalizedWord, { data: result, expiresAt: now + CACHE_TTL_MS });
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
