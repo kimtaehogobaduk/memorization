@@ -372,6 +372,83 @@ const VocabularyDetail = () => {
         )}
       </div>
 
+      {/* Flashcard Popup */}
+      <Dialog open={flashcardIndex !== null} onOpenChange={(open) => { if (!open) setFlashcardIndex(null); }}>
+        <DialogContent className="max-w-sm p-0 overflow-hidden border-0 bg-transparent shadow-none [&>button]:hidden">
+          {flashcardIndex !== null && filteredWords[flashcardIndex] && (() => {
+            const fw = filteredWords[flashcardIndex];
+            return (
+              <div className="flex flex-col items-center gap-4">
+                <div
+                  className="w-full min-h-[280px] cursor-pointer perspective-1000"
+                  onClick={() => setFlashcardFlipped(!flashcardFlipped)}
+                >
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={flashcardFlipped ? "back" : "front"}
+                      initial={{ rotateY: 90, opacity: 0 }}
+                      animate={{ rotateY: 0, opacity: 1 }}
+                      exit={{ rotateY: -90, opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="w-full min-h-[280px] rounded-2xl bg-card border shadow-lg flex flex-col items-center justify-center p-6"
+                    >
+                      {!flashcardFlipped ? (
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-3">탭하면 뒤집기</p>
+                          <h2 className="text-3xl font-bold mb-2">{fw.word}</h2>
+                          {fw.part_of_speech && (
+                            <span className="text-sm text-muted-foreground">{fw.part_of_speech}</span>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="mt-3 text-primary"
+                            onClick={(e) => { e.stopPropagation(); speak(fw.word); }}
+                          >
+                            <Volume2 className="w-5 h-5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="text-center space-y-3">
+                          <h3 className="text-xl font-bold">{fw.meaning}</h3>
+                          {fw.example && (
+                            <p className="text-sm text-muted-foreground italic">{fw.example}</p>
+                          )}
+                          {fw.note && (
+                            <p className="text-xs text-muted-foreground">📝 {fw.note}</p>
+                          )}
+                        </div>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+                <div className="flex items-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={flashcardIndex <= 0}
+                    onClick={() => { setFlashcardIndex(flashcardIndex - 1); setFlashcardFlipped(false); }}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {flashcardIndex + 1} / {filteredWords.length}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={flashcardIndex >= filteredWords.length - 1}
+                    onClick={() => { setFlashcardIndex(flashcardIndex + 1); setFlashcardFlipped(false); }}
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {/* Dictionary Popup */}
       <Dialog open={!!dictionaryWord} onOpenChange={(open) => !open && setDictionaryWord(null)}>
         <DialogContent className="max-w-3xl h-[80vh] p-0 overflow-hidden">
