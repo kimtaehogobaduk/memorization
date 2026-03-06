@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2, XCircle, Printer, BookOpen } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import junsuk30 from "@/assets/junsuk-30.png";
 import junsuk01 from "@/assets/junsuk-01.png";
