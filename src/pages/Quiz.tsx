@@ -101,7 +101,7 @@ const Quiz = () => {
     try {
       const query = supabase
         .from("words")
-        .select("word, meaning, part_of_speech")
+        .select("id, word, meaning, part_of_speech")
         .eq("vocabulary_id", id);
 
       if (chapterId) {
@@ -123,6 +123,118 @@ const Quiz = () => {
 
       let questionsHtml = "";
       let answersHtml = "";
+
+      if (quizType === "ai") {
+        // AI quiz export: call edge function to generate questions
+        toast.info("AI가 시험 문제를 생성하고 있습니다... 잠시만 기다려주세요.");
+        
+        const limitedWords = shuffledWords.slice(0, 20);
+        const { data: fnData, error: fnError } = await supabase.functions.invoke("generate-ai-quiz", {
+          body: { words: limitedWords, difficulty: aiDifficulty, customRequest: aiCustomRequest },
+        });
+
+        if (fnError || fnData?.error || !fnData?.questions?.length) {
+          toast.error("AI 문제 생성에 실패했습니다. 다시 시도해주세요.");
+          return;
+        }
+
+        const aiQuestions = fnData.questions;
+        const getTypeLabel = (type: string) => {
+          switch (type) {
+            case "fill_blank": return "빈칸 채우기";
+            case "best_fit": return "적합한 단어";
+            case "synonym_trap": return "유의어 함정";
+            case "context_meaning": return "문맥 의미";
+            default: return "객관식";
+          }
+        };
+
+        questionsHtml = aiQuestions.map((q: any, i: number) => `
+          <div class="question">
+            <div class="q-meta">
+              <span class="question-number">${i + 1}.</span>
+              <span class="q-type">[${getTypeLabel(q.type)}]</span>
+            </div>
+            <div class="question-content">${q.question}</div>
+            <div class="choices">
+              ${q.choices.map((c: string, ci: number) => `
+                <div class="choice">
+                  <span class="choice-marker">${["①", "②", "③", "④"][ci]}</span> ${c}
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        `).join("");
+
+        answersHtml = `
+          <div class="answer-grid">
+            ${aiQuestions.map((q: any, i: number) => `
+              <div class="answer-item">
+                <span class="answer-number">${i + 1}.</span>
+                <span>${q.choices[q.correctIndex]}</span>
+              </div>
+            `).join("")}
+          </div>
+          <div class="page-break"></div>
+          <div class="explanation-section">
+            <h2>📝 해설지</h2>
+            ${aiQuestions.map((q: any, i: number) => `
+              <div class="explanation-item">
+                <strong>${i + 1}.</strong> ${q.question.substring(0, 80)}${q.question.length > 80 ? '...' : ''}
+                <div class="exp-answer">정답: ${q.choices[q.correctIndex]}</div>
+                <div class="exp-text">${q.explanation}</div>
+              </div>
+            `).join("")}
+          </div>
+        `;
+
+        const difficultyLabel = { "하": "하 (쉬움)", "중": "중 (보통)", "상": "상 (어려움)", "극상": "극상 (원어민 수준)" }[aiDifficulty] || aiDifficulty;
+
+        const html = `
+          <!DOCTYPE html><html><head><meta charset="UTF-8"><title>${vocabularyName} AI 시험지</title>
+          <style>
+            @media print { @page { margin: 2cm; } body { margin: 0; } .page-break { page-break-before: always; } }
+            body { font-family: 'Malgun Gothic', sans-serif; max-width: 21cm; margin: 0 auto; padding: 20px; line-height: 1.6; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #333; padding-bottom: 15px; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .header .info { margin-top: 10px; font-size: 14px; color: #666; }
+            .question { margin-bottom: 25px; padding: 10px 0; border-bottom: 1px dashed #ddd; }
+            .q-meta { margin-bottom: 6px; }
+            .question-number { font-weight: bold; display: inline-block; min-width: 30px; }
+            .q-type { font-size: 11px; background: #eee; padding: 2px 6px; border-radius: 4px; margin-left: 4px; }
+            .question-content { font-size: 16px; margin-bottom: 10px; }
+            .choices { margin-left: 30px; }
+            .choice { margin: 8px 0; font-size: 15px; }
+            .choice-marker { display: inline-block; min-width: 30px; font-weight: bold; }
+            .answer-section { margin-top: 40px; }
+            .answer-section h2, .explanation-section h2 { text-align: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #333; }
+            .answer-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+            .answer-item { padding: 8px; background: #f5f5f5; border-radius: 4px; }
+            .answer-number { font-weight: bold; margin-right: 8px; }
+            .explanation-item { margin-bottom: 14px; padding: 10px; background: #fafafa; border-radius: 6px; border-left: 3px solid #3498db; }
+            .exp-answer { font-size: 13px; color: #27ae60; font-weight: bold; margin: 4px 0; }
+            .exp-text { font-size: 13px; color: #555; }
+          </style></head><body>
+          <div class="header">
+            <h1>${vocabularyName} AI 시험지</h1>
+            <div class="info">${chapterName ? chapterName + " • " : ""}AI 출제 (${difficultyLabel}) • 총 ${aiQuestions.length}문제</div>
+          </div>
+          <div class="questions">${questionsHtml}</div>
+          <div class="page-break"></div>
+          <div class="answer-section"><h2>정답</h2>${answersHtml}</div>
+          </body></html>
+        `;
+
+        const printWindow = window.open("", "_blank");
+        if (printWindow) {
+          printWindow.document.write(html);
+          printWindow.document.close();
+          printWindow.focus();
+          setTimeout(() => printWindow.print(), 250);
+        }
+        toast.success("AI 시험지가 생성되었습니다!");
+        return;
+      }
 
       // For random type, mix all quiz types
       if (quizType === "random") {
@@ -181,10 +293,8 @@ const Quiz = () => {
             allAnswers.push({ num: questionNumber, answer });
             questionNumber++;
           }
-          // Matching is handled separately in batches
         });
 
-        // Handle matching type in groups of 6-8
         const matchingWords = shuffledWords.filter(() => Math.random() < 0.3).slice(0, 8);
         if (matchingWords.length >= 6) {
           const groupSize = Math.min(matchingWords.length, 8);
@@ -236,9 +346,7 @@ const Quiz = () => {
         `;
 
       } else if (quizType === "multiple") {
-        // Multiple choice with choices
         questionsHtml = shuffledWords.map((word, index) => {
-          // Generate wrong choices
           const wrongChoices = shuffledWords
             .filter(w => w.word !== word.word)
             .sort(() => Math.random() - 0.5)
@@ -284,7 +392,6 @@ const Quiz = () => {
         `;
 
       } else if (quizType === "writing") {
-        // Writing/Short answer
         questionsHtml = shuffledWords.map((word, index) => {
           const question = questionType === "word-to-meaning" ? word.word : word.meaning;
           return `
@@ -314,7 +421,6 @@ const Quiz = () => {
         `;
 
       } else if (quizType === "matching") {
-        // Matching (show words and meanings separately to match) - 6-8 words per page
         const groupSize = 6;
         const totalGroups = Math.ceil(shuffledWords.length / groupSize);
         let questionNumber = 1;
