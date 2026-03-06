@@ -558,8 +558,16 @@ const Quiz = () => {
       params.append("chapter", chapterId);
     }
 
+    if (quizType === "ai") {
+      params.append("difficulty", aiDifficulty);
+      if (aiCustomRequest.trim()) {
+        params.append("customRequest", aiCustomRequest.trim());
+      }
+      navigate(`/quiz/${id}/ai?${params.toString()}`);
+      return;
+    }
+
     if (quizType === "random") {
-      // Random type - randomly pick one of the quiz types
       const types = ["multiple", "writing", "matching"];
       const randomType = types[Math.floor(Math.random() * types.length)];
       
