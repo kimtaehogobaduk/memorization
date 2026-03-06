@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { Brain, CheckSquare, Edit3, Grid3x3, Printer } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Brain, CheckSquare, Edit3, Grid3x3, Printer, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -22,11 +23,13 @@ const Quiz = () => {
   const [wordCount, setWordCount] = useState(0);
 
   // Quiz settings
-  const [quizType, setQuizType] = useState<"multiple" | "writing" | "matching" | "random">("multiple");
+  const [quizType, setQuizType] = useState<"multiple" | "writing" | "matching" | "random" | "ai">("multiple");
   const [questionType, setQuestionType] = useState<"word-to-meaning" | "meaning-to-word">("meaning-to-word");
   const [choiceCount, setChoiceCount] = useState(4);
   const [isRandomOrder, setIsRandomOrder] = useState(true);
   const [answerDelay, setAnswerDelay] = useState([2]);
+  const [aiDifficulty, setAiDifficulty] = useState<string>("중");
+  const [aiCustomRequest, setAiCustomRequest] = useState("");
 
   const chapterId = searchParams.get("chapter");
 
