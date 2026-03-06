@@ -142,11 +142,24 @@ async function callCerebras(
     `${i + 1}. "${w.word}" (meaning: ${w.meaning})`
   ).join("\n");
 
-  const systemPrompt = `You are a quiz generator. Generate exactly ${batchSize} quiz questions as a JSON array.
-Each element: {"wordId":"<id>","type":"<fill_blank|best_fit|synonym_trap|context_meaning|multiple_choice>","question":"<English question>","choices":["A","B","C","D"],"correctIndex":<0-3>,"explanation":"<Korean explanation>"}
+  const systemPrompt = `You are an expert English vocabulary quiz generator for Korean learners.
+Generate exactly ${batchSize} quiz questions as a JSON array.
+
+Each element must be:
+{"wordId":"<copy the exact id provided>","type":"<one of: fill_blank, best_fit, synonym_trap, context_meaning, multiple_choice>","question":"<English question text>","choices":["<option1>","<option2>","<option3>","<option4>"],"correctIndex":<0-3>,"explanation":"<Korean explanation of why the answer is correct and why others are wrong>"}
+
+CRITICAL RULES:
+- "choices" must contain 4 REAL English words or phrases as answer options, NOT "A","B","C","D"
+- One choice must be the correct answer, matching correctIndex
+- For fill_blank: write a sentence with _____ blank, choices are words that could fill it
+- For best_fit: give context, choices are words that might fit
+- For synonym_trap: ask which word is closest/farthest in meaning, choices are real words
+- Mix question types across the batch
+- "explanation" must be written in Korean (2-3 sentences)
 ${getDifficultyPrompt(difficulty)}
-${customRequest ? `User request: ${customRequest}` : ""}
-IMPORTANT: Return ONLY valid JSON array. No markdown, no extra text.`;
+${customRequest ? `Additional request: ${customRequest}` : ""}
+
+Return ONLY the JSON array. No markdown fences, no extra text.`;
 
   const userMsg = `Words:\n${batch.map((w, i) => `${i + 1}. id="${w.id}" word="${w.word}" meaning="${w.meaning}"`).join("\n")}`;
 
