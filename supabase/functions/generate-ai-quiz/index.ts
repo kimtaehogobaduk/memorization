@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const MODELS = ["llama3.1-8b", "llama-3.3-70b"];
+const MODELS = ["llama-3.3-70b", "llama3.1-8b"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface WordInput {
@@ -20,7 +20,7 @@ interface WordInput {
 interface QuizQuestion {
   id: string;
   wordId: string;
-  type: "fill_blank" | "best_fit" | "synonym_trap" | "context_meaning" | "multiple_choice";
+  type: string;
   question: string;
   choices: string[];
   correctIndex: number;
@@ -29,17 +29,103 @@ interface QuizQuestion {
 
 function getDifficultyPrompt(difficulty: string): string {
   switch (difficulty) {
-    case "하":
-      return "Easy difficulty: straightforward questions. Distractors should be clearly different from the correct answer. Use simple sentence structures.";
-    case "중":
-      return "Medium difficulty: questions require some thinking. Distractors should be somewhat plausible but distinguishable with knowledge.";
-    case "상":
-      return "Hard difficulty: questions should be tricky. Distractors must be very plausible - use words with similar meanings, common confusions, or subtle differences. Include context-dependent questions.";
-    case "극상":
-      return "EXTREME difficulty: Questions must be so hard that even native English speakers would struggle. Use: (1) near-synonyms with extremely subtle nuance differences, (2) rare secondary meanings of common words, (3) words that are commonly confused even by educated speakers, (4) contextual traps where multiple answers seem correct but only one fits perfectly, (5) idiomatic or collocational traps. Every distractor must be highly plausible. This is graduate-level vocabulary testing.";
-    default:
-      return "Medium difficulty.";
+    case "하": return "Easy: straightforward questions, clearly different distractors.";
+    case "중": return "Medium: somewhat plausible distractors.";
+    case "상": return "Hard: very plausible distractors, subtle differences.";
+    case "극상": return "EXTREME: native speakers would struggle. Near-synonyms, rare meanings, idiomatic traps.";
+    default: return "Medium difficulty.";
   }
+}
+
+function repairAndParseJSON(raw: string): unknown {
+  // Strip markdown fences
+  let cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+
+  // Find JSON boundaries
+  const start = cleaned.search(/[\[{]/);
+  if (start === -1) throw new Error("No JSON found");
+
+  const isArray = cleaned[start] === "[";
+  const end = isArray ? cleaned.lastIndexOf("]") : cleaned.lastIndexOf("}");
+
+  if (end === -1 || end <= start) {
+    cleaned = cleaned.substring(start);
+  } else {
+    cleaned = cleaned.substring(start, end + 1);
+  }
+
+  // Fix common issues
+  cleaned = cleaned
+    .replace(/,\s*}/g, "}")
+    .replace(/,\s*]/g, "]")
+    .replace(/[\x00-\x1F\x7F]/g, (ch) => ch === "\n" || ch === "\t" ? ch : "")
+    .replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
+
+  // Try direct parse first
+  try { return JSON.parse(cleaned); } catch { /* continue */ }
+
+  // Balance braces/brackets
+  let braces = 0, brackets = 0;
+  for (const c of cleaned) {
+    if (c === "{") braces++;
+    if (c === "}") braces--;
+    if (c === "[") brackets++;
+    if (c === "]") brackets--;
+  }
+
+  // If truncated mid-string, close it
+  const inString = (cleaned.split('"').length - 1) % 2 === 1;
+  if (inString) cleaned += '"';
+
+  while (braces > 0) { cleaned += "}"; braces--; }
+  while (brackets > 0) { cleaned += "]"; brackets--; }
+
+  // Remove trailing comma before closing
+  cleaned = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]");
+
+  try { return JSON.parse(cleaned); } catch { /* continue */ }
+
+  // Last resort: extract individual objects with regex
+  const objects: unknown[] = [];
+  const objRegex = /\{[^{}]*"wordId"[^{}]*"question"[^{}]*"choices"[^{}]*\}/g;
+  let match;
+  while ((match = objRegex.exec(raw)) !== null) {
+    try { objects.push(JSON.parse(match[0])); } catch { /* skip */ }
+  }
+  if (objects.length > 0) return objects;
+
+  throw new Error("Could not parse JSON after all repair attempts");
+}
+
+function extractQuestions(parsed: unknown): QuizQuestion[] {
+  let arr: any[];
+  if (Array.isArray(parsed)) {
+    arr = parsed;
+  } else if (typeof parsed === "object" && parsed !== null) {
+    // Find first array value
+    const values = Object.values(parsed as Record<string, unknown>);
+    const found = values.find(v => Array.isArray(v)) as any[] | undefined;
+    if (found && found.length > 0) {
+      arr = found;
+    } else {
+      throw new Error("No questions array found in response");
+    }
+  } else {
+    throw new Error("Unexpected response type");
+  }
+
+  if (arr.length === 0) throw new Error("Empty questions array");
+
+  return arr.map((q: any, i: number) => ({
+    id: `q-${i}`,
+    wordId: q.wordId || q.word_id || `unknown-${i}`,
+    type: q.type || "multiple_choice",
+    question: q.question || "",
+    choices: Array.isArray(q.choices) ? q.choices.slice(0, 4) : ["A", "B", "C", "D"],
+    correctIndex: typeof q.correctIndex === "number" ? Math.min(q.correctIndex, 3) :
+                  typeof q.correct_index === "number" ? Math.min(q.correct_index, 3) : 0,
+    explanation: q.explanation || "해설이 제공되지 않았습니다.",
+  }));
 }
 
 async function callCerebras(
@@ -48,30 +134,41 @@ async function callCerebras(
   customRequest: string,
   apiKey: string,
 ): Promise<QuizQuestion[]> {
-  const wordList = words.map((w, i) => `${i + 1}. "${w.word}" (뜻: ${w.meaning}${w.part_of_speech ? `, 품사: ${w.part_of_speech}` : ""})`).join("\n");
+  // Batch words: max 10 per request to keep output short and parseable
+  const batchSize = Math.min(words.length, 10);
+  const batch = words.slice(0, batchSize);
 
-  const difficultyGuide = getDifficultyPrompt(difficulty);
+  const wordList = batch.map((w, i) =>
+    `${i + 1}. "${w.word}" (meaning: ${w.meaning})`
+  ).join("\n");
 
-  const systemPrompt = `You are an expert English vocabulary quiz generator for Korean learners. Generate diverse, creative quiz questions.
+  const systemPrompt = `You are an expert English vocabulary quiz generator for Korean learners.
+Generate exactly ${batchSize} quiz questions as a JSON array.
 
-RULES:
-- Generate exactly one question per word provided.
-- Mix question types: fill_blank (fill in the blank in a sentence), best_fit (choose the best word for context), synonym_trap (find the word closest/farthest in meaning), context_meaning (what does the word mean in this context), multiple_choice (standard word-meaning matching but with tricky distractors).
-- Each question MUST have exactly 4 choices.
-- correctIndex is 0-based.
-- explanation must be in Korean, explaining WHY the answer is correct and why others are wrong. Be detailed (2-3 sentences).
-- All question text should be in English (since it's an English vocabulary quiz), but explanations in Korean.
-- ${difficultyGuide}
-${customRequest ? `\nAdditional user request: ${customRequest}` : ""}
+Each element must be:
+{"wordId":"<copy the exact id provided>","type":"<one of: fill_blank, best_fit, synonym_trap, context_meaning, multiple_choice>","question":"<English question text>","choices":["<option1>","<option2>","<option3>","<option4>"],"correctIndex":<0-3>,"explanation":"<Korean explanation of why the answer is correct and why others are wrong>"}
 
-Return a JSON array of objects with these fields:
-{ "wordId": string, "type": string, "question": string, "choices": string[4], "correctIndex": number (0-3), "explanation": string }`;
+CRITICAL RULES:
+- "choices" must contain 4 REAL English words or phrases as answer options, NOT "A","B","C","D"
+- One choice must be the correct answer, matching correctIndex
+- For fill_blank: write a sentence with _____ blank, choices are words that could fill it
+- For best_fit: give context, choices are words that might fit
+- For synonym_trap: ask which word is closest/farthest in meaning, choices are real words
+- Mix question types across the batch
+- "explanation" must be written in Korean (2-3 sentences)
+${getDifficultyPrompt(difficulty)}
+${customRequest ? `Additional request: ${customRequest}` : ""}
+
+Return ONLY the JSON array. No markdown fences, no extra text.`;
+
+  const userMsg = `Words:\n${batch.map((w, i) => `${i + 1}. id="${w.id}" word="${w.word}" meaning="${w.meaning}"`).join("\n")}`;
 
   let lastError: Error | null = null;
 
   for (const model of MODELS) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
+        console.log(`[${model}] attempt ${attempt + 1}, ${batchSize} words`);
         const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -80,13 +177,12 @@ Return a JSON array of objects with these fields:
           },
           body: JSON.stringify({
             model,
-            response_format: { type: "json_object" },
             messages: [
               { role: "system", content: systemPrompt },
-              { role: "user", content: `Generate quiz questions for these ${words.length} words:\n${wordList}` },
+              { role: "user", content: userMsg },
             ],
-            temperature: difficulty === "극상" ? 0.7 : 0.5,
-            max_tokens: Math.min(words.length * 350, 8000),
+            temperature: 0.3,
+            max_tokens: 4096,
           }),
         });
 
@@ -102,7 +198,7 @@ Return a JSON array of objects with these fields:
         }
         if (response.status === 404) {
           await response.text();
-          break; // try next model
+          break; // next model
         }
         if (!response.ok) {
           const t = await response.text();
@@ -111,27 +207,18 @@ Return a JSON array of objects with these fields:
 
         const payload = await response.json();
         const content = payload?.choices?.[0]?.message?.content;
-        if (!content) throw new Error("Empty response");
+        if (!content) throw new Error("Empty response content");
 
-        const parsed = JSON.parse(content);
-        const questions: any[] = Array.isArray(parsed) ? parsed : parsed.questions || parsed.quiz || Object.values(parsed)[0];
+        console.log(`[${model}] raw response length: ${content.length}`);
 
-        if (!Array.isArray(questions) || questions.length === 0) {
-          throw new Error("Invalid quiz format");
-        }
+        const parsed = repairAndParseJSON(content);
+        const questions = extractQuestions(parsed);
 
-        return questions.map((q: any, i: number) => ({
-          id: `q-${i}`,
-          wordId: q.wordId || words[i]?.id || `unknown-${i}`,
-          type: q.type || "multiple_choice",
-          question: q.question || "",
-          choices: Array.isArray(q.choices) ? q.choices.slice(0, 4) : ["", "", "", ""],
-          correctIndex: typeof q.correctIndex === "number" ? q.correctIndex : 0,
-          explanation: q.explanation || "해설 없음",
-        }));
+        console.log(`[${model}] successfully parsed ${questions.length} questions`);
+        return questions;
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
-        console.error(`[${model}] attempt ${attempt + 1}:`, lastError.message);
+        console.error(`[${model}] attempt ${attempt + 1}: ${lastError.message}`);
       }
     }
   }
@@ -159,8 +246,7 @@ serve(async (req) => {
       throw new Error("CEREBRAS_API_KEY is not configured");
     }
 
-    // Limit to 30 words per request to stay within token limits
-    const limitedWords = words.slice(0, 30);
+    const limitedWords = words.slice(0, 20);
     const questions = await callCerebras(limitedWords, difficulty || "중", customRequest || "", CEREBRAS_API_KEY);
 
     return new Response(JSON.stringify({ questions }), {
