@@ -529,43 +529,58 @@ export type Database = {
       }
       words: {
         Row: {
+          antonyms: string | null
           chapter_id: string | null
           created_at: string | null
+          derivatives: Json | null
+          difficulty: number | null
           example: string | null
+          frequency: number | null
           id: string
           image_url: string | null
           meaning: string
           note: string | null
           order_index: number | null
           part_of_speech: string | null
+          synonyms: string | null
           updated_at: string | null
           vocabulary_id: string
           word: string
         }
         Insert: {
+          antonyms?: string | null
           chapter_id?: string | null
           created_at?: string | null
+          derivatives?: Json | null
+          difficulty?: number | null
           example?: string | null
+          frequency?: number | null
           id?: string
           image_url?: string | null
           meaning: string
           note?: string | null
           order_index?: number | null
           part_of_speech?: string | null
+          synonyms?: string | null
           updated_at?: string | null
           vocabulary_id: string
           word: string
         }
         Update: {
+          antonyms?: string | null
           chapter_id?: string | null
           created_at?: string | null
+          derivatives?: Json | null
+          difficulty?: number | null
           example?: string | null
+          frequency?: number | null
           id?: string
           image_url?: string | null
           meaning?: string
           note?: string | null
           order_index?: number | null
           part_of_speech?: string | null
+          synonyms?: string | null
           updated_at?: string | null
           vocabulary_id?: string
           word?: string
