@@ -45,6 +45,8 @@ const VocabularyDetail = () => {
   const [loading, setLoading] = useState(true);
   const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
   const [dictionaryWord, setDictionaryWord] = useState<string | null>(null);
+  const [flashcardIndex, setFlashcardIndex] = useState<number | null>(null);
+  const [flashcardFlipped, setFlashcardFlipped] = useState(false);
 
   useEffect(() => {
     if (id && user) {
