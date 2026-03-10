@@ -320,7 +320,7 @@ const Study = () => {
           </Button>
         </div>
 
-        <div className="flex items-center justify-center" style={{ minHeight: '400px' }}>
+        <div className="flex items-center justify-center" style={{ minHeight: 'calc(70vh - 120px)' }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={currentIndex}
@@ -328,9 +328,9 @@ const Study = () => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.3 }}
-              className="w-full max-w-md"
+              className="w-full max-w-2xl"
             >
-              <Card className="p-8 bg-gradient-card shadow-lg">
+              <Card className="p-10 bg-gradient-card shadow-lg" style={{ minHeight: '400px' }}>
                 <div className="mb-4 flex justify-end">
                   <Button
                     variant="ghost"
@@ -338,7 +338,7 @@ const Study = () => {
                     onClick={() => speak(currentWord.word)}
                     className="text-primary"
                   >
-                    <Volume2 className="w-5 h-5" />
+                    <Volume2 className="w-6 h-6" />
                   </Button>
                 </div>
                 {renderCardContent()}
