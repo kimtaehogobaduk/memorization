@@ -15,6 +15,12 @@ interface Word {
   word: string;
   meaning: string;
   example: string | null;
+  synonyms: string | null;
+  antonyms: string | null;
+  frequency: number | null;
+  difficulty: number | null;
+  derivatives: any | null;
+  part_of_speech: string | null;
 }
 
 type ViewMode = "word-only" | "meaning-only" | "both" | "example";
@@ -57,7 +63,7 @@ const Study = () => {
 
       let query = supabase
         .from("words")
-        .select("id, word, meaning, example")
+        .select("id, word, meaning, example, synonyms, antonyms, frequency, difficulty, derivatives, part_of_speech")
         .eq("vocabulary_id", id);
 
       if (chapterId) {
@@ -176,39 +182,80 @@ const Study = () => {
     }
   };
 
+  const derivs = Array.isArray(currentWord.derivatives) ? currentWord.derivatives : [];
+
+  const MetadataSection = () => (
+    <div className="grid grid-cols-1 gap-2 text-left mt-4 w-full">
+      {currentWord.synonyms && (
+        <div className="p-2 rounded-lg bg-primary/5">
+          <span className="text-xs font-semibold text-primary">유의어</span>
+          <p className="text-sm mt-0.5">{currentWord.synonyms}</p>
+        </div>
+      )}
+      {currentWord.antonyms && (
+        <div className="p-2 rounded-lg bg-destructive/5">
+          <span className="text-xs font-semibold text-destructive">반의어</span>
+          <p className="text-sm mt-0.5">{currentWord.antonyms}</p>
+        </div>
+      )}
+      {derivs.length > 0 && (
+        <div className="p-2 rounded-lg bg-secondary/50">
+          <span className="text-xs font-semibold text-secondary-foreground">파생어</span>
+          <div className="mt-0.5 space-y-0.5">
+            {derivs.map((d: any, i: number) => (
+              <p key={i} className="text-sm"><span className="font-medium">{d.word}</span> — {d.meaning}</p>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   const renderCardContent = () => {
     switch (viewMode) {
       case "word-only":
         return (
           <div className="text-center">
             <p className="text-sm text-muted-foreground mb-4">단어</p>
-            <h2 className="text-4xl font-bold">{currentWord.word}</h2>
+            <h2 className="text-5xl font-bold">{currentWord.word}</h2>
+            {currentWord.part_of_speech && <p className="text-base text-muted-foreground mt-2">{currentWord.part_of_speech}</p>}
+            <div className="flex items-center justify-center gap-2 mt-3">
+              {currentWord.frequency != null && currentWord.frequency > 0 && (
+                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">빈도 {"★".repeat(currentWord.frequency)}</span>
+              )}
+              {currentWord.difficulty != null && currentWord.difficulty > 0 && (
+                <span className="text-xs px-2 py-1 rounded-full bg-destructive/10 text-destructive">난이도 {"★".repeat(currentWord.difficulty)}</span>
+              )}
+            </div>
           </div>
         );
       case "meaning-only":
         return (
           <div className="text-center">
             <p className="text-sm text-muted-foreground mb-4">뜻</p>
-            <h2 className="text-2xl font-bold">{currentWord.meaning}</h2>
+            <h2 className="text-3xl font-bold">{currentWord.meaning}</h2>
+            <MetadataSection />
           </div>
         );
       case "both":
         return (
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-4">{currentWord.word}</h2>
-            <p className="text-xl text-muted-foreground">{currentWord.meaning}</p>
+            <h2 className="text-4xl font-bold mb-4">{currentWord.word}</h2>
+            {currentWord.part_of_speech && <p className="text-sm text-muted-foreground mb-2">{currentWord.part_of_speech}</p>}
+            <p className="text-2xl text-muted-foreground">{currentWord.meaning}</p>
+            <MetadataSection />
           </div>
         );
       case "example":
         return (
           <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4">{currentWord.word}</h2>
-            <p className="text-lg text-muted-foreground mb-3">{currentWord.meaning}</p>
+            <h2 className="text-3xl font-bold mb-4">{currentWord.word}</h2>
+            {currentWord.part_of_speech && <p className="text-sm text-muted-foreground mb-2">{currentWord.part_of_speech}</p>}
+            <p className="text-xl text-muted-foreground mb-3">{currentWord.meaning}</p>
             {currentWord.example && (
-              <p className="text-sm text-muted-foreground italic">
-                {currentWord.example}
-              </p>
+              <p className="text-base text-muted-foreground italic">{currentWord.example}</p>
             )}
+            <MetadataSection />
           </div>
         );
     }
@@ -273,7 +320,7 @@ const Study = () => {
           </Button>
         </div>
 
-        <div className="flex items-center justify-center" style={{ minHeight: '400px' }}>
+        <div className="flex items-center justify-center" style={{ minHeight: 'calc(70vh - 120px)' }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={currentIndex}
@@ -281,9 +328,9 @@ const Study = () => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.3 }}
-              className="w-full max-w-md"
+              className="w-full max-w-2xl"
             >
-              <Card className="p-8 bg-gradient-card shadow-lg">
+              <Card className="p-10 bg-gradient-card shadow-lg" style={{ minHeight: '400px' }}>
                 <div className="mb-4 flex justify-end">
                   <Button
                     variant="ghost"
@@ -291,7 +338,7 @@ const Study = () => {
                     onClick={() => speak(currentWord.word)}
                     className="text-primary"
                   >
-                    <Volume2 className="w-5 h-5" />
+                    <Volume2 className="w-6 h-6" />
                   </Button>
                 </div>
                 {renderCardContent()}
