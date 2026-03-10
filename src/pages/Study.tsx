@@ -63,7 +63,7 @@ const Study = () => {
 
       let query = supabase
         .from("words")
-        .select("id, word, meaning, example")
+        .select("id, word, meaning, example, synonyms, antonyms, frequency, difficulty, derivatives, part_of_speech")
         .eq("vocabulary_id", id);
 
       if (chapterId) {
