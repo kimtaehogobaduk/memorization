@@ -94,8 +94,11 @@ const QuizMultiVocab = () => {
     });
 
     if (quizType === "random") {
-      const types = ["multiple", "writing", "matching"];
-      const randomType = types[Math.floor(Math.random() * types.length)];
+      const types: Array<"multiple" | "writing" | "matching"> = ["multiple", "writing", "matching"];
+      const lastRandom = sessionStorage.getItem("lastRandomQuizType");
+      const availableTypes = types.filter(t => t !== lastRandom);
+      const randomType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+      sessionStorage.setItem("lastRandomQuizType", randomType);
       
       if (randomType === "multiple") {
         params.append("type", questionType);
