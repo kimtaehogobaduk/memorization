@@ -379,13 +379,15 @@ const VocabularyDetail = () => {
 
       {/* Flashcard Popup */}
       <Dialog open={flashcardIndex !== null} onOpenChange={(open) => { if (!open) setFlashcardIndex(null); }}>
-        <DialogContent className="max-w-lg w-[95vw] p-0 overflow-hidden border-0 bg-transparent shadow-none [&>button]:hidden">
+        <DialogContent className="max-w-2xl w-[98vw] p-0 overflow-hidden border-0 bg-transparent shadow-none [&>button]:hidden">
           {flashcardIndex !== null && filteredWords[flashcardIndex] && (() => {
             const fw = filteredWords[flashcardIndex];
+            const derivs = Array.isArray(fw.derivatives) ? fw.derivatives : [];
             return (
               <div className="flex flex-col items-center gap-4">
                 <div
-                  className="w-full min-h-[400px] cursor-pointer perspective-1000"
+                  className="w-full cursor-pointer perspective-1000"
+                  style={{ minHeight: 'calc(80vh - 80px)' }}
                   onClick={() => setFlashcardFlipped(!flashcardFlipped)}
                 >
                   <AnimatePresence mode="wait">
@@ -395,56 +397,72 @@ const VocabularyDetail = () => {
                       animate={{ rotateY: 0, opacity: 1 }}
                       exit={{ rotateY: -90, opacity: 0 }}
                       transition={{ duration: 0.25 }}
-                      className="w-full min-h-[400px] rounded-2xl bg-card border shadow-lg flex flex-col items-center justify-center p-8"
+                      className="w-full rounded-2xl bg-card border shadow-lg flex flex-col items-center justify-center p-10"
+                      style={{ minHeight: 'calc(80vh - 80px)' }}
                     >
                       {!flashcardFlipped ? (
                         <div className="text-center">
-                          <p className="text-xs text-muted-foreground mb-3">탭하면 뒤집기</p>
-                          <h2 className="text-4xl font-bold mb-3">{fw.word}</h2>
+                          <p className="text-xs text-muted-foreground mb-4">탭하면 뒤집기</p>
+                          <h2 className="text-5xl font-bold mb-4">{fw.word}</h2>
                           {fw.part_of_speech && (
-                            <span className="text-sm text-muted-foreground">{fw.part_of_speech}</span>
+                            <span className="text-base text-muted-foreground">{fw.part_of_speech}</span>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="mt-3 text-primary"
-                            onClick={(e) => { e.stopPropagation(); speak(fw.word); }}
-                          >
-                            <Volume2 className="w-5 h-5" />
+                          <div className="flex items-center justify-center gap-2 mt-4">
+                            {fw.frequency != null && fw.frequency > 0 && (
+                              <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">빈도 {"★".repeat(fw.frequency)}</span>
+                            )}
+                            {fw.difficulty != null && fw.difficulty > 0 && (
+                              <span className="text-xs px-2 py-1 rounded-full bg-destructive/10 text-destructive">난이도 {"★".repeat(fw.difficulty)}</span>
+                            )}
+                          </div>
+                          <Button variant="ghost" size="icon" className="mt-4 text-primary" onClick={(e) => { e.stopPropagation(); speak(fw.word); }}>
+                            <Volume2 className="w-6 h-6" />
                           </Button>
                         </div>
                       ) : (
-                         <div className="text-center space-y-4">
-                          <h3 className="text-2xl font-bold">{fw.meaning}</h3>
+                        <div className="text-center space-y-5 w-full max-w-lg">
+                          <h3 className="text-3xl font-bold">{fw.meaning}</h3>
                           {fw.example && (
-                            <p className="text-sm text-muted-foreground italic">{fw.example}</p>
+                            <p className="text-base text-muted-foreground italic">{fw.example}</p>
                           )}
                           {fw.note && (
-                            <p className="text-xs text-muted-foreground">📝 {fw.note}</p>
+                            <p className="text-sm text-muted-foreground">📝 {fw.note}</p>
                           )}
+                          <div className="grid grid-cols-1 gap-3 text-left mt-4">
+                            {fw.synonyms && (
+                              <div className="p-3 rounded-lg bg-primary/5">
+                                <span className="text-xs font-semibold text-primary">유의어</span>
+                                <p className="text-sm mt-1">{fw.synonyms}</p>
+                              </div>
+                            )}
+                            {fw.antonyms && (
+                              <div className="p-3 rounded-lg bg-destructive/5">
+                                <span className="text-xs font-semibold text-destructive">반의어</span>
+                                <p className="text-sm mt-1">{fw.antonyms}</p>
+                              </div>
+                            )}
+                            {derivs.length > 0 && (
+                              <div className="p-3 rounded-lg bg-secondary/50">
+                                <span className="text-xs font-semibold text-secondary-foreground">파생어</span>
+                                <div className="mt-1 space-y-1">
+                                  {derivs.map((d: any, i: number) => (
+                                    <p key={i} className="text-sm"><span className="font-medium">{d.word}</span> — {d.meaning}</p>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </motion.div>
                   </AnimatePresence>
                 </div>
                 <div className="flex items-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    disabled={flashcardIndex <= 0}
-                    onClick={() => { setFlashcardIndex(flashcardIndex - 1); setFlashcardFlipped(false); }}
-                  >
+                  <Button variant="outline" size="icon" disabled={flashcardIndex <= 0} onClick={() => { setFlashcardIndex(flashcardIndex - 1); setFlashcardFlipped(false); }}>
                     <ChevronLeft className="w-5 h-5" />
                   </Button>
-                  <span className="text-sm text-muted-foreground">
-                    {flashcardIndex + 1} / {filteredWords.length}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    disabled={flashcardIndex >= filteredWords.length - 1}
-                    onClick={() => { setFlashcardIndex(flashcardIndex + 1); setFlashcardFlipped(false); }}
-                  >
+                  <span className="text-sm text-muted-foreground">{flashcardIndex + 1} / {filteredWords.length}</span>
+                  <Button variant="outline" size="icon" disabled={flashcardIndex >= filteredWords.length - 1} onClick={() => { setFlashcardIndex(flashcardIndex + 1); setFlashcardFlipped(false); }}>
                     <ChevronRight className="w-5 h-5" />
                   </Button>
                 </div>
