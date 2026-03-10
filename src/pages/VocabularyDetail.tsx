@@ -18,6 +18,11 @@ interface Word {
   note: string | null;
   part_of_speech: string | null;
   chapter_id: string | null;
+  synonyms: string | null;
+  antonyms: string | null;
+  frequency: number | null;
+  difficulty: number | null;
+  derivatives: any | null;
 }
 
 interface Chapter {
