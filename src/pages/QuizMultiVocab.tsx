@@ -94,21 +94,9 @@ const QuizMultiVocab = () => {
     });
 
     if (quizType === "random") {
-      const types: Array<"multiple" | "writing" | "matching"> = ["multiple", "writing", "matching"];
-      const lastRandom = sessionStorage.getItem("lastRandomQuizType");
-      const availableTypes = types.filter(t => t !== lastRandom);
-      const randomType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
-      sessionStorage.setItem("lastRandomQuizType", randomType);
-      
-      if (randomType === "multiple") {
-        params.append("type", questionType);
-        params.append("choices", choiceCount.toString());
-        navigate(`/quiz/multi/multiple?${params.toString()}`);
-      } else if (randomType === "writing") {
-        navigate(`/quiz/multi/writing?${params.toString()}`);
-      } else {
-        navigate(`/quiz/multi/matching?${params.toString()}`);
-      }
+      params.append("choices", choiceCount.toString());
+      navigate(`/quiz/multi/random?${params.toString()}`);
+    
     } else if (quizType === "multiple") {
       params.append("type", questionType);
       params.append("choices", choiceCount.toString());
