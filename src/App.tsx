@@ -24,6 +24,7 @@ import QuizMatching from "./pages/QuizMatching";
 import QuizResult from "./pages/QuizResult";
 import QuizAI from "./pages/QuizAI";
 import QuizAIResult from "./pages/QuizAIResult";
+import QuizRandom from "./pages/QuizRandom";
 import Groups from "./pages/Groups";
 import CreateGroup from "./pages/CreateGroup";
 import JoinGroup from "./pages/JoinGroup";
