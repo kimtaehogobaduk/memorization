@@ -15,6 +15,12 @@ interface Word {
   word: string;
   meaning: string;
   example: string | null;
+  synonyms: string | null;
+  antonyms: string | null;
+  frequency: number | null;
+  difficulty: number | null;
+  derivatives: any | null;
+  part_of_speech: string | null;
 }
 
 type ViewMode = "word-only" | "meaning-only" | "both" | "example";
