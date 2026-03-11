@@ -242,6 +242,86 @@ const EditVocabulary = () => {
     }));
   };
 
+  const handleBulkProcess = async () => {
+    const wordList = bulkText
+      .split("\n")
+      .map(w => w.trim())
+      .filter(w => w.length > 0 && w.length < 100);
+
+    if (wordList.length === 0) {
+      toast.error("단어를 입력해주세요.");
+      return;
+    }
+    if (wordList.length > 200) {
+      toast.error("최대 200개까지 입력 가능합니다.");
+      return;
+    }
+
+    setBulkProcessing(true);
+    setBulkTotal(wordList.length);
+    setBulkProgress(0);
+    setBulkResults(wordList.map(w => ({ word: w, status: "pending" as const })));
+
+    let successCount = 0;
+    const batchSize = 3;
+
+    for (let i = 0; i < wordList.length; i += batchSize) {
+      const batch = wordList.slice(i, i + batchSize);
+      const promises = batch.map(async (wordText, batchIdx) => {
+        const globalIdx = i + batchIdx;
+        setBulkResults(prev => prev.map((r, ri) => ri === globalIdx ? { ...r, status: "loading" } : r));
+
+        try {
+          // Fetch AI meaning
+          let aiData: any = {};
+          try {
+            const { data, error } = await supabase.functions.invoke("get-word-meaning", {
+              body: { word: wordText },
+            });
+            if (!error && data) aiData = data;
+          } catch {}
+
+          // Insert word
+          const { error: insertError } = await supabase
+            .from("words")
+            .insert({
+              vocabulary_id: id,
+              word: wordText,
+              meaning: aiData.meaning || wordText,
+              example: aiData.example || null,
+              part_of_speech: aiData.part_of_speech || null,
+              order_index: words.length + globalIdx,
+              frequency: aiData.frequency || 0,
+              difficulty: aiData.difficulty || 0,
+              synonyms: aiData.synonyms || null,
+              antonyms: aiData.antonyms || null,
+              derivatives: Array.isArray(aiData.derivatives) && aiData.derivatives.length > 0
+                ? JSON.stringify(aiData.derivatives) : null,
+            } as any);
+
+          if (insertError) throw insertError;
+
+          successCount++;
+          setBulkResults(prev => prev.map((r, ri) => ri === globalIdx ? { ...r, status: "done" } : r));
+        } catch (err) {
+          setBulkResults(prev => prev.map((r, ri) => ri === globalIdx ? { ...r, status: "error", error: "실패" } : r));
+        }
+
+        setBulkProgress(prev => prev + 1);
+      });
+
+      await Promise.all(promises);
+      if (i + batchSize < wordList.length) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+
+    toast.success(`${successCount}/${wordList.length}개 단어가 추가되었습니다!`);
+    setBulkProcessing(false);
+    setBulkText("");
+    loadVocabulary();
+  };
+
   const handleAddWord = async () => {
     if (!newWord.word.trim() || !newWord.meaning.trim()) {
       toast.error("단어와 뜻을 입력해주세요.");
