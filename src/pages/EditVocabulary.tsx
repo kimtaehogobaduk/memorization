@@ -13,7 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
-import { Plus, Trash2, Sparkles, Loader2, Upload } from "lucide-react";
+import { Plus, Trash2, Sparkles, Loader2, Upload, List } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { WordManager } from "@/components/WordManager";
 
 interface Chapter {
@@ -89,6 +90,14 @@ const EditVocabulary = () => {
   const [fetchingNewMeaning, setFetchingNewMeaning] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Bulk input mode
+  const [wordInputMode, setWordInputMode] = useState<"single" | "bulk">("single");
+  const [bulkText, setBulkText] = useState("");
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkTotal, setBulkTotal] = useState(0);
+  const [bulkResults, setBulkResults] = useState<Array<{ word: string; status: "pending" | "loading" | "done" | "error"; error?: string }>>([]);
 
   useEffect(() => {
     if (id && user) {
@@ -231,6 +240,86 @@ const EditVocabulary = () => {
       ...prev,
       derivatives: prev.derivatives.filter((_, i) => i !== index),
     }));
+  };
+
+  const handleBulkProcess = async () => {
+    const wordList = bulkText
+      .split("\n")
+      .map(w => w.trim())
+      .filter(w => w.length > 0 && w.length < 100);
+
+    if (wordList.length === 0) {
+      toast.error("단어를 입력해주세요.");
+      return;
+    }
+    if (wordList.length > 200) {
+      toast.error("최대 200개까지 입력 가능합니다.");
+      return;
+    }
+
+    setBulkProcessing(true);
+    setBulkTotal(wordList.length);
+    setBulkProgress(0);
+    setBulkResults(wordList.map(w => ({ word: w, status: "pending" as const })));
+
+    let successCount = 0;
+    const batchSize = 3;
+
+    for (let i = 0; i < wordList.length; i += batchSize) {
+      const batch = wordList.slice(i, i + batchSize);
+      const promises = batch.map(async (wordText, batchIdx) => {
+        const globalIdx = i + batchIdx;
+        setBulkResults(prev => prev.map((r, ri) => ri === globalIdx ? { ...r, status: "loading" } : r));
+
+        try {
+          // Fetch AI meaning
+          let aiData: any = {};
+          try {
+            const { data, error } = await supabase.functions.invoke("get-word-meaning", {
+              body: { word: wordText },
+            });
+            if (!error && data) aiData = data;
+          } catch {}
+
+          // Insert word
+          const { error: insertError } = await supabase
+            .from("words")
+            .insert({
+              vocabulary_id: id,
+              word: wordText,
+              meaning: aiData.meaning || wordText,
+              example: aiData.example || null,
+              part_of_speech: aiData.part_of_speech || null,
+              order_index: words.length + globalIdx,
+              frequency: aiData.frequency || 0,
+              difficulty: aiData.difficulty || 0,
+              synonyms: aiData.synonyms || null,
+              antonyms: aiData.antonyms || null,
+              derivatives: Array.isArray(aiData.derivatives) && aiData.derivatives.length > 0
+                ? JSON.stringify(aiData.derivatives) : null,
+            } as any);
+
+          if (insertError) throw insertError;
+
+          successCount++;
+          setBulkResults(prev => prev.map((r, ri) => ri === globalIdx ? { ...r, status: "done" } : r));
+        } catch (err) {
+          setBulkResults(prev => prev.map((r, ri) => ri === globalIdx ? { ...r, status: "error", error: "실패" } : r));
+        }
+
+        setBulkProgress(prev => prev + 1);
+      });
+
+      await Promise.all(promises);
+      if (i + batchSize < wordList.length) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+
+    toast.success(`${successCount}/${wordList.length}개 단어가 추가되었습니다!`);
+    setBulkProcessing(false);
+    setBulkText("");
+    loadVocabulary();
   };
 
   const handleAddWord = async () => {
@@ -396,6 +485,87 @@ const EditVocabulary = () => {
 
           <TabsContent value="words">
             <div className="space-y-4">
+              {/* Mode Toggle */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={wordInputMode === "single" ? "default" : "outline"}
+                  className="flex-1 flex items-center gap-2"
+                  onClick={() => setWordInputMode("single")}
+                >
+                  <Plus className="w-4 h-4" />
+                  단어 하나씩 추가
+                </Button>
+                <Button
+                  type="button"
+                  variant={wordInputMode === "bulk" ? "default" : "outline"}
+                  className="flex-1 flex items-center gap-2"
+                  onClick={() => setWordInputMode("bulk")}
+                >
+                  <List className="w-4 h-4" />
+                  단어 일괄 입력 (AI)
+                </Button>
+              </div>
+
+              {wordInputMode === "bulk" ? (
+                <Card>
+                  <CardContent className="p-6 space-y-4">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      단어 일괄 입력 (AI 자동 채우기)
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      한 줄에 단어 하나씩 입력하세요. AI가 뜻, 품사, 예문 등을 자동으로 채워줍니다. (최대 200개)
+                    </p>
+                    <Textarea
+                      value={bulkText}
+                      onChange={(e) => setBulkText(e.target.value)}
+                      placeholder={"apple\nbanana\ncomprehensive\nambiguous"}
+                      rows={10}
+                      disabled={bulkProcessing}
+                    />
+                    <div className="text-sm text-muted-foreground text-right">
+                      {bulkText.split("\n").filter(l => l.trim()).length}개 단어
+                    </div>
+
+                    {bulkProcessing && (
+                      <div className="space-y-2">
+                        <Progress value={bulkTotal > 0 ? (bulkProgress / bulkTotal) * 100 : 0} />
+                        <p className="text-sm text-center text-muted-foreground">
+                          {bulkProgress} / {bulkTotal} 처리 중...
+                        </p>
+                      </div>
+                    )}
+
+                    {bulkResults.length > 0 && (
+                      <div className="max-h-48 overflow-y-auto space-y-1">
+                        {bulkResults.map((r, i) => (
+                          <div key={i} className="flex items-center gap-2 text-sm">
+                            <span className={
+                              r.status === "done" ? "text-green-500" :
+                              r.status === "error" ? "text-destructive" :
+                              r.status === "loading" ? "text-primary" : "text-muted-foreground"
+                            }>
+                              {r.status === "done" ? "✓" : r.status === "error" ? "✗" : r.status === "loading" ? "⟳" : "·"}
+                            </span>
+                            <span>{r.word}</span>
+                            {r.status === "loading" && <Loader2 className="w-3 h-3 animate-spin" />}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <Button onClick={handleBulkProcess} disabled={bulkProcessing || !bulkText.trim()} className="w-full">
+                      {bulkProcessing ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> AI 처리 중...</>
+                      ) : (
+                        <><Sparkles className="w-4 h-4 mr-2" /> AI로 일괄 추가</>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
               {/* AI Toggle */}
               <Button
                 type="button"
@@ -408,7 +578,7 @@ const EditVocabulary = () => {
                 {aiAutoMeaning && <span className="ml-auto text-xs">켜짐</span>}
               </Button>
 
-              {/* Add New Word Form - Same as CreateVocabulary */}
+              {/* Add New Word Form */}
               <Card>
                 <CardContent className="p-6 space-y-4">
                   <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -561,6 +731,8 @@ const EditVocabulary = () => {
                   </Button>
                 </CardContent>
               </Card>
+              </>
+              )}
 
               {/* Existing Words */}
               {words.map((word) => (
