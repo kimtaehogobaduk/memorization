@@ -91,6 +91,14 @@ const EditVocabulary = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Bulk input mode
+  const [wordInputMode, setWordInputMode] = useState<"single" | "bulk">("single");
+  const [bulkText, setBulkText] = useState("");
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkTotal, setBulkTotal] = useState(0);
+  const [bulkResults, setBulkResults] = useState<Array<{ word: string; status: "pending" | "loading" | "done" | "error"; error?: string }>>([]);
+
   useEffect(() => {
     if (id && user) {
       loadVocabulary();
