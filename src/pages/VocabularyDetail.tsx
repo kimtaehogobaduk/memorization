@@ -201,7 +201,12 @@ const VocabularyDetail = () => {
             <Button
               variant="outline"
               className="flex-1"
-              onClick={() => setSelectedChapter(null)}
+              onClick={() => {
+                setSelectedChapter(null);
+                setTimeout(() => {
+                  document.getElementById("word-list-section")?.scrollIntoView({ behavior: "smooth" });
+                }, 100);
+              }}
             >
               <FileText className="w-4 h-4 mr-2" />
               All List
