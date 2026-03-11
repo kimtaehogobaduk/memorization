@@ -13,7 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
-import { Plus, Trash2, Sparkles, Loader2, Upload } from "lucide-react";
+import { Plus, Trash2, Sparkles, Loader2, Upload, List } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { WordManager } from "@/components/WordManager";
 
 interface Chapter {
