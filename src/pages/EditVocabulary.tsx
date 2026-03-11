@@ -485,6 +485,87 @@ const EditVocabulary = () => {
 
           <TabsContent value="words">
             <div className="space-y-4">
+              {/* Mode Toggle */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={wordInputMode === "single" ? "default" : "outline"}
+                  className="flex-1 flex items-center gap-2"
+                  onClick={() => setWordInputMode("single")}
+                >
+                  <Plus className="w-4 h-4" />
+                  단어 하나씩 추가
+                </Button>
+                <Button
+                  type="button"
+                  variant={wordInputMode === "bulk" ? "default" : "outline"}
+                  className="flex-1 flex items-center gap-2"
+                  onClick={() => setWordInputMode("bulk")}
+                >
+                  <List className="w-4 h-4" />
+                  단어 일괄 입력 (AI)
+                </Button>
+              </div>
+
+              {wordInputMode === "bulk" ? (
+                <Card>
+                  <CardContent className="p-6 space-y-4">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      단어 일괄 입력 (AI 자동 채우기)
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      한 줄에 단어 하나씩 입력하세요. AI가 뜻, 품사, 예문 등을 자동으로 채워줍니다. (최대 200개)
+                    </p>
+                    <Textarea
+                      value={bulkText}
+                      onChange={(e) => setBulkText(e.target.value)}
+                      placeholder={"apple\nbanana\ncomprehensive\nambiguous"}
+                      rows={10}
+                      disabled={bulkProcessing}
+                    />
+                    <div className="text-sm text-muted-foreground text-right">
+                      {bulkText.split("\n").filter(l => l.trim()).length}개 단어
+                    </div>
+
+                    {bulkProcessing && (
+                      <div className="space-y-2">
+                        <Progress value={bulkTotal > 0 ? (bulkProgress / bulkTotal) * 100 : 0} />
+                        <p className="text-sm text-center text-muted-foreground">
+                          {bulkProgress} / {bulkTotal} 처리 중...
+                        </p>
+                      </div>
+                    )}
+
+                    {bulkResults.length > 0 && (
+                      <div className="max-h-48 overflow-y-auto space-y-1">
+                        {bulkResults.map((r, i) => (
+                          <div key={i} className="flex items-center gap-2 text-sm">
+                            <span className={
+                              r.status === "done" ? "text-green-500" :
+                              r.status === "error" ? "text-destructive" :
+                              r.status === "loading" ? "text-primary" : "text-muted-foreground"
+                            }>
+                              {r.status === "done" ? "✓" : r.status === "error" ? "✗" : r.status === "loading" ? "⟳" : "·"}
+                            </span>
+                            <span>{r.word}</span>
+                            {r.status === "loading" && <Loader2 className="w-3 h-3 animate-spin" />}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <Button onClick={handleBulkProcess} disabled={bulkProcessing || !bulkText.trim()} className="w-full">
+                      {bulkProcessing ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> AI 처리 중...</>
+                      ) : (
+                        <><Sparkles className="w-4 h-4 mr-2" /> AI로 일괄 추가</>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
               {/* AI Toggle */}
               <Button
                 type="button"
@@ -497,7 +578,7 @@ const EditVocabulary = () => {
                 {aiAutoMeaning && <span className="ml-auto text-xs">켜짐</span>}
               </Button>
 
-              {/* Add New Word Form - Same as CreateVocabulary */}
+              {/* Add New Word Form */}
               <Card>
                 <CardContent className="p-6 space-y-4">
                   <h3 className="text-lg font-semibold flex items-center gap-2">
