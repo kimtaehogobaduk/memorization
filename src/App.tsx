@@ -33,6 +33,7 @@ import GroupSettings from "./pages/GroupSettings";
 import PublicGroups from "./pages/PublicGroups";
 import PublicVocabularies from "./pages/PublicVocabularies";
 import GenerateVocabularies from "./pages/GenerateVocabularies";
+import WordListUpload from "./pages/WordListUpload";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import PhoneticGuide from "./pages/PhoneticGuide";
@@ -90,6 +91,7 @@ const App = () => {
                   <Route path="/vocabularies/excel" element={<ExcelUpload />} />
                   <Route path="/vocabularies/public" element={<PublicVocabularies />} />
                   <Route path="/vocabularies/generate" element={<GenerateVocabularies />} />
+                  <Route path="/vocabularies/word-list" element={<WordListUpload />} />
                   <Route path="/vocabularies/:id/edit" element={<EditVocabulary />} />
                   <Route path="/vocabularies/:id" element={<VocabularyDetail />} />
                   <Route path="/study/:id" element={<Study />} />

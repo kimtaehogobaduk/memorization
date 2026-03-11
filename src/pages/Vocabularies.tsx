@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, BookOpen, Trash2, Share2, Library, ChevronDown, ChevronRight, Download } from "lucide-react";
+import { Plus, BookOpen, Trash2, Share2, Library, ChevronDown, ChevronRight, Download, FileText } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -466,6 +466,9 @@ const Vocabularies = () => {
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setIsSelectionMode(true)}>
                   선택
+                </Button>
+                <Button size="icon" variant="outline" onClick={() => navigate("/vocabularies/word-list")} title="단어만 적어서 만들기">
+                  <FileText className="w-5 h-5" />
                 </Button>
                 <Button size="icon" onClick={() => navigate("/vocabularies/new")}>
                   <Plus className="w-5 h-5" />

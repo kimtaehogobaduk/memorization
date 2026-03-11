@@ -88,7 +88,7 @@ const EditVocabulary = () => {
   const [addingWord, setAddingWord] = useState(false);
   const [fetchingNewMeaning, setFetchingNewMeaning] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (id && user) {
