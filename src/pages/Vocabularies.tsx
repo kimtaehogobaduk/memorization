@@ -467,6 +467,9 @@ const Vocabularies = () => {
                 <Button variant="outline" size="sm" onClick={() => setIsSelectionMode(true)}>
                   선택
                 </Button>
+                <Button size="icon" variant="outline" onClick={() => navigate("/vocabularies/word-list")} title="단어만 적어서 만들기">
+                  <FileText className="w-5 h-5" />
+                </Button>
                 <Button size="icon" onClick={() => navigate("/vocabularies/new")}>
                   <Plus className="w-5 h-5" />
                 </Button>
