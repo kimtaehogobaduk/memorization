@@ -40,7 +40,7 @@ export const WordManager = ({ word, onUpdate, onDelete, vocabularyId, aiAutoMean
   });
   const [uploading, setUploading] = useState(false);
   const [fetchingMeaning, setFetchingMeaning] = useState(false);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchAIMeaning = useCallback(async (wordText: string) => {
     const trimmedWord = wordText.trim();

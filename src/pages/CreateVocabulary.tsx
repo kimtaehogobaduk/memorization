@@ -73,7 +73,7 @@ const CreateVocabulary = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [aiAutoMeaning, setAiAutoMeaning] = useState(false);
   const [fetchingMeaning, setFetchingMeaning] = useState<string | null>(null);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRequestedWordRef = useRef<Record<string, string>>({});
 
   const fetchAIMeaning = useCallback(async (wordId: string, word: string) => {
