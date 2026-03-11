@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, BookOpen, Trash2, Share2, Library, ChevronDown, ChevronRight, Download, FileText } from "lucide-react";
+import { Plus, BookOpen, Trash2, Share2, Library, ChevronDown, ChevronRight, Download, FileText, Sparkles, PenLine } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +34,12 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Vocabulary {
   id: string;
@@ -467,12 +473,27 @@ const Vocabularies = () => {
                 <Button variant="outline" size="sm" onClick={() => setIsSelectionMode(true)}>
                   선택
                 </Button>
-                <Button size="icon" variant="outline" onClick={() => navigate("/vocabularies/word-list")} title="단어만 적어서 만들기">
-                  <FileText className="w-5 h-5" />
-                </Button>
-                <Button size="icon" onClick={() => navigate("/vocabularies/new")}>
-                  <Plus className="w-5 h-5" />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="icon">
+                      <Plus className="w-5 h-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => navigate("/vocabularies/word-list")}>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      단어만 입력 (AI)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/vocabularies/new")}>
+                      <PenLine className="w-4 h-4 mr-2" />
+                      단어와 뜻 등등 입력
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/vocabularies/excel")}>
+                      <FileText className="w-4 h-4 mr-2" />
+                      엑셀/CSV 업로드
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
           </div>

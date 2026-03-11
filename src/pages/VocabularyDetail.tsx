@@ -201,7 +201,12 @@ const VocabularyDetail = () => {
             <Button
               variant="outline"
               className="flex-1"
-              onClick={() => setSelectedChapter(null)}
+              onClick={() => {
+                setSelectedChapter(null);
+                setTimeout(() => {
+                  document.getElementById("word-list-section")?.scrollIntoView({ behavior: "smooth" });
+                }, 100);
+              }}
             >
               <FileText className="w-4 h-4 mr-2" />
               All List
@@ -282,7 +287,7 @@ const VocabularyDetail = () => {
         )}
 
         {/* Word List */}
-        <div className="space-y-3">
+        <div id="word-list-section" className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-muted-foreground">
               {selectedChapter ? "챕터 단어" : "전체 단어"} ({filteredWords.length})
