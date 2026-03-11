@@ -731,6 +731,8 @@ const EditVocabulary = () => {
                   </Button>
                 </CardContent>
               </Card>
+              </>
+              )}
 
               {/* Existing Words */}
               {words.map((word) => (
