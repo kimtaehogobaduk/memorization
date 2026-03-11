@@ -199,17 +199,22 @@ const VocabularyDetail = () => {
         {words.length > 0 && (
           <div className="flex gap-3 mb-6">
             <Button
-              variant="outline"
+              variant={!selectedChapter ? "default" : "outline"}
               className="flex-1"
               onClick={() => {
                 setSelectedChapter(null);
-                setTimeout(() => {
-                  document.getElementById("word-list-section")?.scrollIntoView({ behavior: "smooth" });
-                }, 100);
+                // Use requestAnimationFrame to ensure DOM update before scroll
+                requestAnimationFrame(() => {
+                  const el = document.getElementById("word-list-section");
+                  if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }
+                });
               }}
             >
               <FileText className="w-4 h-4 mr-2" />
               All List
+              {!selectedChapter && <span className="ml-1 text-xs">({words.length})</span>}
             </Button>
             <Button
               variant="outline"
