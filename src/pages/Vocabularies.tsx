@@ -492,6 +492,10 @@ const Vocabularies = () => {
                       <FileText className="w-4 h-4 mr-2" />
                       엑셀/CSV 업로드
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/vocabularies/file-upload")}>
+                      <Image className="w-4 h-4 mr-2" />
+                      파일로 만들기 (AI 추출)
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
