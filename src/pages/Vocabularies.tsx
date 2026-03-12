@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, BookOpen, Trash2, Share2, Library, ChevronDown, ChevronRight, Download, FileText, Sparkles, PenLine } from "lucide-react";
+import { Plus, BookOpen, Trash2, Share2, Library, ChevronDown, ChevronRight, Download, FileText, Sparkles, PenLine, Image } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -491,6 +491,10 @@ const Vocabularies = () => {
                     <DropdownMenuItem onClick={() => navigate("/vocabularies/excel")}>
                       <FileText className="w-4 h-4 mr-2" />
                       엑셀/CSV 업로드
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/vocabularies/file-upload")}>
+                      <Image className="w-4 h-4 mr-2" />
+                      파일로 만들기 (AI 추출)
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

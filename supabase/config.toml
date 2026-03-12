@@ -1,1 +1,4 @@
 project_id = "blrtzldmsktzrxpbogfu"
+
+[functions.extract-vocabulary]
+verify_jwt = false
