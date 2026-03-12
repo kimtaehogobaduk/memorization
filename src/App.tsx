@@ -34,6 +34,7 @@ import PublicGroups from "./pages/PublicGroups";
 import PublicVocabularies from "./pages/PublicVocabularies";
 import GenerateVocabularies from "./pages/GenerateVocabularies";
 import WordListUpload from "./pages/WordListUpload";
+import FileVocabularyUpload from "./pages/FileVocabularyUpload";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import PhoneticGuide from "./pages/PhoneticGuide";
