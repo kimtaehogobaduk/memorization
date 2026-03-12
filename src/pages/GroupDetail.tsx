@@ -271,20 +271,41 @@ const GroupDetail = () => {
   };
 
   const handleShareVocabulary = async (vocabularyId: string) => {
+    if (!user?.id || !id) {
+      toast.error("로그인 상태를 확인해주세요.");
+      return;
+    }
+
     try {
+      // First verify membership
+      const { data: memberCheck } = await supabase
+        .from("group_members")
+        .select("id")
+        .eq("group_id", id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!memberCheck) {
+        toast.error("그룹 멤버만 단어장을 공유할 수 있습니다.");
+        return;
+      }
+
       const { error } = await supabase
         .from("group_vocabularies")
         .insert({
           group_id: id,
           vocabulary_id: vocabularyId,
-          shared_by: user?.id,
+          shared_by: user.id,
         });
 
       if (error) {
+        console.error("Share error details:", error.code, error.message, error.details);
         if (error.code === "23505") {
           toast.error("이미 공유된 단어장입니다.");
+        } else if (error.code === "42501") {
+          toast.error("공유 권한이 없습니다. 본인이 만든 단어장만 공유할 수 있습니다.");
         } else {
-          throw error;
+          toast.error(`공유 실패: ${error.message}`);
         }
         return;
       }
@@ -292,9 +313,9 @@ const GroupDetail = () => {
       toast.success("단어장이 공유되었습니다!");
       setShowShareDialog(false);
       loadSharedVocabularies();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sharing vocabulary:", error);
-      toast.error("단어장 공유에 실패했습니다.");
+      toast.error(error?.message || "단어장 공유에 실패했습니다.");
     }
   };
 
