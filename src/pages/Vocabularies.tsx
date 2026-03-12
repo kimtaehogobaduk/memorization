@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, BookOpen, Trash2, Share2, Library, ChevronDown, ChevronRight, Download, FileText, Sparkles, PenLine } from "lucide-react";
+import { Plus, BookOpen, Trash2, Share2, Library, ChevronDown, ChevronRight, Download, FileText, Sparkles, PenLine, Image } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
