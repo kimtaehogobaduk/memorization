@@ -134,7 +134,23 @@ const FileVocabularyUpload = () => {
         }
       );
 
-      if (fnError) throw fnError;
+      if (fnError) {
+        let detailedMessage = fnError.message || "추출 함수 호출 중 오류가 발생했습니다";
+        const contextResponse = (fnError as { context?: Response }).context;
+
+        if (contextResponse) {
+          try {
+            const payload = await contextResponse.json();
+            if (payload?.error && typeof payload.error === "string") {
+              detailedMessage = payload.error;
+            }
+          } catch {
+            // ignore parsing errors and keep original message
+          }
+        }
+
+        throw new Error(detailedMessage);
+      }
       if (data?.error) throw new Error(data.error);
 
       const extractionResult: ExtractionResult = {
