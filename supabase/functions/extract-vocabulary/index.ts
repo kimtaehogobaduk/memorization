@@ -159,21 +159,47 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
 
-    // Parse JSON from response
+    // Parse JSON from response with robust extraction
     let result: ExtractionResult;
     try {
-      // Try to extract JSON from possible markdown fences
       let jsonStr = content.trim();
-      const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[1].trim();
+      
+      // Remove markdown fences
+      jsonStr = jsonStr.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      
+      // Find JSON object boundaries
+      const jsonStart = jsonStr.indexOf("{");
+      if (jsonStart === -1) throw new Error("No JSON object found");
+      const jsonEnd = jsonStr.lastIndexOf("}");
+      if (jsonEnd === -1) throw new Error("Incomplete JSON");
+      jsonStr = jsonStr.substring(jsonStart, jsonEnd + 1);
+      
+      try {
+        result = JSON.parse(jsonStr);
+      } catch (_e) {
+        // Fix common issues: trailing commas, control characters
+        jsonStr = jsonStr
+          .replace(/,\s*}/g, "}")
+          .replace(/,\s*]/g, "]")
+          .replace(/[\x00-\x1F\x7F]/g, (ch) => ch === '\n' || ch === '\r' || ch === '\t' ? ch : "");
+        
+        try {
+          result = JSON.parse(jsonStr);
+        } catch (_e2) {
+          // Try to balance unclosed brackets (truncated response)
+          let openBraces = 0, openBrackets = 0;
+          for (const c of jsonStr) {
+            if (c === '{') openBraces++;
+            else if (c === '}') openBraces--;
+            else if (c === '[') openBrackets++;
+            else if (c === ']') openBrackets--;
+          }
+          // Remove trailing comma before closing
+          jsonStr = jsonStr.replace(/,\s*$/, "");
+          jsonStr += "]".repeat(Math.max(0, openBrackets)) + "}".repeat(Math.max(0, openBraces));
+          result = JSON.parse(jsonStr);
+        }
       }
-      // Also try to find a JSON object
-      const objMatch = jsonStr.match(/\{[\s\S]*\}/);
-      if (objMatch) {
-        jsonStr = objMatch[0];
-      }
-      result = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error("JSON parse error:", parseError, "Content:", content.substring(0, 500));
       return new Response(
