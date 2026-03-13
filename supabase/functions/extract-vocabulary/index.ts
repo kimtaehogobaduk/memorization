@@ -34,9 +34,10 @@ serve(async (req) => {
 
   try {
     const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) {
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!OPENROUTER_API_KEY && !GEMINI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "OPENROUTER_API_KEY is not configured" }),
+        JSON.stringify({ error: "OPENROUTER_API_KEY 또는 GEMINI_API_KEY가 설정되어 있지 않습니다." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
