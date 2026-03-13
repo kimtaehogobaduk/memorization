@@ -109,7 +109,7 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
         "X-Title": "Memorization App",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-001",
+        model: "google/gemini-2.5-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           {
@@ -128,7 +128,7 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
             ],
           },
         ],
-        max_tokens: 16000,
+        max_tokens: 65000,
         temperature: 0.1,
       }),
     });
