@@ -101,64 +101,153 @@ Return ONLY valid JSON in this exact format:
 
 IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanation.`;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://memorization.lovable.app",
-        "X-Title": "Memorization App",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mediaType};base64,${file_base64}`,
+    const requestedMaxTokens = include_details ? 12000 : 6000;
+    const userInstruction = "이 단어장/문서에서 모든 영어 단어를 추출해주세요. Day나 Unit 등의 구분이 있으면 챕터로 나눠주세요.";
+
+    let content = "";
+
+    const callOpenRouter = async (maxTokens: number) => {
+      return fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://memorization.lovable.app",
+          "X-Title": "Memorization App",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: `data:${mediaType};base64,${file_base64}`,
+                  },
                 },
-              },
-              {
-                type: "text",
-                text: "이 단어장/문서에서 모든 영어 단어를 추출해주세요. Day나 Unit 등의 구분이 있으면 챕터로 나눠주세요.",
-              },
-            ],
-          },
-        ],
-        max_tokens: 65000,
-        temperature: 0.1,
-      }),
-    });
+                {
+                  type: "text",
+                  text: userInstruction,
+                },
+              ],
+            },
+          ],
+          max_tokens: maxTokens,
+          temperature: 0.1,
+        }),
+      });
+    };
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("OpenRouter error:", response.status, errorText);
-      
-      if (response.status === 429) {
+    let response: Response | null = null;
+
+    if (OPENROUTER_API_KEY) {
+      response = await callOpenRouter(requestedMaxTokens);
+
+      if (!response.ok && response.status === 402 && requestedMaxTokens > 4000) {
+        const firstErrorText = await response.text();
+        console.warn("OpenRouter first attempt failed, retrying with lower max_tokens:", response.status, firstErrorText);
+        response = await callOpenRouter(4000);
+      }
+    }
+
+    if (response?.ok) {
+      const data = await response.json();
+      content = data.choices?.[0]?.message?.content || "";
+    } else {
+      const status = response?.status ?? 500;
+      const errorText = response ? await response.text() : "OpenRouter key not configured";
+      console.error("OpenRouter error:", status, errorText);
+
+      // Fallback to direct Gemini API when OpenRouter is unavailable/invalid/insufficient credits
+      if ((status === 400 || status === 402 || status >= 500 || !OPENROUTER_API_KEY) && GEMINI_API_KEY) {
+        const geminiResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    { text: `${systemPrompt}\n\n${userInstruction}` },
+                    {
+                      inlineData: {
+                        mimeType: mediaType,
+                        data: file_base64,
+                      },
+                    },
+                  ],
+                },
+              ],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: Math.min(requestedMaxTokens, 8192),
+                responseMimeType: "application/json",
+              },
+            }),
+          }
+        );
+
+        if (!geminiResponse.ok) {
+          const geminiErrorText = await geminiResponse.text();
+          console.error("Gemini fallback error:", geminiResponse.status, geminiErrorText);
+
+          if (status === 429 || geminiResponse.status === 429) {
+            return new Response(
+              JSON.stringify({ error: "API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요." }),
+              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          if (status === 402) {
+            return new Response(
+              JSON.stringify({ error: "AI 크레딧이 부족합니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요." }),
+              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          return new Response(
+            JSON.stringify({ error: "AI 처리 실패 (fallback 포함)" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const geminiData = await geminiResponse.json();
+        content = geminiData.candidates?.[0]?.content?.parts
+          ?.map((part: { text?: string }) => part.text || "")
+          .join("\n")
+          .trim() || "";
+      } else {
+        if (status === 429) {
+          return new Response(
+            JSON.stringify({ error: "API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (status === 402) {
+          return new Response(
+            JSON.stringify({ error: "API 크레딧이 부족합니다. OpenRouter 계정을 확인해주세요." }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
         return new Response(
-          JSON.stringify({ error: "API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: `AI 처리 실패 (${status})` }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "API 크레딧이 부족합니다. OpenRouter 계정을 확인해주세요." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    }
 
+    if (!content) {
       return new Response(
-        JSON.stringify({ error: `AI 처리 실패 (${response.status})` }),
+        JSON.stringify({ error: "AI 응답이 비어 있습니다. 다시 시도해주세요." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || "";
 
     // Parse JSON from response with robust extraction
     let result: ExtractionResult;
