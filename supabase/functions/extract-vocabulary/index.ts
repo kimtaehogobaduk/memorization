@@ -109,7 +109,7 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
         "X-Title": "Memorization App",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-preview:free",
+        model: "google/gemini-2.5-flash-preview-09-2025",
         messages: [
           { role: "system", content: systemPrompt },
           {
