@@ -253,45 +253,55 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
     let result: ExtractionResult;
     try {
       let jsonStr = content.trim();
-      
+
       // Remove markdown fences
       jsonStr = jsonStr.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-      
-      // Find JSON object boundaries
+
+      // Find JSON object start
       const jsonStart = jsonStr.indexOf("{");
       if (jsonStart === -1) throw new Error("No JSON object found");
-      const jsonEnd = jsonStr.lastIndexOf("}");
-      if (jsonEnd === -1) throw new Error("Incomplete JSON");
-      jsonStr = jsonStr.substring(jsonStart, jsonEnd + 1);
-      
+      jsonStr = jsonStr.substring(jsonStart);
+
+      // Remove trailing garbage after final closing brace if present
+      const lastBrace = jsonStr.lastIndexOf("}");
+      if (lastBrace !== -1) {
+        jsonStr = jsonStr.substring(0, lastBrace + 1);
+      }
+
+      const tryParse = (value: string) => JSON.parse(value) as ExtractionResult;
+
       try {
-        result = JSON.parse(jsonStr);
-      } catch (_e) {
+        result = tryParse(jsonStr);
+      } catch {
         // Fix common issues: trailing commas, control characters
-        jsonStr = jsonStr
+        let repaired = jsonStr
           .replace(/,\s*}/g, "}")
           .replace(/,\s*]/g, "]")
-          .replace(/[\x00-\x1F\x7F]/g, (ch) => ch === '\n' || ch === '\r' || ch === '\t' ? ch : "");
-        
+          .replace(/[\x00-\x1F\x7F]/g, (ch) => (ch === "\n" || ch === "\r" || ch === "\t" ? ch : ""));
+
         try {
-          result = JSON.parse(jsonStr);
-        } catch (_e2) {
-          // Try to balance unclosed brackets (truncated response)
-          let openBraces = 0, openBrackets = 0;
-          for (const c of jsonStr) {
-            if (c === '{') openBraces++;
-            else if (c === '}') openBraces--;
-            else if (c === '[') openBrackets++;
-            else if (c === ']') openBrackets--;
+          result = tryParse(repaired);
+        } catch {
+          // Balance missing brackets/braces for truncated responses
+          let openBraces = 0;
+          let openBrackets = 0;
+
+          for (const char of repaired) {
+            if (char === "{") openBraces++;
+            else if (char === "}") openBraces--;
+            else if (char === "[") openBrackets++;
+            else if (char === "]") openBrackets--;
           }
-          // Remove trailing comma before closing
-          jsonStr = jsonStr.replace(/,\s*$/, "");
-          jsonStr += "]".repeat(Math.max(0, openBrackets)) + "}".repeat(Math.max(0, openBraces));
-          result = JSON.parse(jsonStr);
+
+          repaired = repaired.replace(/,\s*$/, "");
+          repaired += "]".repeat(Math.max(0, openBrackets));
+          repaired += "}".repeat(Math.max(0, openBraces));
+
+          result = tryParse(repaired);
         }
       }
     } catch (parseError) {
-      console.error("JSON parse error:", parseError, "Content:", content.substring(0, 500));
+      console.error("JSON parse error:", parseError, "Content:", content.substring(0, 1000));
       return new Response(
         JSON.stringify({ error: "AI 응답을 파싱할 수 없습니다. 다시 시도해주세요." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
