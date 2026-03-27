@@ -27,52 +27,103 @@ interface ExtractionResult {
   chapters: ExtractedChapter[];
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// ── PDF.co: extract text from uploaded file ──────────────────────────
+async function extractTextViaPdfCo(
+  fileBase64: string,
+  fileType: string,
+  apiKey: string
+): Promise<string> {
+  // Step 1: Upload to PDF.co
+  const uploadRes = await fetch("https://api.pdf.co/v1/file/upload/base64", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ file: fileBase64 }),
+  });
+
+  if (!uploadRes.ok) {
+    const err = await uploadRes.text();
+    throw new Error(`PDF.co upload failed (${uploadRes.status}): ${err}`);
   }
 
-  try {
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!OPENROUTER_API_KEY && !GEMINI_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "OPENROUTER_API_KEY 또는 GEMINI_API_KEY가 설정되어 있지 않습니다." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+  const uploadData = await uploadRes.json();
+  if (uploadData.error) throw new Error(`PDF.co upload error: ${uploadData.message || uploadData.error}`);
+  const fileUrl = uploadData.url;
+  if (!fileUrl) throw new Error("PDF.co did not return a file URL");
 
-    const { file_base64, file_type, include_details } = await req.json();
+  // Step 2: Choose extraction endpoint based on file type
+  const isPdf = fileType === "application/pdf";
+  const endpoint = isPdf
+    ? "https://api.pdf.co/v1/pdf/convert/to/text"
+    : "https://api.pdf.co/v1/pdf/convert/to/text"; // PDF.co can handle images via this endpoint too with OCR
 
-    if (!file_base64 || !file_type) {
-      return new Response(
-        JSON.stringify({ error: "file_base64 and file_type are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+  const convertBody: Record<string, unknown> = {
+    url: fileUrl,
+    inline: true,
+  };
 
-    const mediaType = file_type.startsWith("image/")
-      ? file_type
-      : file_type === "application/pdf"
-      ? "application/pdf"
-      : "image/png";
+  // For images, use the dedicated OCR endpoint
+  const actualEndpoint = isPdf
+    ? "https://api.pdf.co/v1/pdf/convert/to/text"
+    : "https://api.pdf.co/v1/pdf/convert/to/text"; // PDF.co auto-detects and does OCR
 
-    const detailsPrompt = include_details
-      ? `For each word, also extract or generate:
+  const convertRes = await fetch(actualEndpoint, {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(convertBody),
+  });
+
+  if (!convertRes.ok) {
+    const err = await convertRes.text();
+    throw new Error(`PDF.co conversion failed (${convertRes.status}): ${err}`);
+  }
+
+  const convertData = await convertRes.json();
+  if (convertData.error) throw new Error(`PDF.co conversion error: ${convertData.message || convertData.error}`);
+
+  // The text is returned in the 'body' field when inline=true
+  let extractedText = convertData.body || convertData.text || "";
+
+  // If body is a URL, fetch the text
+  if (!extractedText && convertData.url) {
+    const textRes = await fetch(convertData.url);
+    extractedText = await textRes.text();
+  }
+
+  return extractedText;
+}
+
+// ── Cerebras: generate structured vocabulary from text ───────────────
+async function callCerebras(
+  text: string,
+  includeDetails: boolean,
+  apiKey: string
+): Promise<ExtractionResult> {
+  const MODELS = ["llama-3.3-70b", "llama3.1-8b"];
+
+  const detailsPrompt = includeDetails
+    ? `For each word, also extract or generate:
 - "meaning": Korean meaning/definition (한국어 뜻)
 - "example": example sentence if available
 - "part_of_speech": part of speech (품사, in Korean like 명사, 동사, 형용사)
 - "pronunciation": pronunciation guide
 - "synonyms": comma-separated synonyms if available
-- "antonyms": comma-separated antonyms if available  
+- "antonyms": comma-separated antonyms if available
 - "derivatives": array of {word, meaning} for derivative words if available`
-      : `Only extract the word itself. Do NOT include meanings, examples, or other details.`;
+    : `Only extract the word itself. Do NOT include meanings, examples, or other details.`;
 
-    const systemPrompt = `You are a vocabulary extraction expert. You analyze images and documents of vocabulary lists/word books and extract structured data.
+  const systemPrompt = `You are a vocabulary extraction expert. You analyze text from vocabulary lists/word books and extract structured data.
 
 CRITICAL RULES:
-1. Extract ALL English words from the document.
-2. If the document has sections like "Day 1", "Day 2", "Unit 1", "Chapter 1", "Part 1", etc., group words into chapters accordingly.
+1. Extract ALL English words from the text.
+2. If the text has sections like "Day 1", "Day 2", "Unit 1", "Chapter 1", "Part 1", etc., group words into chapters accordingly.
 3. If there are no clear sections, put all words in a single chapter called "전체 단어".
 4. The vocabulary name should be inferred from the document title if visible, otherwise use "".
 5. ${detailsPrompt}
@@ -85,7 +136,7 @@ Return ONLY valid JSON in this exact format:
       "name": "Day 1",
       "words": [
         {
-          "word": "example"${include_details ? `,
+          "word": "example"${includeDetails ? `,
           "meaning": "예시",
           "example": "This is an example.",
           "part_of_speech": "명사",
@@ -101,224 +152,114 @@ Return ONLY valid JSON in this exact format:
 
 IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanation.`;
 
-    const requestedMaxTokens = include_details ? 12000 : 6000;
-    const userInstruction = "이 단어장/문서에서 모든 영어 단어를 추출해주세요. Day나 Unit 등의 구분이 있으면 챕터로 나눠주세요.";
+  // Truncate text to avoid token limits
+  const truncatedText = text.slice(0, 100000);
 
-    let content = "";
-
-    const callOpenRouter = async (maxTokens: number) => {
-      return fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://memorization.lovable.app",
-          "X-Title": "Memorization App",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: `data:${mediaType};base64,${file_base64}`,
-                  },
-                },
-                {
-                  type: "text",
-                  text: userInstruction,
-                },
-              ],
-            },
-          ],
-          max_tokens: maxTokens,
-          temperature: 0.1,
-        }),
-      });
-    };
-
-    let response: Response | null = null;
-
-    if (OPENROUTER_API_KEY) {
-      response = await callOpenRouter(requestedMaxTokens);
-
-      if (!response.ok && response.status === 402 && requestedMaxTokens > 4000) {
-        const firstErrorText = await response.text();
-        console.warn("OpenRouter first attempt failed, retrying with lower max_tokens:", response.status, firstErrorText);
-        response = await callOpenRouter(4000);
-      }
-    }
-
-    if (response?.ok) {
-      const data = await response.json();
-      content = data.choices?.[0]?.message?.content || "";
-    } else {
-      const status = response?.status ?? 500;
-      const errorText = response ? await response.text() : "OpenRouter key not configured";
-      console.error("OpenRouter error:", status, errorText);
-
-      // Fallback to direct Gemini API when OpenRouter is unavailable/invalid/insufficient credits
-      if ((status === 400 || status === 402 || status >= 500 || !OPENROUTER_API_KEY) && GEMINI_API_KEY) {
-        const geminiResponse = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [
-                {
-                  role: "user",
-                  parts: [
-                    { text: `${systemPrompt}\n\n${userInstruction}` },
-                    {
-                      inlineData: {
-                        mimeType: mediaType,
-                        data: file_base64,
-                      },
-                    },
-                  ],
-                },
-              ],
-              generationConfig: {
-                temperature: 0.1,
-                maxOutputTokens: Math.min(requestedMaxTokens, 8192),
-                responseMimeType: "application/json",
-              },
-            }),
-          }
-        );
-
-        if (!geminiResponse.ok) {
-          const geminiErrorText = await geminiResponse.text();
-          console.error("Gemini fallback error:", geminiResponse.status, geminiErrorText);
-
-          if (status === 429 || geminiResponse.status === 429) {
-            return new Response(
-              JSON.stringify({ error: "API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요." }),
-              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
-
-          if (status === 402) {
-            return new Response(
-              JSON.stringify({ error: "AI 크레딧이 부족합니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요." }),
-              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
-
-          return new Response(
-            JSON.stringify({ error: "AI 처리 실패 (fallback 포함)" }),
-            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        const geminiData = await geminiResponse.json();
-        content = geminiData.candidates?.[0]?.content?.parts
-          ?.map((part: { text?: string }) => part.text || "")
-          .join("\n")
-          .trim() || "";
-      } else {
-        if (status === 429) {
-          return new Response(
-            JSON.stringify({ error: "API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요." }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        if (status === 402) {
-          return new Response(
-            JSON.stringify({ error: "API 크레딧이 부족합니다. OpenRouter 계정을 확인해주세요." }),
-            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        return new Response(
-          JSON.stringify({ error: `AI 처리 실패 (${status})` }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
-
-    if (!content) {
-      return new Response(
-        JSON.stringify({ error: "AI 응답이 비어 있습니다. 다시 시도해주세요." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Parse JSON from response with robust extraction
-    let result: ExtractionResult;
-    try {
-      let jsonStr = content.trim();
-
-      // Remove markdown fences
-      jsonStr = jsonStr.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-
-      // Find JSON object start
-      const jsonStart = jsonStr.indexOf("{");
-      if (jsonStart === -1) throw new Error("No JSON object found");
-      jsonStr = jsonStr.substring(jsonStart);
-
-      // Remove trailing garbage after final closing brace if present
-      const lastBrace = jsonStr.lastIndexOf("}");
-      if (lastBrace !== -1) {
-        jsonStr = jsonStr.substring(0, lastBrace + 1);
-      }
-
-      const tryParse = (value: string) => JSON.parse(value) as ExtractionResult;
-
+  for (const model of MODELS) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        result = tryParse(jsonStr);
-      } catch {
-        // Fix common issues: trailing commas, control characters
-        let repaired = jsonStr
-          .replace(/,\s*}/g, "}")
-          .replace(/,\s*]/g, "]")
-          .replace(/[\x00-\x1F\x7F]/g, (ch) => (ch === "\n" || ch === "\r" || ch === "\t" ? ch : ""));
+        const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              {
+                role: "user",
+                content: `다음은 단어장/문서의 텍스트입니다. 모든 영어 단어를 추출해주세요.\n\n${truncatedText}`,
+              },
+            ],
+            max_tokens: includeDetails ? 8192 : 4096,
+            temperature: 0.1,
+          }),
+        });
 
-        try {
-          result = tryParse(repaired);
-        } catch {
-          // Balance missing brackets/braces for truncated responses
-          let openBraces = 0;
-          let openBrackets = 0;
-
-          for (const char of repaired) {
-            if (char === "{") openBraces++;
-            else if (char === "}") openBraces--;
-            else if (char === "[") openBrackets++;
-            else if (char === "]") openBrackets--;
-          }
-
-          repaired = repaired.replace(/,\s*$/, "");
-          repaired += "]".repeat(Math.max(0, openBrackets));
-          repaired += "}".repeat(Math.max(0, openBraces));
-
-          result = tryParse(repaired);
+        if (res.status === 429) {
+          await sleep(2000 * (attempt + 1));
+          continue;
         }
+
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error(`Cerebras ${model} attempt ${attempt + 1} failed:`, res.status, errText);
+          if (res.status >= 500) {
+            await sleep(1000 * (attempt + 1));
+            continue;
+          }
+          break; // Client error, try next model
+        }
+
+        const data = await res.json();
+        const content = data.choices?.[0]?.message?.content || "";
+        if (!content) continue;
+
+        return parseAIResponse(content);
+      } catch (err) {
+        console.error(`Cerebras ${model} attempt ${attempt + 1} error:`, err);
+        await sleep(1000);
       }
-    } catch (parseError) {
-      console.error("JSON parse error:", parseError, "Content:", content.substring(0, 1000));
-      return new Response(
-        JSON.stringify({ error: "AI 응답을 파싱할 수 없습니다. 다시 시도해주세요." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    }
+  }
+
+  throw new Error("모든 AI 모델에서 추출에 실패했습니다.");
+}
+
+// ── JSON parsing with repair ─────────────────────────────────────────
+function parseAIResponse(content: string): ExtractionResult {
+  let jsonStr = content.trim();
+  jsonStr = jsonStr.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+
+  const jsonStart = jsonStr.indexOf("{");
+  if (jsonStart === -1) throw new Error("No JSON object found");
+  jsonStr = jsonStr.substring(jsonStart);
+
+  const lastBrace = jsonStr.lastIndexOf("}");
+  if (lastBrace !== -1) jsonStr = jsonStr.substring(0, lastBrace + 1);
+
+  const tryParse = (v: string) => JSON.parse(v);
+
+  let parsed: any;
+  try {
+    parsed = tryParse(jsonStr);
+  } catch {
+    let repaired = jsonStr
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*]/g, "]")
+      .replace(/[\x00-\x1F\x7F]/g, (ch) =>
+        ch === "\n" || ch === "\r" || ch === "\t" ? ch : ""
       );
-    }
 
-    // Validate and clean the result
-    if (!result.chapters || !Array.isArray(result.chapters)) {
-      result = { vocabulary_name: "", chapters: [{ name: "전체 단어", words: [] }] };
+    try {
+      parsed = tryParse(repaired);
+    } catch {
+      let openBraces = 0, openBrackets = 0;
+      for (const char of repaired) {
+        if (char === "{") openBraces++;
+        else if (char === "}") openBraces--;
+        else if (char === "[") openBrackets++;
+        else if (char === "]") openBrackets--;
+      }
+      repaired = repaired.replace(/,\s*$/, "");
+      repaired += "]".repeat(Math.max(0, openBrackets));
+      repaired += "}".repeat(Math.max(0, openBraces));
+      parsed = tryParse(repaired);
     }
+  }
 
-    // Ensure all chapters have valid words
-    result.chapters = result.chapters.map((ch) => ({
+  if (!parsed.chapters || !Array.isArray(parsed.chapters)) {
+    parsed = { vocabulary_name: "", chapters: [{ name: "전체 단어", words: [] }] };
+  }
+
+  parsed.chapters = parsed.chapters
+    .map((ch: any) => ({
       name: ch.name || "전체 단어",
       words: (ch.words || [])
-        .filter((w) => w.word && typeof w.word === "string" && w.word.trim().length > 0)
-        .map((w) => ({
+        .filter((w: any) => w.word && typeof w.word === "string" && w.word.trim().length > 0)
+        .map((w: any) => ({
           word: w.word.trim(),
           meaning: w.meaning || "",
           example: w.example || "",
@@ -328,10 +269,62 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
           antonyms: w.antonyms || "",
           derivatives: Array.isArray(w.derivatives) ? w.derivatives : [],
         })),
-    }));
+    }))
+    .filter((ch: any) => ch.words.length > 0);
 
-    // Remove empty chapters
-    result.chapters = result.chapters.filter((ch) => ch.words.length > 0);
+  return {
+    vocabulary_name: parsed.vocabulary_name || "",
+    chapters: parsed.chapters,
+  };
+}
+
+// ── Main handler ─────────────────────────────────────────────────────
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const PDF_CO_API_KEY = Deno.env.get("PDF_CO_API_KEY");
+    const CEREBRAS_API_KEY = Deno.env.get("CEREBRAS_API_KEY");
+
+    if (!PDF_CO_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "PDF_CO_API_KEY가 설정되어 있지 않습니다." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!CEREBRAS_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "CEREBRAS_API_KEY가 설정되어 있지 않습니다." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { file_base64, file_type, include_details } = await req.json();
+
+    if (!file_base64 || !file_type) {
+      return new Response(
+        JSON.stringify({ error: "file_base64와 file_type이 필요합니다." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Step 1: Extract text via PDF.co
+    console.log("Extracting text via PDF.co...");
+    const extractedText = await extractTextViaPdfCo(file_base64, file_type, PDF_CO_API_KEY);
+
+    if (!extractedText || extractedText.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ error: "파일에서 텍스트를 추출할 수 없습니다. 다른 파일을 시도해주세요." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Extracted ${extractedText.length} chars, sending to Cerebras...`);
+
+    // Step 2: Structure vocabulary via Cerebras
+    const result = await callCerebras(extractedText, include_details !== false, CEREBRAS_API_KEY);
 
     const totalWords = result.chapters.reduce((sum, ch) => sum + ch.words.length, 0);
 
@@ -341,8 +334,9 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
     );
   } catch (error) {
     console.error("extract-vocabulary error:", error);
+    const message = error instanceof Error ? error.message : "알 수 없는 오류";
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
