@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import * as pdfjsLib from "pdfjs-dist";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -137,13 +138,24 @@ const FileVocabularyUpload = () => {
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result); // Keep full data URL for puter
-      };
+      reader.onload = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+  };
+
+  const extractPdfText = async (file: File): Promise<string> => {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pages: string[] = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const text = textContent.items.map((item: any) => item.str).join(" ");
+      pages.push(`--- Page ${i} ---\n${text}`);
+    }
+    return pages.join("\n\n");
   };
 
   const buildPrompt = (includeDetails: boolean) => {
@@ -314,26 +326,42 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
         setExtractionProgress(Math.round(((fi) / selectedFiles.length) * 100));
 
         const { file } = selectedFiles[fi];
-        const dataUrl = await fileToBase64(file);
+        const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 
-        const response = await window.puter.ai.chat([
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
+        let response: any;
+        try {
+          if (isPdf) {
+            // Extract text from PDF first, then send as plain text
+            const pdfText = await extractPdfText(file);
+            if (!pdfText.trim()) {
+              console.warn(`File ${fi + 1} (${file.name}): PDF has no extractable text, skipping`);
+              continue;
+            }
+            response = await window.puter.ai.chat([
+              { role: "system", content: systemPrompt },
               {
-                type: "image_url",
-                image_url: { url: dataUrl },
+                role: "user",
+                content: `다음은 단어장/문서의 텍스트입니다. 모든 영어 단어를 추출해주세요. Day나 Unit 등의 구분이 있으면 챕터로 나눠주세요.\n\n${pdfText.slice(0, 120000)}`,
               },
+            ], { model: "gpt-4o" });
+          } else {
+            // Image files - send as image_url
+            const dataUrl = await fileToBase64(file);
+            response = await window.puter.ai.chat([
+              { role: "system", content: systemPrompt },
               {
-                type: "text",
-                text: "이 단어장/문서에서 모든 영어 단어를 추출해주세요. Day나 Unit 등의 구분이 있으면 챕터로 나눠주세요.",
+                role: "user",
+                content: [
+                  { type: "image_url", image_url: { url: dataUrl } },
+                  { type: "text", text: "이 단어장/문서에서 모든 영어 단어를 추출해주세요. Day나 Unit 등의 구분이 있으면 챕터로 나눠주세요." },
+                ],
               },
-            ],
-          },
-        ], {
-          model: "gpt-4o",
-        });
+            ], { model: "gpt-4o" });
+          }
+        } catch (fileErr) {
+          console.error(`File ${fi + 1} (${file.name}) failed:`, fileErr);
+          continue;
+        }
 
         const content = response?.message?.content || "";
         if (!content) {
@@ -341,7 +369,13 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
           continue;
         }
 
-        const fileResult = parseAIResponse(content);
+        let fileResult: ExtractionResult;
+        try {
+          fileResult = parseAIResponse(content);
+        } catch (parseErr) {
+          console.error(`File ${fi + 1} parse failed:`, parseErr);
+          continue;
+        }
 
         if (fileResult.vocabulary_name && !vocabName) {
           vocabName = fileResult.vocabulary_name;
