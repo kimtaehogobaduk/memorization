@@ -275,6 +275,26 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
     };
   };
 
+  const waitForPuter = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (window.puter?.ai) {
+        resolve();
+        return;
+      }
+      let attempts = 0;
+      const interval = setInterval(() => {
+        attempts++;
+        if (window.puter?.ai) {
+          clearInterval(interval);
+          resolve();
+        } else if (attempts > 30) {
+          clearInterval(interval);
+          reject(new Error("Puter AI를 불러올 수 없습니다. 페이지를 새로고침해주세요."));
+        }
+      }, 200);
+    });
+  };
+
   const handleExtract = async () => {
     if (selectedFiles.length === 0) return;
 
@@ -284,6 +304,8 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
     setExtractionProgress(0);
 
     try {
+      await waitForPuter();
+
       const systemPrompt = buildPrompt(includeDetails);
       const allChapters: ExtractedChapter[] = [];
       let vocabName = "";
