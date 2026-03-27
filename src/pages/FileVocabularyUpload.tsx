@@ -1,5 +1,4 @@
 import { useState, useRef } from "react";
-import * as pdfjsLib from "pdfjs-dist";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -123,7 +122,6 @@ const FileVocabularyUpload = () => {
       setError(null);
     }
 
-    // Reset input value so same file can be re-selected
     e.target.value = "";
   };
 
@@ -135,175 +133,17 @@ const FileVocabularyUpload = () => {
     });
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
+  const fileToBase64Raw = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove data URL prefix to get raw base64
+        const base64 = result.split(",")[1] || result;
+        resolve(base64);
+      };
       reader.onerror = reject;
       reader.readAsDataURL(file);
-    });
-  };
-
-  const extractPdfText = async (file: File): Promise<string> => {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const pages: string[] = [];
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const text = textContent.items.map((item: any) => item.str).join(" ");
-      pages.push(`--- Page ${i} ---\n${text}`);
-    }
-    return pages.join("\n\n");
-  };
-
-  const buildPrompt = (includeDetails: boolean) => {
-    const detailsPrompt = includeDetails
-      ? `For each word, also extract or generate:
-- "meaning": Korean meaning/definition (한국어 뜻)
-- "example": example sentence if available
-- "part_of_speech": part of speech (품사, in Korean like 명사, 동사, 형용사)
-- "pronunciation": pronunciation guide
-- "synonyms": comma-separated synonyms if available
-- "antonyms": comma-separated antonyms if available  
-- "derivatives": array of {word, meaning} for derivative words if available`
-      : `Only extract the word itself. Do NOT include meanings, examples, or other details.`;
-
-    return `You are a vocabulary extraction expert. You analyze images and documents of vocabulary lists/word books and extract structured data.
-
-CRITICAL RULES:
-1. Extract ALL English words from the document.
-2. If the document has sections like "Day 1", "Day 2", "Unit 1", "Chapter 1", "Part 1", etc., group words into chapters accordingly.
-3. If there are no clear sections, put all words in a single chapter called "전체 단어".
-4. The vocabulary name should be inferred from the document title if visible, otherwise use "".
-5. ${detailsPrompt}
-
-Return ONLY valid JSON in this exact format:
-{
-  "vocabulary_name": "string or empty",
-  "chapters": [
-    {
-      "name": "Day 1",
-      "words": [
-        {
-          "word": "example"${includeDetails ? `,
-          "meaning": "예시",
-          "example": "This is an example.",
-          "part_of_speech": "명사",
-          "pronunciation": "ɪɡˈzæmpəl",
-          "synonyms": "instance, sample",
-          "antonyms": "original",
-          "derivatives": [{"word": "exemplary", "meaning": "모범적인"}]` : ""}
-        }
-      ]
-    }
-  ]
-}
-
-IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanation.`;
-  };
-
-  const parseAIResponse = (content: string): ExtractionResult => {
-    let jsonStr = content.trim();
-    
-    // Remove markdown fences
-    jsonStr = jsonStr.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-
-    // Find JSON object
-    const jsonStart = jsonStr.indexOf("{");
-    if (jsonStart === -1) throw new Error("No JSON object found");
-    jsonStr = jsonStr.substring(jsonStart);
-
-    const lastBrace = jsonStr.lastIndexOf("}");
-    if (lastBrace !== -1) {
-      jsonStr = jsonStr.substring(0, lastBrace + 1);
-    }
-
-    const tryParse = (value: string) => JSON.parse(value);
-
-    let parsed: any;
-    try {
-      parsed = tryParse(jsonStr);
-    } catch {
-      // Fix trailing commas and control chars
-      let repaired = jsonStr
-        .replace(/,\s*}/g, "}")
-        .replace(/,\s*]/g, "]")
-        .replace(/[\x00-\x1F\x7F]/g, (ch) =>
-          ch === "\n" || ch === "\r" || ch === "\t" ? ch : ""
-        );
-
-      try {
-        parsed = tryParse(repaired);
-      } catch {
-        // Balance brackets
-        let openBraces = 0, openBrackets = 0;
-        for (const char of repaired) {
-          if (char === "{") openBraces++;
-          else if (char === "}") openBraces--;
-          else if (char === "[") openBrackets++;
-          else if (char === "]") openBrackets--;
-        }
-        repaired = repaired.replace(/,\s*$/, "");
-        repaired += "]".repeat(Math.max(0, openBrackets));
-        repaired += "}".repeat(Math.max(0, openBraces));
-        parsed = tryParse(repaired);
-      }
-    }
-
-    // Validate
-    if (!parsed.chapters || !Array.isArray(parsed.chapters)) {
-      parsed = { vocabulary_name: "", chapters: [{ name: "전체 단어", words: [] }] };
-    }
-
-    parsed.chapters = parsed.chapters
-      .map((ch: any) => ({
-        name: ch.name || "전체 단어",
-        words: (ch.words || [])
-          .filter((w: any) => w.word && typeof w.word === "string" && w.word.trim().length > 0)
-          .map((w: any) => ({
-            word: w.word.trim(),
-            meaning: w.meaning || "",
-            example: w.example || "",
-            part_of_speech: w.part_of_speech || "",
-            pronunciation: w.pronunciation || "",
-            synonyms: w.synonyms || "",
-            antonyms: w.antonyms || "",
-            derivatives: Array.isArray(w.derivatives) ? w.derivatives : [],
-          })),
-      }))
-      .filter((ch: any) => ch.words.length > 0);
-
-    const totalWords = parsed.chapters.reduce(
-      (sum: number, ch: any) => sum + ch.words.length,
-      0
-    );
-
-    return {
-      vocabulary_name: parsed.vocabulary_name || "",
-      chapters: parsed.chapters,
-      total_words: totalWords,
-    };
-  };
-
-  const waitForPuter = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      if (window.puter?.ai) {
-        resolve();
-        return;
-      }
-      let attempts = 0;
-      const interval = setInterval(() => {
-        attempts++;
-        if (window.puter?.ai) {
-          clearInterval(interval);
-          resolve();
-        } else if (attempts > 30) {
-          clearInterval(interval);
-          reject(new Error("Puter AI를 불러올 수 없습니다. 페이지를 새로고침해주세요."));
-        }
-      }, 200);
     });
   };
 
@@ -316,83 +156,60 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
     setExtractionProgress(0);
 
     try {
-      await waitForPuter();
-
-      const systemPrompt = buildPrompt(includeDetails);
       const allChapters: ExtractedChapter[] = [];
       let vocabName = "";
 
       for (let fi = 0; fi < selectedFiles.length; fi++) {
-        setExtractionProgress(Math.round(((fi) / selectedFiles.length) * 100));
+        setExtractionProgress(Math.round((fi / selectedFiles.length) * 100));
 
         const { file } = selectedFiles[fi];
-        const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 
-        let response: any;
         try {
-          if (isPdf) {
-            // Extract text from PDF first, then send as plain text
-            const pdfText = await extractPdfText(file);
-            if (!pdfText.trim()) {
-              console.warn(`File ${fi + 1} (${file.name}): PDF has no extractable text, skipping`);
-              continue;
+          const base64 = await fileToBase64Raw(file);
+
+          const { data, error: fnError } = await supabase.functions.invoke(
+            "extract-vocabulary",
+            {
+              body: {
+                file_base64: base64,
+                file_type: file.type,
+                include_details: includeDetails,
+              },
             }
-            response = await window.puter.ai.chat([
-              { role: "system", content: systemPrompt },
-              {
-                role: "user",
-                content: `다음은 단어장/문서의 텍스트입니다. 모든 영어 단어를 추출해주세요. Day나 Unit 등의 구분이 있으면 챕터로 나눠주세요.\n\n${pdfText.slice(0, 120000)}`,
-              },
-            ], { model: "gpt-4o" });
-          } else {
-            // Image files - send as image_url
-            const dataUrl = await fileToBase64(file);
-            response = await window.puter.ai.chat([
-              { role: "system", content: systemPrompt },
-              {
-                role: "user",
-                content: [
-                  { type: "image_url", image_url: { url: dataUrl } },
-                  { type: "text", text: "이 단어장/문서에서 모든 영어 단어를 추출해주세요. Day나 Unit 등의 구분이 있으면 챕터로 나눠주세요." },
-                ],
-              },
-            ], { model: "gpt-4o" });
+          );
+
+          if (fnError) {
+            console.error(`File ${fi + 1} (${file.name}) edge fn error:`, fnError);
+            continue;
           }
+
+          if (data?.error) {
+            console.error(`File ${fi + 1} (${file.name}) error:`, data.error);
+            continue;
+          }
+
+          if (data?.vocabulary_name && !vocabName) {
+            vocabName = data.vocabulary_name;
+          }
+
+          const chapters: ExtractedChapter[] = data?.chapters || [];
+
+          // Prefix chapter names for multi-file
+          if (selectedFiles.length > 1) {
+            const fileName = file.name.replace(/\.[^.]+$/, "");
+            for (const ch of chapters) {
+              ch.name =
+                chapters.length === 1 && ch.name === "전체 단어"
+                  ? fileName
+                  : `${fileName} - ${ch.name}`;
+            }
+          }
+
+          allChapters.push(...chapters);
         } catch (fileErr) {
           console.error(`File ${fi + 1} (${file.name}) failed:`, fileErr);
           continue;
         }
-
-        const content = response?.message?.content || "";
-        if (!content) {
-          console.warn(`File ${fi + 1} returned empty response, skipping`);
-          continue;
-        }
-
-        let fileResult: ExtractionResult;
-        try {
-          fileResult = parseAIResponse(content);
-        } catch (parseErr) {
-          console.error(`File ${fi + 1} parse failed:`, parseErr);
-          continue;
-        }
-
-        if (fileResult.vocabulary_name && !vocabName) {
-          vocabName = fileResult.vocabulary_name;
-        }
-
-        // If multiple files, prefix chapter names with file info
-        if (selectedFiles.length > 1) {
-          const fileName = file.name.replace(/\.[^.]+$/, "");
-          fileResult.chapters = fileResult.chapters.map((ch) => ({
-            ...ch,
-            name: fileResult.chapters.length === 1 && ch.name === "전체 단어"
-              ? fileName
-              : `${fileName} - ${ch.name}`,
-          }));
-        }
-
-        allChapters.push(...fileResult.chapters);
       }
 
       setExtractionProgress(100);
@@ -572,7 +389,6 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
               </p>
             </div>
           </div>
-          {/* Floating decoration */}
           <motion.img
             src={junsuk14}
             alt=""
