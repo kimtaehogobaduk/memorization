@@ -823,6 +823,26 @@ const Quiz = () => {
           </Card>
         )}
 
+        {quizType === "writing" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">주관식 설정</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Label>문제 유형</Label>
+              <Select value={questionType} onValueChange={(v: any) => setQuestionType(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="meaning-to-word">뜻 → 단어</SelectItem>
+                  <SelectItem value="word-to-meaning">단어 → 뜻</SelectItem>
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+        )}
+
         {quizType === "ai" && (
           <Card>
             <CardHeader>
