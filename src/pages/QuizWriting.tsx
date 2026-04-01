@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Check, X } from "lucide-react";
+import { Check, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -30,6 +30,7 @@ const QuizWriting = () => {
   const [userAnswer, setUserAnswer] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
   const [incorrectWords, setIncorrectWords] = useState<Word[]>([]);
@@ -41,7 +42,8 @@ const QuizWriting = () => {
   const isRetry = searchParams.get("retry") === "true";
   const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
   const idsParam = searchParams.get("ids");
-  const vocabIds = idsParam ? idsParam.split(",") : [id]; // Support multi-vocab
+  const vocabIds = idsParam ? idsParam.split(",") : [id];
+  const questionType = searchParams.get("type") || "meaning-to-word";
  
   useEffect(() => {
     if ((id || (vocabIds && vocabIds.length > 0)) && user) {
@@ -74,7 +76,7 @@ const QuizWriting = () => {
         .from("words")
         .select("id, word, meaning")
         .in("vocabulary_id", vocabIds)
-        .limit(100); // 최대 100개로 제한
+        .limit(100);
 
       if (chapterId) {
         query = query.eq("chapter_id", chapterId);
@@ -103,17 +105,60 @@ const QuizWriting = () => {
   };
 
   const normalizeText = (text: string) => {
-    // Remove spaces, punctuation, and convert to lowercase
     return text.toLowerCase().replace(/[\s,?.!]/g, "");
   };
 
-  const handleSubmit = () => {
-    if (isSubmitted) return;
+  // Check if user's meaning answer matches any part of the stored meaning
+  const checkMeaningLocally = (userAns: string, correctMeaning: string): boolean => {
+    const normalized = normalizeText(userAns);
+    if (!normalized) return false;
+
+    // Split stored meaning by common delimiters
+    const meanings = correctMeaning.split(/[,;/]/).map(m => normalizeText(m));
+    
+    // Check if user answer matches any meaning part
+    return meanings.some(m => m && (m === normalized || m.includes(normalized) || normalized.includes(m)));
+  };
+
+  // AI-based validation for meaning answers
+  const validateMeaningWithAI = async (word: string, userAns: string, correctMeaning: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.functions.invoke("validate-meaning", {
+        body: { word, userAnswer: userAns, correctMeaning },
+      });
+      if (error) throw error;
+      return data?.valid === true;
+    } catch (e) {
+      console.error("AI validation failed:", e);
+      return false;
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (isSubmitted || isChecking) return;
 
     const currentWord = words[currentIndex];
-    const normalized = normalizeText(userAnswer);
-    const correctNormalized = normalizeText(currentWord.word);
-    const correct = normalized === correctNormalized;
+    let correct = false;
+
+    if (questionType === "meaning-to-word") {
+      // Original: type the word
+      const normalized = normalizeText(userAnswer);
+      const correctNormalized = normalizeText(currentWord.word);
+      correct = normalized === correctNormalized;
+    } else {
+      // word-to-meaning: type the meaning
+      setIsChecking(true);
+      
+      // Step 1: Local check
+      correct = checkMeaningLocally(userAnswer, currentWord.meaning);
+      
+      // Step 2: If local check fails, try AI validation
+      if (!correct && userAnswer.trim().length > 0) {
+        correct = await validateMeaningWithAI(currentWord.word, userAnswer, currentWord.meaning);
+      }
+      
+      setIsChecking(false);
+    }
 
     setIsSubmitted(true);
     setIsCorrect(correct);
@@ -198,6 +243,14 @@ const QuizWriting = () => {
   const inputSizeClass = fontSize === 'small' ? 'text-base' : fontSize === 'large' ? 'text-2xl' : 'text-xl';
   const answerSizeClass = fontSize === 'small' ? 'text-lg' : fontSize === 'large' ? 'text-3xl' : 'text-2xl';
 
+  const isWordToMeaning = questionType === "word-to-meaning";
+  const questionText = isWordToMeaning ? currentWord.word : currentWord.meaning;
+  const correctAnswer = isWordToMeaning ? currentWord.meaning : currentWord.word;
+  const placeholderText = isWordToMeaning ? "뜻을 입력하세요" : "단어를 입력하세요";
+  const promptText = isWordToMeaning 
+    ? "다음 단어의 뜻을 입력하세요" 
+    : "다음 뜻에 해당하는 단어를 입력하세요";
+
   return (
     <div className="min-h-screen bg-background">
       <Header title="주관식 퀴즈" showBack onBack={() => navigate(`/quiz/${id}`)} />
@@ -225,9 +278,9 @@ const QuizWriting = () => {
           >
             <Card className="p-8 text-center bg-gradient-card">
               <p className="text-sm text-muted-foreground mb-4">
-                다음 뜻에 해당하는 단어를 입력하세요
+                {promptText}
               </p>
-              <h2 className={`font-bold mb-2 ${questionSizeClass}`}>{currentWord.meaning}</h2>
+              <h2 className={`font-bold mb-2 ${questionSizeClass}`}>{questionText}</h2>
             </Card>
 
             <div className="space-y-4">
@@ -235,13 +288,13 @@ const QuizWriting = () => {
                 value={userAnswer}
                 onChange={(e) => setUserAnswer(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !isSubmitted) {
+                  if (e.key === "Enter" && !isSubmitted && !isChecking) {
                     handleSubmit();
                   }
                 }}
-                placeholder="단어를 입력하세요"
+                placeholder={placeholderText}
                 className={`py-6 ${inputSizeClass}`}
-                disabled={isSubmitted}
+                disabled={isSubmitted || isChecking}
                 autoFocus
               />
 
@@ -267,7 +320,7 @@ const QuizWriting = () => {
                         </p>
                         {!isCorrect && (
                           <p className={`mt-1 ${fontSize === 'small' ? 'text-sm' : fontSize === 'large' ? 'text-lg' : 'text-base'}`}>
-                            정답: <span className={`font-semibold ${answerSizeClass}`}>{currentWord.word}</span>
+                            정답: <span className={`font-semibold ${answerSizeClass}`}>{correctAnswer}</span>
                           </p>
                         )}
                       </div>
@@ -279,11 +332,16 @@ const QuizWriting = () => {
               {!isSubmitted && (
                 <Button
                   onClick={handleSubmit}
-                  disabled={!userAnswer.trim()}
+                  disabled={!userAnswer.trim() || isChecking}
                   className="w-full"
                   size="lg"
                 >
-                  제출
+                  {isChecking ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      채점 중...
+                    </span>
+                  ) : "제출"}
                 </Button>
               )}
             </div>
