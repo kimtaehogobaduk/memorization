@@ -682,6 +682,7 @@ const Quiz = () => {
       params.append("choices", choiceCount.toString());
       navigate(`/quiz/${id}/multiple?${params.toString()}`);
     } else if (quizType === "writing") {
+      params.append("type", questionType);
       navigate(`/quiz/${id}/writing?${params.toString()}`);
     } else if (quizType === "matching") {
       navigate(`/quiz/${id}/matching?${params.toString()}`);
