@@ -46,6 +46,7 @@ const QuizMultipleChoice = () => {
   const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
   const idsParam = searchParams.get("ids");
   const vocabIds = idsParam ? idsParam.split(",") : [id]; // Support multi-vocab
+  const questionCountParam = searchParams.get("count");
  
   useEffect(() => {
     if ((id || (vocabIds && vocabIds.length > 0)) && user) {
