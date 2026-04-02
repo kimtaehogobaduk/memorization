@@ -96,6 +96,13 @@ const QuizWriting = () => {
         wordsData = wordsData.sort(() => Math.random() - 0.5);
       }
 
+      if (questionCountParam && !isRetry) {
+        const count = parseInt(questionCountParam);
+        if (!isNaN(count) && count > 0) {
+          wordsData = wordsData.slice(0, count);
+        }
+      }
+
       setWords(wordsData);
     } catch (error) {
       console.error("Error loading words:", error);
