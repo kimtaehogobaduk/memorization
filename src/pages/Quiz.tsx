@@ -26,7 +26,7 @@ const Quiz = () => {
   const [quizType, setQuizType] = useState<"multiple" | "writing" | "matching" | "random" | "ai">("multiple");
   const [questionType, setQuestionType] = useState<"word-to-meaning" | "meaning-to-word">("meaning-to-word");
   const [choiceCount, setChoiceCount] = useState(4);
-  const [questionCount, setQuestionCount] = useState<number | "all">("all");
+  const [questionCount, setQuestionCount] = useState<number | "">("");
   const [isRandomOrder, setIsRandomOrder] = useState(true);
   const [answerDelay, setAnswerDelay] = useState([2]);
   const [aiDifficulty, setAiDifficulty] = useState<string>("중");
