@@ -194,6 +194,7 @@ const QuizWriting = () => {
           total: words.length.toString(),
           incorrect: encodeURIComponent(JSON.stringify(finalIncorrect)),
           quizType: "writing",
+          questionType: questionType,
           delay: answerDelay.toString(),
         });
         
