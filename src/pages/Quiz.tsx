@@ -665,6 +665,10 @@ const Quiz = () => {
       params.append("chapter", chapterId);
     }
 
+    if (questionCount !== "all") {
+      params.append("count", questionCount.toString());
+    }
+
     if (quizType === "ai") {
       params.append("difficulty", aiDifficulty);
       if (aiCustomRequest.trim()) {
