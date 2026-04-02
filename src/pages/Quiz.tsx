@@ -26,6 +26,7 @@ const Quiz = () => {
   const [quizType, setQuizType] = useState<"multiple" | "writing" | "matching" | "random" | "ai">("multiple");
   const [questionType, setQuestionType] = useState<"word-to-meaning" | "meaning-to-word">("meaning-to-word");
   const [choiceCount, setChoiceCount] = useState(4);
+  const [questionCount, setQuestionCount] = useState<number | "all">("all");
   const [isRandomOrder, setIsRandomOrder] = useState(true);
   const [answerDelay, setAnswerDelay] = useState([2]);
   const [aiDifficulty, setAiDifficulty] = useState<string>("중");
@@ -664,6 +665,10 @@ const Quiz = () => {
       params.append("chapter", chapterId);
     }
 
+    if (questionCount !== "all") {
+      params.append("count", questionCount.toString());
+    }
+
     if (quizType === "ai") {
       params.append("difficulty", aiDifficulty);
       if (aiCustomRequest.trim()) {
@@ -901,6 +906,24 @@ const Quiz = () => {
             <CardTitle className="text-base">공통 설정</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>문항 수</Label>
+              <Select 
+                value={questionCount.toString()} 
+                onValueChange={(v) => setQuestionCount(v === "all" ? "all" : parseInt(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 ({wordCount}문항)</SelectItem>
+                  {[10, 20, 30, 50].filter(n => n < wordCount).map(n => (
+                    <SelectItem key={n} value={n.toString()}>{n}문항</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="flex items-center justify-between">
               <Label>랜덤 순서</Label>
               <Switch checked={isRandomOrder} onCheckedChange={setIsRandomOrder} />

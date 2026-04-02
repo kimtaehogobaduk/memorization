@@ -44,6 +44,7 @@ const QuizWriting = () => {
   const idsParam = searchParams.get("ids");
   const vocabIds = idsParam ? idsParam.split(",") : [id];
   const questionType = searchParams.get("type") || "meaning-to-word";
+  const questionCountParam = searchParams.get("count");
  
   useEffect(() => {
     if ((id || (vocabIds && vocabIds.length > 0)) && user) {
@@ -93,6 +94,13 @@ const QuizWriting = () => {
       let wordsData = data || [];
       if (isRandom && !isRetry) {
         wordsData = wordsData.sort(() => Math.random() - 0.5);
+      }
+
+      if (questionCountParam && !isRetry) {
+        const count = parseInt(questionCountParam);
+        if (!isNaN(count) && count > 0) {
+          wordsData = wordsData.slice(0, count);
+        }
       }
 
       setWords(wordsData);
@@ -186,6 +194,7 @@ const QuizWriting = () => {
           total: words.length.toString(),
           incorrect: encodeURIComponent(JSON.stringify(finalIncorrect)),
           quizType: "writing",
+          questionType: questionType,
           delay: answerDelay.toString(),
         });
         

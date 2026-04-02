@@ -27,7 +27,7 @@ serve(async (req) => {
       });
     }
 
-    const prompt = `You are a vocabulary quiz grader for Korean learners studying English.
+    const prompt = `You are a strict but fair vocabulary quiz grader for Korean learners studying English.
 
 English word: "${word}"
 Stored meaning (Korean): "${correctMeaning}"
@@ -36,17 +36,18 @@ User's answer (Korean): "${userAnswer}"
 Judge if the user's answer is an acceptable Korean meaning for "${word}".
 
 ACCEPT if:
-- The answer captures the core meaning of the word, even if worded differently
-- The answer is a valid Korean synonym or paraphrase of the correct meaning
-- The answer matches ANY valid meaning of the word (not just the stored one)
-- Example: for "run", accept "달리다", "뛰다", "실행하다", "운영하다" — all are valid
-- Example: for "book", accept "책", "서적", "예약하다" — all are valid meanings
-- Minor typos, spacing differences, or particle differences (e.g. "하다" vs "함") are OK
-- Partial but correct meaning (e.g. "빠른" for "swift" even if stored as "빠른, 신속한")
+- The answer is a recognized Korean translation of this English word
+- The answer is a close synonym of the stored meaning (e.g. "빠른" for "신속한")
+- The answer captures the same core concept, even with slightly different wording
+- Minor particle or conjugation differences (e.g. "하다" vs "하는 것") are OK
 
-REJECT only if:
-- The answer is clearly wrong or refers to a completely different concept
-- The answer is too vague to be meaningful (e.g. single particle like "을")
+REJECT if:
+- The answer is vague, overly broad, or too general (e.g. "것" for "book", "좋은" for "excellent")
+- The answer refers to a different concept or a different meaning of the word that doesn't relate to the stored meaning's context
+- The answer is a related but clearly different word (e.g. "걷다" for "run")
+- The answer is too short or meaningless (single particles, single common words with no specificity)
+
+Be moderately strict: accept valid synonyms and natural Korean expressions, but reject lazy or vague answers.
 
 Respond with ONLY: {"valid": true} or {"valid": false}`;
 

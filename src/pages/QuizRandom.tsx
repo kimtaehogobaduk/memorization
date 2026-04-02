@@ -63,6 +63,7 @@ const QuizRandom = () => {
   const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
   const idsParam = searchParams.get("ids");
   const vocabIds = idsParam ? idsParam.split(",") : [id];
+  const questionCountParam = searchParams.get("count");
 
   useEffect(() => {
     if ((id || (vocabIds && vocabIds.length > 0)) && user) {
@@ -104,6 +105,13 @@ const QuizRandom = () => {
       let wordsData = data || [];
       if (isRandom && !isRetry) {
         wordsData = wordsData.sort(() => Math.random() - 0.5);
+      }
+
+      if (questionCountParam && !isRetry) {
+        const count = parseInt(questionCountParam);
+        if (!isNaN(count) && count > 0) {
+          wordsData = wordsData.slice(0, count);
+        }
       }
 
       setWords(wordsData);
