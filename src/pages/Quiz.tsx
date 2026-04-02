@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -26,7 +27,7 @@ const Quiz = () => {
   const [quizType, setQuizType] = useState<"multiple" | "writing" | "matching" | "random" | "ai">("multiple");
   const [questionType, setQuestionType] = useState<"word-to-meaning" | "meaning-to-word">("meaning-to-word");
   const [choiceCount, setChoiceCount] = useState(4);
-  const [questionCount, setQuestionCount] = useState<number | "all">("all");
+  const [questionCount, setQuestionCount] = useState<number | "">("");
   const [isRandomOrder, setIsRandomOrder] = useState(true);
   const [answerDelay, setAnswerDelay] = useState([2]);
   const [aiDifficulty, setAiDifficulty] = useState<string>("중");
@@ -118,9 +119,15 @@ const Quiz = () => {
       }
 
       // Shuffle words if random order is enabled
-      const shuffledWords = isRandomOrder 
+      let shuffledWords = isRandomOrder 
         ? [...words].sort(() => Math.random() - 0.5)
-        : words;
+        : [...words];
+
+      // Apply question count limit
+      const effectiveCount = questionCount !== "" && questionCount > 0 && questionCount < shuffledWords.length
+        ? questionCount
+        : shuffledWords.length;
+      shuffledWords = shuffledWords.slice(0, effectiveCount);
 
       let questionsHtml = "";
       let answersHtml = "";
@@ -665,7 +672,7 @@ const Quiz = () => {
       params.append("chapter", chapterId);
     }
 
-    if (questionCount !== "all") {
+    if (questionCount !== "" && questionCount < wordCount) {
       params.append("count", questionCount.toString());
     }
 
@@ -907,21 +914,26 @@ const Quiz = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>문항 수</Label>
-              <Select 
-                value={questionCount.toString()} 
-                onValueChange={(v) => setQuestionCount(v === "all" ? "all" : parseInt(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">전체 ({wordCount}문항)</SelectItem>
-                  {[10, 20, 30, 50].filter(n => n < wordCount).map(n => (
-                    <SelectItem key={n} value={n.toString()}>{n}문항</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>문항 수 (전체: {wordCount}문항)</Label>
+              <Input
+                type="number"
+                min={1}
+                max={wordCount}
+                placeholder={`${wordCount}`}
+                value={questionCount}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "") {
+                    setQuestionCount("");
+                  } else {
+                    const num = parseInt(val);
+                    if (!isNaN(num) && num > 0) {
+                      setQuestionCount(Math.min(num, wordCount));
+                    }
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground">비워두면 전체 단어로 진행됩니다</p>
             </div>
 
             <div className="flex items-center justify-between">
