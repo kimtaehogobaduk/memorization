@@ -63,6 +63,7 @@ const QuizRandom = () => {
   const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
   const idsParam = searchParams.get("ids");
   const vocabIds = idsParam ? idsParam.split(",") : [id];
+  const questionCountParam = searchParams.get("count");
 
   useEffect(() => {
     if ((id || (vocabIds && vocabIds.length > 0)) && user) {
