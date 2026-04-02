@@ -665,7 +665,7 @@ const Quiz = () => {
       params.append("chapter", chapterId);
     }
 
-    if (questionCount !== "all") {
+    if (questionCount !== "" && questionCount < wordCount) {
       params.append("count", questionCount.toString());
     }
 
