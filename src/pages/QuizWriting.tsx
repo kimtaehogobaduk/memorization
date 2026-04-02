@@ -44,6 +44,7 @@ const QuizWriting = () => {
   const idsParam = searchParams.get("ids");
   const vocabIds = idsParam ? idsParam.split(",") : [id];
   const questionType = searchParams.get("type") || "meaning-to-word";
+  const questionCountParam = searchParams.get("count");
  
   useEffect(() => {
     if ((id || (vocabIds && vocabIds.length > 0)) && user) {
