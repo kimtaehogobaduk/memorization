@@ -118,9 +118,15 @@ const Quiz = () => {
       }
 
       // Shuffle words if random order is enabled
-      const shuffledWords = isRandomOrder 
+      let shuffledWords = isRandomOrder 
         ? [...words].sort(() => Math.random() - 0.5)
-        : words;
+        : [...words];
+
+      // Apply question count limit
+      const effectiveCount = questionCount !== "" && questionCount > 0 && questionCount < shuffledWords.length
+        ? questionCount
+        : shuffledWords.length;
+      shuffledWords = shuffledWords.slice(0, effectiveCount);
 
       let questionsHtml = "";
       let answersHtml = "";
