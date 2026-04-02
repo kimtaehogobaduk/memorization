@@ -913,21 +913,26 @@ const Quiz = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>문항 수</Label>
-              <Select 
-                value={questionCount.toString()} 
-                onValueChange={(v) => setQuestionCount(v === "all" ? "all" : parseInt(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">전체 ({wordCount}문항)</SelectItem>
-                  {[10, 20, 30, 50].filter(n => n < wordCount).map(n => (
-                    <SelectItem key={n} value={n.toString()}>{n}문항</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>문항 수 (전체: {wordCount}문항)</Label>
+              <Input
+                type="number"
+                min={1}
+                max={wordCount}
+                placeholder={`${wordCount}`}
+                value={questionCount}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "") {
+                    setQuestionCount("");
+                  } else {
+                    const num = parseInt(val);
+                    if (!isNaN(num) && num > 0) {
+                      setQuestionCount(Math.min(num, wordCount));
+                    }
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground">비워두면 전체 단어로 진행됩니다</p>
             </div>
 
             <div className="flex items-center justify-between">
