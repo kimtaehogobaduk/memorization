@@ -107,6 +107,13 @@ const QuizRandom = () => {
         wordsData = wordsData.sort(() => Math.random() - 0.5);
       }
 
+      if (questionCountParam && !isRetry) {
+        const count = parseInt(questionCountParam);
+        if (!isNaN(count) && count > 0) {
+          wordsData = wordsData.slice(0, count);
+        }
+      }
+
       setWords(wordsData);
 
       // Build per-question plan with random types
