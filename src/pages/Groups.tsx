@@ -26,16 +26,14 @@ const Groups = () => {
   const [loadingGroups, setLoadingGroups] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth");
+    if (!loading) {
+      if (user) {
+        loadGroups();
+      } else {
+        setLoadingGroups(false);
+      }
     }
-  }, [user, loading, navigate]);
-
-  useEffect(() => {
-    if (user) {
-      loadGroups();
-    }
-  }, [user]);
+  }, [user, loading]);
 
   const loadGroups = async () => {
     try {
