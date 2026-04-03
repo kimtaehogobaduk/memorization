@@ -44,6 +44,11 @@ const Quiz = () => {
   }, [id, chapterId]);
 
   const loadUserSettings = async () => {
+    if (!user) {
+      const local = getLocalSettings();
+      setAnswerDelay([local.answer_reveal_delay]);
+      return;
+    }
     try {
       const { data } = await supabase
         .from("user_settings")
