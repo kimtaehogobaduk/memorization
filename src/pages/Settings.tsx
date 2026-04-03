@@ -173,6 +173,18 @@ const Settings = () => {
     setSettingsLoading(true);
 
     try {
+      if (!user) {
+        // Save to localStorage for non-logged-in users
+        saveLocalSettings({
+          answer_reveal_delay: answerDelay,
+          auto_play_audio: autoPlayAudio,
+          quiz_font_size: quizFontSize,
+        });
+        toast.success("설정이 저장되었습니다!");
+        setSettingsLoading(false);
+        return;
+      }
+
       // First check if settings exist
       const { data: existingSettings } = await supabase
         .from("user_settings")
@@ -181,7 +193,6 @@ const Settings = () => {
         .single();
 
       if (existingSettings) {
-        // Update existing settings
         const { error } = await supabase
           .from("user_settings")
           .update({
@@ -194,7 +205,6 @@ const Settings = () => {
 
         if (error) throw error;
       } else {
-        // Insert new settings
         const { error } = await supabase
           .from("user_settings")
           .insert({
