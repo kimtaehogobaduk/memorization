@@ -60,18 +60,20 @@ const Settings = () => {
   });
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth");
+    if (!loading) {
+      if (user) {
+        loadProfile();
+        loadUserSettings();
+        loadStats();
+      } else {
+        // Load from localStorage for non-logged-in users
+        const local = getLocalSettings();
+        setAnswerDelay(local.answer_reveal_delay);
+        setAutoPlayAudio(local.auto_play_audio);
+        setQuizFontSize(local.quiz_font_size as 'small' | 'medium' | 'large');
+      }
     }
-  }, [user, loading, navigate]);
-
-  useEffect(() => {
-    if (user) {
-      loadProfile();
-      loadUserSettings();
-      loadStats();
-    }
-  }, [user]);
+  }, [user, loading]);
 
   const loadProfile = async () => {
     try {
