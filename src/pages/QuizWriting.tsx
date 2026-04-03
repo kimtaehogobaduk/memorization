@@ -48,11 +48,11 @@ const QuizWriting = () => {
   const questionCountParam = searchParams.get("count");
  
   useEffect(() => {
-    if ((id || (vocabIds && vocabIds.length > 0)) && user) {
+    if (id || (vocabIds && vocabIds.length > 0)) {
       loadWords();
       loadUserSettings();
     }
-  }, [id, idsParam, user]);
+  }, [id, idsParam]);
 
   const loadUserSettings = async () => {
     try {
