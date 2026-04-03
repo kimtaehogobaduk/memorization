@@ -91,17 +91,21 @@ const GroupDetail = () => {
       if (groupError) throw groupError;
 
       setGroup(groupData);
-      setIsOwner(groupData.owner_id === user?.id);
+      setIsOwner(user ? groupData.owner_id === user.id : false);
 
-      // Check if user is a member
-      const { data: memberData } = await supabase
-        .from("group_members")
-        .select("id")
-        .eq("group_id", id)
-        .eq("user_id", user?.id)
-        .single();
-      
-      setIsMember(!!memberData);
+      // Check if user is a member (only if logged in)
+      if (user) {
+        const { data: memberData } = await supabase
+          .from("group_members")
+          .select("id")
+          .eq("group_id", id)
+          .eq("user_id", user.id)
+          .single();
+        
+        setIsMember(!!memberData);
+      } else {
+        setIsMember(false);
+      }
 
       // Load vocabulary info if exists
       if (groupData.vocabulary_id) {
