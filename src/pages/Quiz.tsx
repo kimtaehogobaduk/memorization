@@ -66,6 +66,14 @@ const Quiz = () => {
 
   const loadQuizData = async () => {
     try {
+      if (isLocalVocab(id)) {
+        const vocab = loadLocalVocabulary(id!);
+        if (vocab) setVocabularyName(vocab.name);
+        const words = loadLocalWords(id!);
+        setWordCount(words.length);
+        return;
+      }
+
       const { data: vocab } = await supabase
         .from("vocabularies")
         .select("name")
