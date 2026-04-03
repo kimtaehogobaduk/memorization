@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
 import { motion } from "framer-motion";
+import { getLocalSettings, saveLocalSettings } from "@/utils/localVocabHelper";
 
 const Settings = () => {
   const { user, loading, signOut } = useAuth();
