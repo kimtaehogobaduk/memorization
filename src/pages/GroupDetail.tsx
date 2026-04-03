@@ -70,10 +70,10 @@ const GroupDetail = () => {
   const [myVocabularies, setMyVocabularies] = useState<any[]>([]);
 
   useEffect(() => {
-    if (id && user) {
+    if (id) {
       loadGroupData();
       loadSharedVocabularies();
-      loadMyVocabularies();
+      if (user) loadMyVocabularies();
     }
   }, [id, user]);
 
