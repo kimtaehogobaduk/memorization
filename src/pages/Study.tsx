@@ -9,6 +9,7 @@ import { Check, X, Eye, EyeOff, FileText, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isLocalVocab, loadLocalWords, loadLocalVocabulary } from "@/utils/localVocabHelper";
 
 interface Word {
   id: string;
