@@ -25,8 +25,18 @@ export const useAuth = () => {
           setTimeout(() => {
             checkAdminRole(session.user.id);
           }, 0);
+          // Sync local data on login
+          if (!syncedRef.current) {
+            syncedRef.current = true;
+            syncLocalDataToSupabase(session.user.id).then(count => {
+              if (count && count > 0) {
+                console.log(`Synced ${count} local vocabularies to cloud`);
+              }
+            });
+          }
         } else {
           setIsAdmin(false);
+          syncedRef.current = false;
         }
       }
     );
