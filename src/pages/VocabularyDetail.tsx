@@ -9,6 +9,7 @@ import { Edit, FileText, Brain, Play, Volume2, Search, X, ChevronLeft, ChevronRi
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isLocalVocab, loadLocalWords, loadLocalVocabulary } from "@/utils/localVocabHelper";
 
 interface Word {
   id: string;
