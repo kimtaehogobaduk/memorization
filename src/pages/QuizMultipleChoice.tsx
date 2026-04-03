@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { isLocalVocab, loadLocalWords, getLocalSettings } from "@/utils/localVocabHelper";
 
 interface Word {
   id: string;
@@ -49,13 +50,18 @@ const QuizMultipleChoice = () => {
   const questionCountParam = searchParams.get("count");
  
   useEffect(() => {
-    if ((id || (vocabIds && vocabIds.length > 0)) && user) {
+    if (id || (vocabIds && vocabIds.length > 0)) {
       loadWords();
       loadUserSettings();
     }
-  }, [id, idsParam, user]);
+  }, [id, idsParam]);
 
   const loadUserSettings = async () => {
+    if (!user) {
+      const local = getLocalSettings();
+      setFontSize(local.quiz_font_size as 'small' | 'medium' | 'large');
+      return;
+    }
     try {
       const { data } = await supabase
         .from("user_settings")
@@ -91,11 +97,31 @@ const QuizMultipleChoice = () => {
     try {
       setLoading(true);
 
+      const hasLocal = vocabIds.some(vid => vid && isLocalVocab(vid));
+      if (hasLocal) {
+        let allWords: Word[] = [];
+        for (const vid of vocabIds) {
+          if (vid && isLocalVocab(vid)) {
+            allWords.push(...loadLocalWords(vid).map(w => ({ id: w.id, word: w.word, meaning: w.meaning, part_of_speech: w.part_of_speech })));
+          }
+        }
+        if (isRetry && incorrectIds.length > 0) {
+          allWords = allWords.filter(w => incorrectIds.includes(w.id));
+        }
+        if (isRandom && !isRetry) allWords = allWords.sort(() => Math.random() - 0.5);
+        if (questionCountParam && !isRetry) {
+          const count = parseInt(questionCountParam);
+          if (!isNaN(count) && count > 0) allWords = allWords.slice(0, count);
+        }
+        setWords(allWords);
+        return;
+      }
+
       let query = supabase
         .from("words")
         .select("id, word, meaning, part_of_speech")
         .in("vocabulary_id", vocabIds)
-        .limit(100); // 최대 100개로 제한
+        .limit(100);
 
       if (chapterId) {
         query = query.eq("chapter_id", chapterId);

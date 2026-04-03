@@ -26,16 +26,14 @@ const Groups = () => {
   const [loadingGroups, setLoadingGroups] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth");
+    if (!loading) {
+      if (user) {
+        loadGroups();
+      } else {
+        setLoadingGroups(false);
+      }
     }
-  }, [user, loading, navigate]);
-
-  useEffect(() => {
-    if (user) {
-      loadGroups();
-    }
-  }, [user]);
+  }, [user, loading]);
 
   const loadGroups = async () => {
     try {
@@ -110,16 +108,20 @@ const Groups = () => {
       <Header
         title="그룹"
         action={
-          <div className="flex gap-2">
+           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => navigate("/groups/public")}>
               공개 그룹
             </Button>
-            <Button size="icon" variant="outline" onClick={() => navigate("/groups/join")}>
-              <LogIn className="w-5 h-5" />
-            </Button>
-            <Button size="icon" onClick={() => navigate("/groups/new")}>
-              <Plus className="w-5 h-5" />
-            </Button>
+            {user && (
+              <>
+                <Button size="icon" variant="outline" onClick={() => navigate("/groups/join")}>
+                  <LogIn className="w-5 h-5" />
+                </Button>
+                <Button size="icon" onClick={() => navigate("/groups/new")}>
+                  <Plus className="w-5 h-5" />
+                </Button>
+              </>
+            )}
           </div>
         }
       />
@@ -136,22 +138,28 @@ const Groups = () => {
               alt="Junsuk peace signs" 
               className="w-40 h-40 mx-auto mb-4"
             />
-            <h2 className="text-xl font-semibold mb-2">아직 그룹이 없습니다</h2>
+            <h2 className="text-xl font-semibold mb-2">
+              {user ? "아직 그룹이 없습니다" : "공개 그룹을 둘러보세요"}
+            </h2>
             <p className="text-muted-foreground mb-6">
-              그룹을 만들거나 가입해서 함께 학습해보세요!
+              {user ? "그룹을 만들거나 가입해서 함께 학습해보세요!" : "로그인하면 그룹에 가입하거나 만들 수 있습니다."}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button onClick={() => navigate("/groups/public")} variant="outline">
                 공개 그룹 찾기
               </Button>
-              <Button onClick={() => navigate("/groups/join")} variant="outline">
-                <LogIn className="w-5 h-5 mr-2" />
-                코드로 가입
-              </Button>
-              <Button onClick={() => navigate("/groups/new")}>
-                <Plus className="w-5 h-5 mr-2" />
-                그룹 만들기
-              </Button>
+              {user && (
+                <>
+                  <Button onClick={() => navigate("/groups/join")} variant="outline">
+                    <LogIn className="w-5 h-5 mr-2" />
+                    코드로 가입
+                  </Button>
+                  <Button onClick={() => navigate("/groups/new")}>
+                    <Plus className="w-5 h-5 mr-2" />
+                    그룹 만들기
+                  </Button>
+                </>
+              )}
             </div>
           </motion.div>
         ) : (

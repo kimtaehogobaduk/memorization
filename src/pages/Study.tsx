@@ -9,6 +9,7 @@ import { Check, X, Eye, EyeOff, FileText, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isLocalVocab, loadLocalWords, loadLocalVocabulary } from "@/utils/localVocabHelper";
 
 interface Word {
   id: string;
@@ -42,14 +43,28 @@ const Study = () => {
   const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
 
   useEffect(() => {
-    if (id && user) {
+    if (id) {
       loadWords();
     }
-  }, [id, user]);
+  }, [id]);
 
   const loadWords = async () => {
     try {
       setLoading(true);
+
+      if (isLocalVocab(id)) {
+        const vocab = loadLocalVocabulary(id!);
+        if (vocab) setVocabularyName(vocab.name);
+        let wordsData = loadLocalWords(id!);
+        if (incorrectIds.length > 0) {
+          wordsData = wordsData.filter(w => incorrectIds.includes(w.id));
+        }
+        if (isRandom && incorrectIds.length === 0) {
+          wordsData = wordsData.sort(() => Math.random() - 0.5);
+        }
+        setWords(wordsData);
+        return;
+      }
 
       const { data: vocabData } = await supabase
         .from("vocabularies")
@@ -95,37 +110,38 @@ const Study = () => {
   const handleAnswer = async (isCorrect: boolean) => {
     const currentWord = words[currentIndex];
 
-    try {
-      // Update or insert study progress
-      const { data: existingProgress } = await supabase
-        .from("study_progress")
-        .select("*")
-        .eq("user_id", user?.id)
-        .eq("word_id", currentWord.id)
-        .single();
+    if (user && !isLocalVocab(id)) {
+      try {
+        const { data: existingProgress } = await supabase
+          .from("study_progress")
+          .select("*")
+          .eq("user_id", user?.id)
+          .eq("word_id", currentWord.id)
+          .single();
 
-      if (existingProgress) {
-        await supabase
-          .from("study_progress")
-          .update({
-            correct_count: isCorrect ? existingProgress.correct_count + 1 : existingProgress.correct_count,
-            incorrect_count: !isCorrect ? existingProgress.incorrect_count + 1 : existingProgress.incorrect_count,
-            last_studied_at: new Date().toISOString(),
-          })
-          .eq("id", existingProgress.id);
-      } else {
-        await supabase
-          .from("study_progress")
-          .insert({
-            user_id: user?.id,
-            word_id: currentWord.id,
-            vocabulary_id: id,
-            correct_count: isCorrect ? 1 : 0,
-            incorrect_count: !isCorrect ? 1 : 0,
-          });
+        if (existingProgress) {
+          await supabase
+            .from("study_progress")
+            .update({
+              correct_count: isCorrect ? existingProgress.correct_count + 1 : existingProgress.correct_count,
+              incorrect_count: !isCorrect ? existingProgress.incorrect_count + 1 : existingProgress.incorrect_count,
+              last_studied_at: new Date().toISOString(),
+            })
+            .eq("id", existingProgress.id);
+        } else {
+          await supabase
+            .from("study_progress")
+            .insert({
+              user_id: user?.id,
+              word_id: currentWord.id,
+              vocabulary_id: id,
+              correct_count: isCorrect ? 1 : 0,
+              incorrect_count: !isCorrect ? 1 : 0,
+            });
+        }
+      } catch (error) {
+        console.error("Error updating progress:", error);
       }
-    } catch (error) {
-      console.error("Error updating progress:", error);
     }
 
     // Move to next card

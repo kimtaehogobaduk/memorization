@@ -219,10 +219,19 @@ const PublicGroups = () => {
                           <Badge variant="secondary">공개</Badge>
                           <Button
                             size="sm"
-                            onClick={() => handleJoinGroup(group.id)}
+                            variant="outline"
+                            onClick={() => navigate(`/groups/${group.id}`)}
                           >
-                            가입하기
+                            둘러보기
                           </Button>
+                          {user && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleJoinGroup(group.id)}
+                            >
+                              가입하기
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>

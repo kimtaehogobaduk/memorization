@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
 import { motion } from "framer-motion";
+import { getLocalSettings, saveLocalSettings } from "@/utils/localVocabHelper";
 
 const Settings = () => {
   const { user, loading, signOut } = useAuth();
@@ -59,18 +60,20 @@ const Settings = () => {
   });
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth");
+    if (!loading) {
+      if (user) {
+        loadProfile();
+        loadUserSettings();
+        loadStats();
+      } else {
+        // Load from localStorage for non-logged-in users
+        const local = getLocalSettings();
+        setAnswerDelay(local.answer_reveal_delay);
+        setAutoPlayAudio(local.auto_play_audio);
+        setQuizFontSize(local.quiz_font_size as 'small' | 'medium' | 'large');
+      }
     }
-  }, [user, loading, navigate]);
-
-  useEffect(() => {
-    if (user) {
-      loadProfile();
-      loadUserSettings();
-      loadStats();
-    }
-  }, [user]);
+  }, [user, loading]);
 
   const loadProfile = async () => {
     try {
@@ -170,6 +173,18 @@ const Settings = () => {
     setSettingsLoading(true);
 
     try {
+      if (!user) {
+        // Save to localStorage for non-logged-in users
+        saveLocalSettings({
+          answer_reveal_delay: answerDelay,
+          auto_play_audio: autoPlayAudio,
+          quiz_font_size: quizFontSize,
+        });
+        toast.success("설정이 저장되었습니다!");
+        setSettingsLoading(false);
+        return;
+      }
+
       // First check if settings exist
       const { data: existingSettings } = await supabase
         .from("user_settings")
@@ -178,7 +193,6 @@ const Settings = () => {
         .single();
 
       if (existingSettings) {
-        // Update existing settings
         const { error } = await supabase
           .from("user_settings")
           .update({
@@ -191,7 +205,6 @@ const Settings = () => {
 
         if (error) throw error;
       } else {
-        // Insert new settings
         const { error } = await supabase
           .from("user_settings")
           .insert({
@@ -262,16 +275,20 @@ const Settings = () => {
       </div>
       
       <div className="max-w-screen-xl mx-auto px-4 py-6">
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="profile">
-              <User className="w-4 h-4 mr-2" />
-              프로필
-            </TabsTrigger>
-            <TabsTrigger value="stats">
-              <TrendingUp className="w-4 h-4 mr-2" />
-              통계
-            </TabsTrigger>
+        <Tabs defaultValue={user ? "profile" : "quiz"} className="space-y-6">
+          <TabsList className={`grid w-full ${user ? "grid-cols-3" : "grid-cols-1"}`}>
+            {user && (
+              <TabsTrigger value="profile">
+                <User className="w-4 h-4 mr-2" />
+                프로필
+              </TabsTrigger>
+            )}
+            {user && (
+              <TabsTrigger value="stats">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                통계
+              </TabsTrigger>
+            )}
             <TabsTrigger value="quiz">
               <Zap className="w-4 h-4 mr-2" />
               퀴즈 설정

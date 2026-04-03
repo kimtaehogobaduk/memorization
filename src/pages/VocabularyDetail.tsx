@@ -9,6 +9,7 @@ import { Edit, FileText, Brain, Play, Volume2, Search, X, ChevronLeft, ChevronRi
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isLocalVocab, loadLocalWords, loadLocalVocabulary } from "@/utils/localVocabHelper";
 
 interface Word {
   id: string;
@@ -54,14 +55,24 @@ const VocabularyDetail = () => {
   const [flashcardFlipped, setFlashcardFlipped] = useState(false);
 
   useEffect(() => {
-    if (id && user) {
+    if (id) {
       loadVocabulary();
     }
-  }, [id, user]);
+  }, [id]);
 
   const loadVocabulary = async () => {
     try {
       setLoading(true);
+      
+      if (isLocalVocab(id)) {
+        const vocab = loadLocalVocabulary(id!);
+        if (!vocab) { setVocabulary(null); setLoading(false); return; }
+        setVocabulary({ id: vocab.id, name: vocab.name, description: vocab.description, language: vocab.language, user_id: vocab.user_id, is_public: false } as any);
+        setChapters([]);
+        setWords(loadLocalWords(id!) as any);
+        setLoading(false);
+        return;
+      }
       
       console.log("[VocabularyDetail] Loading vocabulary with id:", id);
 

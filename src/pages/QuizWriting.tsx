@@ -11,6 +11,7 @@ import { Check, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isLocalVocab, loadLocalWords, getLocalSettings } from "@/utils/localVocabHelper";
 
 interface Word {
   id: string;
@@ -47,13 +48,18 @@ const QuizWriting = () => {
   const questionCountParam = searchParams.get("count");
  
   useEffect(() => {
-    if ((id || (vocabIds && vocabIds.length > 0)) && user) {
+    if (id || (vocabIds && vocabIds.length > 0)) {
       loadWords();
       loadUserSettings();
     }
-  }, [id, idsParam, user]);
+  }, [id, idsParam]);
 
   const loadUserSettings = async () => {
+    if (!user) {
+      const local = getLocalSettings();
+      setFontSize(local.quiz_font_size as 'small' | 'medium' | 'large');
+      return;
+    }
     try {
       const { data } = await supabase
         .from("user_settings")
@@ -72,6 +78,29 @@ const QuizWriting = () => {
   const loadWords = async () => {
     try {
       setLoading(true);
+
+      // Check if any vocabId is local
+      const hasLocal = vocabIds.some(vid => vid && isLocalVocab(vid));
+      if (hasLocal) {
+        let allWords: Word[] = [];
+        for (const vid of vocabIds) {
+          if (vid && isLocalVocab(vid)) {
+            allWords.push(...loadLocalWords(vid).map(w => ({ id: w.id, word: w.word, meaning: w.meaning })));
+          }
+        }
+        if (isRetry && incorrectIds.length > 0) {
+          allWords = allWords.filter(w => incorrectIds.includes(w.id));
+        }
+        if (isRandom && !isRetry) {
+          allWords = allWords.sort(() => Math.random() - 0.5);
+        }
+        if (questionCountParam && !isRetry) {
+          const count = parseInt(questionCountParam);
+          if (!isNaN(count) && count > 0) allWords = allWords.slice(0, count);
+        }
+        setWords(allWords);
+        return;
+      }
 
       let query = supabase
         .from("words")

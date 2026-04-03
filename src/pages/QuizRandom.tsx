@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { isLocalVocab, loadLocalWords, getLocalSettings } from "@/utils/localVocabHelper";
 
 interface Word {
   id: string;
@@ -66,13 +67,18 @@ const QuizRandom = () => {
   const questionCountParam = searchParams.get("count");
 
   useEffect(() => {
-    if ((id || (vocabIds && vocabIds.length > 0)) && user) {
+    if (id || (vocabIds && vocabIds.length > 0)) {
       loadWords();
       loadUserSettings();
     }
-  }, [id, idsParam, user]);
+  }, [id, idsParam]);
 
   const loadUserSettings = async () => {
+    if (!user) {
+      const local = getLocalSettings();
+      setFontSize(local.quiz_font_size as 'small' | 'medium' | 'large');
+      return;
+    }
     try {
       const { data } = await supabase
         .from("user_settings")
@@ -90,6 +96,31 @@ const QuizRandom = () => {
   const loadWords = async () => {
     try {
       setLoading(true);
+
+      const hasLocal = vocabIds.some(vid => vid && isLocalVocab(vid));
+      if (hasLocal) {
+        let allWords: Word[] = [];
+        for (const vid of vocabIds) {
+          if (vid && isLocalVocab(vid)) {
+            allWords.push(...loadLocalWords(vid).map(w => ({ id: w.id, word: w.word, meaning: w.meaning, part_of_speech: w.part_of_speech })));
+          }
+        }
+        if (isRetry && incorrectIds.length > 0) allWords = allWords.filter(w => incorrectIds.includes(w.id));
+        if (isRandom && !isRetry) allWords = allWords.sort(() => Math.random() - 0.5);
+        if (questionCountParam && !isRetry) {
+          const count = parseInt(questionCountParam);
+          if (!isNaN(count) && count > 0) allWords = allWords.slice(0, count);
+        }
+        setWords(allWords);
+        const types: QuestionType[] = ["multiple", "writing"];
+        const directions: Array<"word-to-meaning" | "meaning-to-word"> = ["word-to-meaning", "meaning-to-word"];
+        setPlan(allWords.map((word) => ({
+          word, type: types[Math.floor(Math.random() * types.length)],
+          questionDirection: directions[Math.floor(Math.random() * directions.length)],
+        })));
+        return;
+      }
+
       let query = supabase
         .from("words")
         .select("id, word, meaning, part_of_speech")
@@ -103,28 +134,19 @@ const QuizRandom = () => {
       if (error) throw error;
 
       let wordsData = data || [];
-      if (isRandom && !isRetry) {
-        wordsData = wordsData.sort(() => Math.random() - 0.5);
-      }
-
+      if (isRandom && !isRetry) wordsData = wordsData.sort(() => Math.random() - 0.5);
       if (questionCountParam && !isRetry) {
         const count = parseInt(questionCountParam);
-        if (!isNaN(count) && count > 0) {
-          wordsData = wordsData.slice(0, count);
-        }
+        if (!isNaN(count) && count > 0) wordsData = wordsData.slice(0, count);
       }
 
       setWords(wordsData);
-
-      // Build per-question plan with random types
       const types: QuestionType[] = ["multiple", "writing"];
       const directions: Array<"word-to-meaning" | "meaning-to-word"> = ["word-to-meaning", "meaning-to-word"];
-      const questionPlan = wordsData.map((word) => ({
-        word,
-        type: types[Math.floor(Math.random() * types.length)],
+      setPlan(wordsData.map((word) => ({
+        word, type: types[Math.floor(Math.random() * types.length)],
         questionDirection: directions[Math.floor(Math.random() * directions.length)],
-      }));
-      setPlan(questionPlan);
+      })));
     } catch (error) {
       console.error("Error loading words:", error);
       toast.error("단어를 불러오는데 실패했습니다.");

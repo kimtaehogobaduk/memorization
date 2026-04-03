@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { syncLocalDataToSupabase } from "@/utils/syncLocalData";
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const syncedRef = useRef(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,8 +25,18 @@ export const useAuth = () => {
           setTimeout(() => {
             checkAdminRole(session.user.id);
           }, 0);
+          // Sync local data on login
+          if (!syncedRef.current) {
+            syncedRef.current = true;
+            syncLocalDataToSupabase(session.user.id).then(count => {
+              if (count && count > 0) {
+                console.log(`Synced ${count} local vocabularies to cloud`);
+              }
+            });
+          }
         } else {
           setIsAdmin(false);
+          syncedRef.current = false;
         }
       }
     );

@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Brain, CheckSquare, Edit3, Grid3x3, Printer, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isLocalVocab, loadLocalWords, loadLocalVocabulary, getLocalSettings } from "@/utils/localVocabHelper";
 
 const Quiz = () => {
   const { id } = useParams<{ id: string }>();
@@ -36,13 +37,18 @@ const Quiz = () => {
   const chapterId = searchParams.get("chapter");
 
   useEffect(() => {
-    if (id && user) {
+    if (id) {
       loadQuizData();
       loadUserSettings();
     }
-  }, [id, user, chapterId]);
+  }, [id, chapterId]);
 
   const loadUserSettings = async () => {
+    if (!user) {
+      const local = getLocalSettings();
+      setAnswerDelay([local.answer_reveal_delay]);
+      return;
+    }
     try {
       const { data } = await supabase
         .from("user_settings")
@@ -60,6 +66,14 @@ const Quiz = () => {
 
   const loadQuizData = async () => {
     try {
+      if (isLocalVocab(id)) {
+        const vocab = loadLocalVocabulary(id!);
+        if (vocab) setVocabularyName(vocab.name);
+        const words = loadLocalWords(id!);
+        setWordCount(words.length);
+        return;
+      }
+
       const { data: vocab } = await supabase
         .from("vocabularies")
         .select("name")
