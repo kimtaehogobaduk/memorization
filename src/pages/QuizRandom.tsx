@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { isLocalVocab, loadLocalWords, getLocalSettings } from "@/utils/localVocabHelper";
 
 interface Word {
   id: string;
