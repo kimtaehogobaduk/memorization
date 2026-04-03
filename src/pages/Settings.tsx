@@ -275,16 +275,20 @@ const Settings = () => {
       </div>
       
       <div className="max-w-screen-xl mx-auto px-4 py-6">
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="profile">
-              <User className="w-4 h-4 mr-2" />
-              프로필
-            </TabsTrigger>
-            <TabsTrigger value="stats">
-              <TrendingUp className="w-4 h-4 mr-2" />
-              통계
-            </TabsTrigger>
+        <Tabs defaultValue={user ? "profile" : "quiz"} className="space-y-6">
+          <TabsList className={`grid w-full ${user ? "grid-cols-3" : "grid-cols-1"}`}>
+            {user && (
+              <TabsTrigger value="profile">
+                <User className="w-4 h-4 mr-2" />
+                프로필
+              </TabsTrigger>
+            )}
+            {user && (
+              <TabsTrigger value="stats">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                통계
+              </TabsTrigger>
+            )}
             <TabsTrigger value="quiz">
               <Zap className="w-4 h-4 mr-2" />
               퀴즈 설정
