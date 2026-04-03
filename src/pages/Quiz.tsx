@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Brain, CheckSquare, Edit3, Grid3x3, Printer, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isLocalVocab, loadLocalWords, loadLocalVocabulary, getLocalSettings } from "@/utils/localVocabHelper";
 
 const Quiz = () => {
   const { id } = useParams<{ id: string }>();
