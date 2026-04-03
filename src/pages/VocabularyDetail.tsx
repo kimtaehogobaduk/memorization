@@ -64,6 +64,16 @@ const VocabularyDetail = () => {
     try {
       setLoading(true);
       
+      if (isLocalVocab(id)) {
+        const vocab = loadLocalVocabulary(id!);
+        if (!vocab) { setVocabulary(null); setLoading(false); return; }
+        setVocabulary({ id: vocab.id, name: vocab.name, description: vocab.description, language: vocab.language, user_id: vocab.user_id, is_public: false } as any);
+        setChapters([]);
+        setWords(loadLocalWords(id!) as any);
+        setLoading(false);
+        return;
+      }
+      
       console.log("[VocabularyDetail] Loading vocabulary with id:", id);
 
       const { data: vocabData, error: vocabError } = await supabase
