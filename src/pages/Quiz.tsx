@@ -37,11 +37,11 @@ const Quiz = () => {
   const chapterId = searchParams.get("chapter");
 
   useEffect(() => {
-    if (id && user) {
+    if (id) {
       loadQuizData();
       loadUserSettings();
     }
-  }, [id, user, chapterId]);
+  }, [id, chapterId]);
 
   const loadUserSettings = async () => {
     try {
