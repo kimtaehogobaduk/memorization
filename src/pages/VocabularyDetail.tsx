@@ -55,10 +55,10 @@ const VocabularyDetail = () => {
   const [flashcardFlipped, setFlashcardFlipped] = useState(false);
 
   useEffect(() => {
-    if (id && user) {
+    if (id) {
       loadVocabulary();
     }
-  }, [id, user]);
+  }, [id]);
 
   const loadVocabulary = async () => {
     try {
