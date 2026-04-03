@@ -52,6 +52,20 @@ const Study = () => {
     try {
       setLoading(true);
 
+      if (isLocalVocab(id)) {
+        const vocab = loadLocalVocabulary(id!);
+        if (vocab) setVocabularyName(vocab.name);
+        let wordsData = loadLocalWords(id!);
+        if (incorrectIds.length > 0) {
+          wordsData = wordsData.filter(w => incorrectIds.includes(w.id));
+        }
+        if (isRandom && incorrectIds.length === 0) {
+          wordsData = wordsData.sort(() => Math.random() - 0.5);
+        }
+        setWords(wordsData);
+        return;
+      }
+
       const { data: vocabData } = await supabase
         .from("vocabularies")
         .select("name")
