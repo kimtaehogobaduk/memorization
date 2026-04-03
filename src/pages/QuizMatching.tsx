@@ -50,10 +50,10 @@ const QuizMatching = () => {
   const vocabIds = idsParam ? idsParam.split(",") : [id]; // Support multi-vocab
  
   useEffect(() => {
-    if ((id || (vocabIds && vocabIds.length > 0)) && user) {
+    if (id || (vocabIds && vocabIds.length > 0)) {
       loadWords();
     }
-  }, [id, idsParam, user]);
+  }, [id, idsParam]);
 
   useEffect(() => {
     if (allWords.length > 0) {
