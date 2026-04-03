@@ -43,10 +43,10 @@ const Study = () => {
   const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
 
   useEffect(() => {
-    if (id && user) {
+    if (id) {
       loadWords();
     }
-  }, [id, user]);
+  }, [id]);
 
   const loadWords = async () => {
     try {
