@@ -65,11 +65,27 @@ const QuizMatching = () => {
     try {
       setLoading(true);
 
+      const hasLocal = vocabIds.some(vid => vid && isLocalVocab(vid));
+      if (hasLocal) {
+        let allWords: Word[] = [];
+        for (const vid of vocabIds) {
+          if (vid && isLocalVocab(vid)) {
+            allWords.push(...loadLocalWords(vid).map(w => ({ id: w.id, word: w.word, meaning: w.meaning })));
+          }
+        }
+        if (isRetry && incorrectIds.length > 0) {
+          allWords = allWords.filter(w => incorrectIds.includes(w.id));
+        }
+        if (isRandom && !isRetry) allWords = allWords.sort(() => Math.random() - 0.5);
+        setAllWords(allWords);
+        return;
+      }
+
       let query = supabase
         .from("words")
         .select("id, word, meaning")
         .in("vocabulary_id", vocabIds)
-        .limit(100); // 최대 100개로 제한
+        .limit(100);
 
       if (chapterId) {
         query = query.eq("chapter_id", chapterId);
