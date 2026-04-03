@@ -108,16 +108,20 @@ const Groups = () => {
       <Header
         title="그룹"
         action={
-          <div className="flex gap-2">
+           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => navigate("/groups/public")}>
               공개 그룹
             </Button>
-            <Button size="icon" variant="outline" onClick={() => navigate("/groups/join")}>
-              <LogIn className="w-5 h-5" />
-            </Button>
-            <Button size="icon" onClick={() => navigate("/groups/new")}>
-              <Plus className="w-5 h-5" />
-            </Button>
+            {user && (
+              <>
+                <Button size="icon" variant="outline" onClick={() => navigate("/groups/join")}>
+                  <LogIn className="w-5 h-5" />
+                </Button>
+                <Button size="icon" onClick={() => navigate("/groups/new")}>
+                  <Plus className="w-5 h-5" />
+                </Button>
+              </>
+            )}
           </div>
         }
       />
