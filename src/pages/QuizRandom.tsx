@@ -74,6 +74,11 @@ const QuizRandom = () => {
   }, [id, idsParam]);
 
   const loadUserSettings = async () => {
+    if (!user) {
+      const local = getLocalSettings();
+      setFontSize(local.quiz_font_size as 'small' | 'medium' | 'large');
+      return;
+    }
     try {
       const { data } = await supabase
         .from("user_settings")
