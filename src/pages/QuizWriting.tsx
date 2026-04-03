@@ -79,6 +79,29 @@ const QuizWriting = () => {
     try {
       setLoading(true);
 
+      // Check if any vocabId is local
+      const hasLocal = vocabIds.some(vid => vid && isLocalVocab(vid));
+      if (hasLocal) {
+        let allWords: Word[] = [];
+        for (const vid of vocabIds) {
+          if (vid && isLocalVocab(vid)) {
+            allWords.push(...loadLocalWords(vid).map(w => ({ id: w.id, word: w.word, meaning: w.meaning })));
+          }
+        }
+        if (isRetry && incorrectIds.length > 0) {
+          allWords = allWords.filter(w => incorrectIds.includes(w.id));
+        }
+        if (isRandom && !isRetry) {
+          allWords = allWords.sort(() => Math.random() - 0.5);
+        }
+        if (questionCountParam && !isRetry) {
+          const count = parseInt(questionCountParam);
+          if (!isNaN(count) && count > 0) allWords = allWords.slice(0, count);
+        }
+        setWords(allWords);
+        return;
+      }
+
       let query = supabase
         .from("words")
         .select("id, word, meaning")
