@@ -18,10 +18,8 @@ const Dashboard = () => {
   const { showTutorial, completeTutorial, closeTutorial } = useTutorial();
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/");
-    }
-  }, [user, loading, navigate]);
+    // No redirect - dashboard is accessible without login
+  }, []);
 
   if (loading) {
     return (
