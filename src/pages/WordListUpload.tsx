@@ -148,12 +148,6 @@ const WordListUpload = () => {
   };
 
   const handleSave = async () => {
-    if (!user) {
-      toast({ title: "로그인이 필요합니다", variant: "destructive" });
-      navigate("/auth");
-      return;
-    }
-
     const completedWords = words.filter((w) => w.status === "done");
     if (completedWords.length === 0) {
       toast({ title: "저장할 단어가 없습니다", variant: "destructive" });
@@ -164,38 +158,59 @@ const WordListUpload = () => {
 
     setSaving(true);
     try {
-      const { data: vocab, error: vocabError } = await supabase
-        .from("vocabularies")
-        .insert({
+      if (user) {
+        const { data: vocab, error: vocabError } = await supabase
+          .from("vocabularies")
+          .insert({
+            name,
+            description: `${completedWords.length}개 단어 - AI 자동 생성`,
+            language: "english",
+            user_id: user.id,
+          })
+          .select()
+          .single();
+
+        if (vocabError) throw vocabError;
+
+        const wordsToInsert = completedWords.map((w, idx) => ({
+          vocabulary_id: vocab.id,
+          word: w.word,
+          meaning: w.meaning,
+          example: w.example || null,
+          part_of_speech: w.part_of_speech || null,
+          synonyms: w.synonyms || null,
+          antonyms: w.antonyms || null,
+          derivatives: w.derivatives.length > 0 ? w.derivatives : null,
+          frequency: w.frequency,
+          difficulty: w.difficulty,
+          order_index: idx,
+        }));
+
+        const { error: wordsError } = await supabase.from("words").insert(wordsToInsert);
+        if (wordsError) throw wordsError;
+
+        toast({ title: "단어장이 생성되었습니다!" });
+        navigate(`/vocabularies/${vocab.id}`);
+      } else {
+        const { localStorageService } = await import("@/services/localStorageService");
+        const vocab = localStorageService.saveVocabulary({
           name,
           description: `${completedWords.length}개 단어 - AI 자동 생성`,
           language: "english",
-          user_id: user.id,
-        })
-        .select()
-        .single();
-
-      if (vocabError) throw vocabError;
-
-      const wordsToInsert = completedWords.map((w, idx) => ({
-        vocabulary_id: vocab.id,
-        word: w.word,
-        meaning: w.meaning,
-        example: w.example || null,
-        part_of_speech: w.part_of_speech || null,
-        synonyms: w.synonyms || null,
-        antonyms: w.antonyms || null,
-        derivatives: w.derivatives.length > 0 ? w.derivatives : null,
-        frequency: w.frequency,
-        difficulty: w.difficulty,
-        order_index: idx,
-      }));
-
-      const { error: wordsError } = await supabase.from("words").insert(wordsToInsert);
-      if (wordsError) throw wordsError;
-
-      toast({ title: "단어장이 생성되었습니다!" });
-      navigate(`/vocabularies/${vocab.id}`);
+        });
+        const wordsToInsert = completedWords.map((w, idx) => ({
+          vocabulary_id: vocab.id,
+          word: w.word,
+          meaning: w.meaning,
+          example: w.example || null,
+          note: null,
+          part_of_speech: w.part_of_speech || null,
+          order_index: idx,
+        }));
+        localStorageService.saveWords(wordsToInsert);
+        toast({ title: "단어장이 생성되었습니다!" });
+        navigate(`/vocabularies/${vocab.id}`);
+      }
     } catch (err) {
       console.error(err);
       toast({ title: "저장 중 오류가 발생했습니다", variant: "destructive" });

@@ -141,48 +141,65 @@ const ExcelUpload = () => {
         return;
       }
 
-      // Create vocabulary
-      const { data: vocabulary, error: vocabError } = await supabase
-        .from("vocabularies")
-        .insert({
-          user_id: user?.id,
+      if (user) {
+        // Create vocabulary in Supabase
+        const { data: vocabulary, error: vocabError } = await supabase
+          .from("vocabularies")
+          .insert({
+            user_id: user.id,
+            name: vocabularyName.trim(),
+            language: "english",
+          })
+          .select()
+          .single();
+
+        if (vocabError) {
+          console.error("[ExcelUpload] Vocabulary creation error:", vocabError);
+          throw vocabError;
+        }
+
+        const wordsToInsert = words.map((w, index) => ({
+          vocabulary_id: vocabulary.id,
+          word: w.word,
+          meaning: w.meaning,
+          example: w.example,
+          part_of_speech: w.part_of_speech,
+          note: w.note,
+          order_index: index,
+        }));
+
+        const { error: wordsError } = await supabase
+          .from("words")
+          .insert(wordsToInsert);
+
+        if (wordsError) {
+          console.error("[ExcelUpload] Words insertion error:", wordsError);
+          throw wordsError;
+        }
+
+        toast.success(`단어장이 생성되었습니다! (${words.length}개 단어)`);
+        navigate(`/vocabularies/${vocabulary.id}`);
+      } else {
+        // Save to localStorage for non-logged-in users
+        const { localStorageService } = await import("@/services/localStorageService");
+        const vocab = localStorageService.saveVocabulary({
           name: vocabularyName.trim(),
+          description: null,
           language: "english",
-        })
-        .select()
-        .single();
-
-      if (vocabError) {
-        console.error("[ExcelUpload] Vocabulary creation error:", vocabError);
-        throw vocabError;
+        });
+        const wordsToInsert = words.map((w, index) => ({
+          vocabulary_id: vocab.id,
+          word: w.word,
+          meaning: w.meaning,
+          example: w.example || null,
+          note: w.note || null,
+          part_of_speech: w.part_of_speech || null,
+          order_index: index,
+        }));
+        localStorageService.saveWords(wordsToInsert);
+        toast.success(`단어장이 생성되었습니다! (${words.length}개 단어)`);
+        navigate(`/vocabularies/${vocab.id}`);
       }
-
-      console.log("[ExcelUpload] Created vocabulary:", vocabulary);
-
-      // Insert words
-      const wordsToInsert = words.map((w, index) => ({
-        vocabulary_id: vocabulary.id,
-        word: w.word,
-        meaning: w.meaning,
-        example: w.example,
-        part_of_speech: w.part_of_speech,
-        note: w.note,
-        order_index: index,
-      }));
-
-      console.log("[ExcelUpload] Inserting words:", wordsToInsert.length);
-
-      const { error: wordsError } = await supabase
-        .from("words")
-        .insert(wordsToInsert);
-
-      if (wordsError) {
-        console.error("[ExcelUpload] Words insertion error:", wordsError);
-        throw wordsError;
-      }
-
-      toast.success(`단어장이 생성되었습니다! (${words.length}개 단어)`);
-      navigate(`/vocabularies/${vocabulary.id}`);
     } catch (error) {
       console.error("Error uploading file:", error);
       toast.error("파일 업로드에 실패했습니다.");
