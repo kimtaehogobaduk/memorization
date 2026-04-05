@@ -141,43 +141,39 @@ const ExcelUpload = () => {
         return;
       }
 
-      // Create vocabulary
-      const { data: vocabulary, error: vocabError } = await supabase
-        .from("vocabularies")
-        .insert({
-          user_id: user?.id,
-          name: vocabularyName.trim(),
-          language: "english",
-        })
-        .select()
-        .single();
+      if (user) {
+        // Create vocabulary in Supabase
+        const { data: vocabulary, error: vocabError } = await supabase
+          .from("vocabularies")
+          .insert({
+            user_id: user.id,
+            name: vocabularyName.trim(),
+            language: "english",
+          })
+          .select()
+          .single();
 
-      if (vocabError) {
-        console.error("[ExcelUpload] Vocabulary creation error:", vocabError);
-        throw vocabError;
-      }
+        if (vocabError) {
+          console.error("[ExcelUpload] Vocabulary creation error:", vocabError);
+          throw vocabError;
+        }
 
-      console.log("[ExcelUpload] Created vocabulary:", vocabulary);
+        const wordsToInsert = words.map((w, index) => ({
+          vocabulary_id: vocabulary.id,
+          word: w.word,
+          meaning: w.meaning,
+          example: w.example,
+          part_of_speech: w.part_of_speech,
+          note: w.note,
+          order_index: index,
+        }));
 
-      // Insert words
-      const wordsToInsert = words.map((w, index) => ({
-        vocabulary_id: vocabulary.id,
-        word: w.word,
-        meaning: w.meaning,
-        example: w.example,
-        part_of_speech: w.part_of_speech,
-        note: w.note,
-        order_index: index,
-      }));
+        const { error: wordsError } = await supabase
+          .from("words")
+          .insert(wordsToInsert);
 
-      console.log("[ExcelUpload] Inserting words:", wordsToInsert.length);
-
-      const { error: wordsError } = await supabase
-        .from("words")
-        .insert(wordsToInsert);
-
-      if (wordsError) {
-        console.error("[ExcelUpload] Words insertion error:", wordsError);
+        if (wordsError) {
+          console.error("[ExcelUpload] Words insertion error:", wordsError);
         throw wordsError;
       }
 

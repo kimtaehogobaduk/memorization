@@ -270,12 +270,6 @@ const FileVocabularyUpload = () => {
   };
 
   const handleSave = async () => {
-    if (!user) {
-      toast({ title: "로그인이 필요합니다", variant: "destructive" });
-      navigate("/auth");
-      return;
-    }
-
     if (!result || result.total_words === 0) {
       toast({ title: "저장할 단어가 없습니다", variant: "destructive" });
       return;
@@ -285,35 +279,55 @@ const FileVocabularyUpload = () => {
 
     setSaving(true);
     try {
-      const { data: vocab, error: vocabError } = await supabase
-        .from("vocabularies")
-        .insert({
-          name,
-          description: `${result.total_words}개 단어 - 파일 업로드 AI 추출`,
-          language: "english",
-          user_id: user.id,
-        })
-        .select()
-        .single();
+      if (user) {
+        const { data: vocab, error: vocabError } = await supabase
+          .from("vocabularies")
+          .insert({
+            name,
+            description: `${result.total_words}개 단어 - 파일 업로드 AI 추출`,
+            language: "english",
+            user_id: user.id,
+          })
+          .select()
+          .single();
 
-      if (vocabError) throw vocabError;
+        if (vocabError) throw vocabError;
 
-      const hasMultipleChapters = result.chapters.length > 1;
+        const hasMultipleChapters = result.chapters.length > 1;
 
-      if (hasMultipleChapters) {
-        for (let ci = 0; ci < result.chapters.length; ci++) {
-          const ch = result.chapters[ci];
-          const { data: chapterData, error: chapterError } = await supabase
-            .from("chapters")
-            .insert({ vocabulary_id: vocab.id, name: ch.name, order_index: ci })
-            .select()
-            .single();
+        if (hasMultipleChapters) {
+          for (let ci = 0; ci < result.chapters.length; ci++) {
+            const ch = result.chapters[ci];
+            const { data: chapterData, error: chapterError } = await supabase
+              .from("chapters")
+              .insert({ vocabulary_id: vocab.id, name: ch.name, order_index: ci })
+              .select()
+              .single();
 
-          if (chapterError) throw chapterError;
+            if (chapterError) throw chapterError;
 
-          const wordsToInsert = ch.words.map((w, wi) => ({
+            const wordsToInsert = ch.words.map((w, wi) => ({
+              vocabulary_id: vocab.id,
+              chapter_id: chapterData.id,
+              word: w.word,
+              meaning: w.meaning || w.word,
+              example: w.example || null,
+              part_of_speech: w.part_of_speech || null,
+              synonyms: w.synonyms || null,
+              antonyms: w.antonyms || null,
+              derivatives: w.derivatives && w.derivatives.length > 0 ? w.derivatives : null,
+              frequency: 0,
+              difficulty: 0,
+              order_index: wi,
+            }));
+
+            const { error: wordsError } = await supabase.from("words").insert(wordsToInsert);
+            if (wordsError) throw wordsError;
+          }
+        } else {
+          const allWords = result.chapters[0]?.words || [];
+          const wordsToInsert = allWords.map((w, idx) => ({
             vocabulary_id: vocab.id,
-            chapter_id: chapterData.id,
             word: w.word,
             meaning: w.meaning || w.word,
             example: w.example || null,
@@ -323,34 +337,37 @@ const FileVocabularyUpload = () => {
             derivatives: w.derivatives && w.derivatives.length > 0 ? w.derivatives : null,
             frequency: 0,
             difficulty: 0,
-            order_index: wi,
+            order_index: idx,
           }));
 
           const { error: wordsError } = await supabase.from("words").insert(wordsToInsert);
           if (wordsError) throw wordsError;
         }
+
+        toast({ title: "단어장이 생성되었습니다!" });
+        navigate(`/vocabularies/${vocab.id}`);
       } else {
-        const allWords = result.chapters[0]?.words || [];
+        // Save to localStorage for non-logged-in users
+        const { localStorageService } = await import("@/services/localStorageService");
+        const allWords = result.chapters.flatMap(ch => ch.words);
+        const vocab = localStorageService.saveVocabulary({
+          name,
+          description: `${result.total_words}개 단어 - 파일 업로드 AI 추출`,
+          language: "english",
+        });
         const wordsToInsert = allWords.map((w, idx) => ({
           vocabulary_id: vocab.id,
           word: w.word,
           meaning: w.meaning || w.word,
           example: w.example || null,
+          note: null,
           part_of_speech: w.part_of_speech || null,
-          synonyms: w.synonyms || null,
-          antonyms: w.antonyms || null,
-          derivatives: w.derivatives && w.derivatives.length > 0 ? w.derivatives : null,
-          frequency: 0,
-          difficulty: 0,
           order_index: idx,
         }));
-
-        const { error: wordsError } = await supabase.from("words").insert(wordsToInsert);
-        if (wordsError) throw wordsError;
+        localStorageService.saveWords(wordsToInsert);
+        toast({ title: "단어장이 생성되었습니다!" });
+        navigate(`/vocabularies/${vocab.id}`);
       }
-
-      toast({ title: "단어장이 생성되었습니다!" });
-      navigate(`/vocabularies/${vocab.id}`);
     } catch (err) {
       console.error("Save error:", err);
       toast({ title: "저장 중 오류가 발생했습니다", variant: "destructive" });
