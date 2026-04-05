@@ -154,7 +154,7 @@ const Index = () => {
                 <div className="flex gap-2">
                   <BookOpen className="w-4 h-4 mt-0.5 flex-shrink-0" />
                   <div>
-                    <strong>로그인 없이:</strong> 단어장 생성 및 학습 기능만 사용 가능 (기기 내 저장)
+                    <strong>로그인 없이:</strong> AI 생성·AI 추출·단어장 생성·학습·설정 사용 가능 (기기 내 저장)
                   </div>
                 </div>
                 <div className="flex gap-2">
