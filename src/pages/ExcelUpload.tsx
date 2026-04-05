@@ -174,11 +174,32 @@ const ExcelUpload = () => {
 
         if (wordsError) {
           console.error("[ExcelUpload] Words insertion error:", wordsError);
-        throw wordsError;
-      }
+          throw wordsError;
+        }
 
-      toast.success(`단어장이 생성되었습니다! (${words.length}개 단어)`);
-      navigate(`/vocabularies/${vocabulary.id}`);
+        toast.success(`단어장이 생성되었습니다! (${words.length}개 단어)`);
+        navigate(`/vocabularies/${vocabulary.id}`);
+      } else {
+        // Save to localStorage for non-logged-in users
+        const { localStorageService } = await import("@/services/localStorageService");
+        const vocab = localStorageService.saveVocabulary({
+          name: vocabularyName.trim(),
+          description: null,
+          language: "english",
+        });
+        const wordsToInsert = words.map((w, index) => ({
+          vocabulary_id: vocab.id,
+          word: w.word,
+          meaning: w.meaning,
+          example: w.example || null,
+          note: w.note || null,
+          part_of_speech: w.part_of_speech || null,
+          order_index: index,
+        }));
+        localStorageService.saveWords(wordsToInsert);
+        toast.success(`단어장이 생성되었습니다! (${words.length}개 단어)`);
+        navigate(`/vocabularies/${vocab.id}`);
+      }
     } catch (error) {
       console.error("Error uploading file:", error);
       toast.error("파일 업로드에 실패했습니다.");
