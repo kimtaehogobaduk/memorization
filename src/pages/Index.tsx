@@ -103,7 +103,7 @@ const Index = () => {
             <CardContent className="p-8">
               <h2 className="text-2xl font-bold mb-2">시작하기</h2>
               <p className="text-muted-foreground mb-6">
-                로그인하여 모든 기능을 사용하거나, 로그인 없이 단어장만 사용할 수 있습니다.
+                로그인하면 동기화와 그룹 기능을 쓰고, 로그인 없이도 AI 생성·AI 추출 포함 단어장 기능을 사용할 수 있습니다.
               </p>
 
               <div className="space-y-3">
@@ -154,7 +154,7 @@ const Index = () => {
                 <div className="flex gap-2">
                   <BookOpen className="w-4 h-4 mt-0.5 flex-shrink-0" />
                   <div>
-                    <strong>로그인 없이:</strong> 단어장 생성 및 학습 기능만 사용 가능 (기기 내 저장)
+                    <strong>로그인 없이:</strong> AI 생성·AI 추출·단어장 생성·학습·설정 사용 가능 (기기 내 저장)
                   </div>
                 </div>
                 <div className="flex gap-2">
