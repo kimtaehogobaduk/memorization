@@ -281,7 +281,7 @@ serve(async (req) => {
 
   try {
     const PDF_CO_API_KEY = Deno.env.get("PDF_CO_API_KEY");
-    const CEREBRAS_API_KEY = Deno.env.get("CEREBRAS_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
     if (!PDF_CO_API_KEY) {
       return new Response(
@@ -289,9 +289,9 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    if (!CEREBRAS_API_KEY) {
+    if (!GEMINI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "CEREBRAS_API_KEY가 설정되어 있지 않습니다." }),
+        JSON.stringify({ error: "GEMINI_API_KEY가 설정되어 있지 않습니다." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -316,10 +316,10 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Extracted ${extractedText.length} chars, sending to Cerebras...`);
+    console.log(`Extracted ${extractedText.length} chars, sending to Gemini...`);
 
-    // Step 2: Structure vocabulary via Cerebras
-    const result = await callCerebras(extractedText, include_details !== false, CEREBRAS_API_KEY);
+    // Step 2: Structure vocabulary via Gemini
+    const result = await callGemini(extractedText, include_details !== false, GEMINI_API_KEY);
 
     const totalWords = result.chapters.reduce((sum, ch) => sum + ch.words.length, 0);
 
