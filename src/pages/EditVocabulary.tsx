@@ -468,9 +468,9 @@ const EditVocabulary = () => {
       
       <div className="max-w-screen-xl mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className={`grid w-full ${isLocal ? 'grid-cols-2' : 'grid-cols-3'} mb-6`}>
             <TabsTrigger value="info">정보</TabsTrigger>
-            <TabsTrigger value="chapters">챕터</TabsTrigger>
+            {!isLocal && <TabsTrigger value="chapters">챕터</TabsTrigger>}
             <TabsTrigger value="words">단어</TabsTrigger>
           </TabsList>
 
