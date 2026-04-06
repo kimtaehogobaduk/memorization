@@ -29,75 +29,25 @@ interface ExtractionResult {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// ── PDF.co: extract text from uploaded file ──────────────────────────
-async function extractTextViaPdfCo(
-  fileBase64: string,
-  fileType: string,
-  apiKey: string
-): Promise<string> {
-  // Step 1: Upload to PDF.co
-  const uploadRes = await fetch("https://api.pdf.co/v1/file/upload/base64", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ file: fileBase64 }),
-  });
-
-  if (!uploadRes.ok) {
-    const err = await uploadRes.text();
-    throw new Error(`PDF.co upload failed (${uploadRes.status}): ${err}`);
+// ── Gemini API Key Rotation ─────────────────────────────────────────
+function getGeminiApiKeys(): string[] {
+  const keys: string[] = [];
+  const primary = Deno.env.get("GEMINI_API_KEY");
+  if (primary) keys.push(primary);
+  const key2 = Deno.env.get("GEMINI_API_KEY_2");
+  if (key2) keys.push(key2);
+  const key3 = Deno.env.get("GEMINI_API_KEY_3");
+  if (key3) keys.push(key3);
+  // Support up to 10 keys
+  for (let i = 4; i <= 10; i++) {
+    const k = Deno.env.get(`GEMINI_API_KEY_${i}`);
+    if (k) keys.push(k);
   }
-
-  const uploadData = await uploadRes.json();
-  if (uploadData.error) throw new Error(`PDF.co upload error: ${uploadData.message || uploadData.error}`);
-  const fileUrl = uploadData.url;
-  if (!fileUrl) throw new Error("PDF.co did not return a file URL");
-
-  // Step 2: Extract text - PDF.co /pdf/convert/to/text handles both PDFs and images with OCR
-  const actualEndpoint = "https://api.pdf.co/v1/pdf/convert/to/text";
-
-  const convertBody: Record<string, unknown> = {
-    url: fileUrl,
-    inline: true,
-  };
-
-  const convertRes = await fetch(actualEndpoint, {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(convertBody),
-  });
-
-  if (!convertRes.ok) {
-    const err = await convertRes.text();
-    throw new Error(`PDF.co conversion failed (${convertRes.status}): ${err}`);
-  }
-
-  const convertData = await convertRes.json();
-  if (convertData.error) throw new Error(`PDF.co conversion error: ${convertData.message || convertData.error}`);
-
-  // The text is returned in the 'body' field when inline=true
-  let extractedText = convertData.body || convertData.text || "";
-
-  // If body is a URL, fetch the text
-  if (!extractedText && convertData.url) {
-    const textRes = await fetch(convertData.url);
-    extractedText = await textRes.text();
-  }
-
-  return extractedText;
+  return keys;
 }
 
-// ── Gemini: generate structured vocabulary from text ───────────────
-async function callGemini(
-  text: string,
-  includeDetails: boolean,
-  apiKey: string
-): Promise<ExtractionResult> {
+// ── Build extraction prompt ─────────────────────────────────────────
+function buildSystemPrompt(includeDetails: boolean): string {
   const detailsPrompt = includeDetails
     ? `For each word, also extract or generate:
 - "meaning": Korean meaning/definition (한국어 뜻)
@@ -109,93 +59,23 @@ async function callGemini(
 - "derivatives": array of {word, meaning} for derivative words if available`
     : `Only extract the word itself. Do NOT include meanings, examples, or other details.`;
 
-  const systemPrompt = `You are a vocabulary extraction expert. You analyze text from vocabulary lists/word books and extract structured data.
+  const wordShape = includeDetails
+    ? `{"word": "example", "meaning": "예시", "example": "This is an example.", "part_of_speech": "명사", "pronunciation": "ɪɡˈzæmpəl", "synonyms": "instance, sample", "antonyms": "original", "derivatives": [{"word": "exemplary", "meaning": "모범적인"}]}`
+    : `{"word": "example"}`;
+
+  return `You are a vocabulary extraction expert. Extract structured vocabulary data.
 
 CRITICAL RULES:
-1. Extract ALL English words from the text.
-2. If the text has sections like "Day 1", "Day 2", "Unit 1", "Chapter 1", "Part 1", etc., group words into chapters accordingly.
-3. If there are no clear sections, put all words in a single chapter called "전체 단어".
-4. The vocabulary name should be inferred from the document title if visible, otherwise use "".
+1. Extract ALL English words from the content.
+2. Group into chapters if sections like "Day 1", "Unit 1", "Chapter 1" exist.
+3. If no sections, use a single chapter called "전체 단어".
+4. Infer vocabulary name from document title if visible, otherwise use "".
 5. ${detailsPrompt}
 
-Return ONLY valid JSON in this exact format:
-{
-  "vocabulary_name": "string or empty",
-  "chapters": [
-    {
-      "name": "Day 1",
-      "words": [
-        {
-          "word": "example"${includeDetails ? `,
-          "meaning": "예시",
-          "example": "This is an example.",
-          "part_of_speech": "명사",
-          "pronunciation": "ɪɡˈzæmpəl",
-          "synonyms": "instance, sample",
-          "antonyms": "original",
-          "derivatives": [{"word": "exemplary", "meaning": "모범적인"}]` : ""}
-        }
-      ]
-    }
-  ]
-}
+Return ONLY valid JSON:
+{"vocabulary_name": "","chapters": [{"name": "Day 1","words": [${wordShape}]}]}
 
 IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanation.`;
-
-  // Truncate text to stay within token limits
-  const truncatedText = text.slice(0, 60000);
-
-  const MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
-
-  for (const model of MODELS) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: `${systemPrompt}\n\n다음은 단어장/문서의 텍스트입니다. 모든 영어 단어를 추출해주세요.\n\n${truncatedText}`,
-              }],
-            }],
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: includeDetails ? 8192 : 4096,
-            },
-          }),
-        });
-
-        if (res.status === 429) {
-          await sleep(2000 * (attempt + 1));
-          continue;
-        }
-
-        if (!res.ok) {
-          const errText = await res.text();
-          console.error(`Gemini ${model} attempt ${attempt + 1} failed:`, res.status, errText);
-          if (res.status >= 500) {
-            await sleep(1000 * (attempt + 1));
-            continue;
-          }
-          break;
-        }
-
-        const data = await res.json();
-        const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (!content) continue;
-
-        return parseAIResponse(content);
-      } catch (err) {
-        console.error(`Gemini ${model} attempt ${attempt + 1} error:`, err);
-        await sleep(1000);
-      }
-    }
-  }
-
-  throw new Error("모든 AI 모델에서 추출에 실패했습니다.");
 }
 
 // ── JSON parsing with repair ─────────────────────────────────────────
@@ -210,11 +90,9 @@ function parseAIResponse(content: string): ExtractionResult {
   const lastBrace = jsonStr.lastIndexOf("}");
   if (lastBrace !== -1) jsonStr = jsonStr.substring(0, lastBrace + 1);
 
-  const tryParse = (v: string) => JSON.parse(v);
-
   let parsed: any;
   try {
-    parsed = tryParse(jsonStr);
+    parsed = JSON.parse(jsonStr);
   } catch {
     let repaired = jsonStr
       .replace(/,\s*}/g, "}")
@@ -222,9 +100,8 @@ function parseAIResponse(content: string): ExtractionResult {
       .replace(/[\x00-\x1F\x7F]/g, (ch) =>
         ch === "\n" || ch === "\r" || ch === "\t" ? ch : ""
       );
-
     try {
-      parsed = tryParse(repaired);
+      parsed = JSON.parse(repaired);
     } catch {
       let openBraces = 0, openBrackets = 0;
       for (const char of repaired) {
@@ -236,7 +113,7 @@ function parseAIResponse(content: string): ExtractionResult {
       repaired = repaired.replace(/,\s*$/, "");
       repaired += "]".repeat(Math.max(0, openBrackets));
       repaired += "}".repeat(Math.max(0, openBraces));
-      parsed = tryParse(repaired);
+      parsed = JSON.parse(repaired);
     }
   }
 
@@ -268,6 +145,86 @@ function parseAIResponse(content: string): ExtractionResult {
   };
 }
 
+// ── Call Gemini with file (multimodal) using key rotation ────────────
+async function callGeminiWithFile(
+  fileBase64: string,
+  mimeType: string,
+  includeDetails: boolean,
+  apiKeys: string[]
+): Promise<ExtractionResult> {
+  const systemPrompt = buildSystemPrompt(includeDetails);
+  const MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+
+  for (const apiKey of apiKeys) {
+    for (const model of MODELS) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: `${systemPrompt}\n\n이 파일에서 모든 영어 단어를 추출해주세요.` },
+                  {
+                    inline_data: {
+                      mime_type: mimeType,
+                      data: fileBase64,
+                    },
+                  },
+                ],
+              }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: includeDetails ? 65536 : 8192,
+              },
+            }),
+          });
+
+          if (res.status === 429) {
+            console.warn(`Key ${apiKey.slice(0, 8)}... rate limited on ${model}, attempt ${attempt + 1}`);
+            await sleep(2000 * (attempt + 1));
+            if (attempt === 2) break; // move to next model or key
+            continue;
+          }
+
+          if (res.status === 403 || res.status === 401) {
+            console.warn(`Key ${apiKey.slice(0, 8)}... auth error (${res.status}), skipping key`);
+            break; // skip this key entirely
+          }
+
+          if (!res.ok) {
+            const errText = await res.text();
+            console.error(`Gemini ${model} attempt ${attempt + 1} failed:`, res.status, errText);
+            if (res.status >= 500) {
+              await sleep(1000 * (attempt + 1));
+              continue;
+            }
+            break;
+          }
+
+          const data = await res.json();
+          const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (!content) {
+            console.warn(`Empty response from ${model} with key ${apiKey.slice(0, 8)}...`);
+            continue;
+          }
+
+          console.log(`Success with model ${model}, key ${apiKey.slice(0, 8)}...`);
+          return parseAIResponse(content);
+        } catch (err) {
+          console.error(`Gemini ${model} attempt ${attempt + 1} error:`, err);
+          await sleep(1000);
+        }
+      }
+    }
+  }
+
+  throw new Error("모든 AI 모델과 API 키에서 추출에 실패했습니다. 잠시 후 다시 시도해주세요.");
+}
+
 // ── Main handler ─────────────────────────────────────────────────────
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -275,21 +232,15 @@ serve(async (req) => {
   }
 
   try {
-    const PDF_CO_API_KEY = Deno.env.get("PDF_CO_API_KEY");
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-
-    if (!PDF_CO_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "PDF_CO_API_KEY가 설정되어 있지 않습니다." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!GEMINI_API_KEY) {
+    const apiKeys = getGeminiApiKeys();
+    if (apiKeys.length === 0) {
       return new Response(
         JSON.stringify({ error: "GEMINI_API_KEY가 설정되어 있지 않습니다." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log(`Using ${apiKeys.length} Gemini API key(s)`);
 
     const { file_base64, file_type, include_details } = await req.json();
 
@@ -300,23 +251,17 @@ serve(async (req) => {
       );
     }
 
-    // Step 1: Extract text via PDF.co
-    console.log("Extracting text via PDF.co...");
-    const extractedText = await extractTextViaPdfCo(file_base64, file_type, PDF_CO_API_KEY);
+    console.log(`Processing file type: ${file_type}, base64 length: ${file_base64.length}`);
 
-    if (!extractedText || extractedText.trim().length === 0) {
-      return new Response(
-        JSON.stringify({ error: "파일에서 텍스트를 추출할 수 없습니다. 다른 파일을 시도해주세요." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log(`Extracted ${extractedText.length} chars, sending to Gemini...`);
-
-    // Step 2: Structure vocabulary via Gemini
-    const result = await callGemini(extractedText, include_details !== false, GEMINI_API_KEY);
+    const result = await callGeminiWithFile(
+      file_base64,
+      file_type,
+      include_details !== false,
+      apiKeys
+    );
 
     const totalWords = result.chapters.reduce((sum, ch) => sum + ch.words.length, 0);
+    console.log(`Extraction complete: ${totalWords} words in ${result.chapters.length} chapters`);
 
     return new Response(
       JSON.stringify({ ...result, total_words: totalWords }),
