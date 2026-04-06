@@ -16,6 +16,8 @@ import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
 import { Plus, Trash2, Sparkles, Loader2, Upload, List } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { WordManager } from "@/components/WordManager";
+import { isLocalVocab, loadLocalWords, loadLocalVocabulary } from "@/utils/localVocabHelper";
+import { localStorageService } from "@/services/localStorageService";
 
 interface Chapter {
   id: string;
