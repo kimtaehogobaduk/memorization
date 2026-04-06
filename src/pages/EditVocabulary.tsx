@@ -358,29 +358,44 @@ const EditVocabulary = () => {
 
     setAddingWord(true);
     try {
-      const { error } = await supabase
-        .from("words")
-        .insert({
-          vocabulary_id: id,
+      if (isLocal) {
+        localStorageService.saveWords([{
+          vocabulary_id: id!,
           word: newWord.word.trim(),
           meaning: newWord.meaning.trim(),
           example: newWord.example.trim() || null,
-          part_of_speech: newWord.part_of_speech.trim() || null,
           note: newWord.note.trim() || null,
+          part_of_speech: newWord.part_of_speech.trim() || null,
           order_index: words.length,
-          image_url: newWord.image_url || null,
-          frequency: newWord.frequency || 0,
-          difficulty: newWord.difficulty || 0,
-          synonyms: newWord.synonyms.trim() || null,
-          antonyms: newWord.antonyms.trim() || null,
-          derivatives: newWord.derivatives.length > 0 ? JSON.stringify(newWord.derivatives) : null,
-        } as any);
+        }]);
+        toast.success("단어가 추가되었습니다!");
+        setNewWord(emptyNewWord());
+        loadLocalVocab();
+      } else {
+        const { error } = await supabase
+          .from("words")
+          .insert({
+            vocabulary_id: id,
+            word: newWord.word.trim(),
+            meaning: newWord.meaning.trim(),
+            example: newWord.example.trim() || null,
+            part_of_speech: newWord.part_of_speech.trim() || null,
+            note: newWord.note.trim() || null,
+            order_index: words.length,
+            image_url: newWord.image_url || null,
+            frequency: newWord.frequency || 0,
+            difficulty: newWord.difficulty || 0,
+            synonyms: newWord.synonyms.trim() || null,
+            antonyms: newWord.antonyms.trim() || null,
+            derivatives: newWord.derivatives.length > 0 ? JSON.stringify(newWord.derivatives) : null,
+          } as any);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast.success("단어가 추가되었습니다!");
-      setNewWord(emptyNewWord());
-      loadVocabulary();
+        toast.success("단어가 추가되었습니다!");
+        setNewWord(emptyNewWord());
+        loadVocabulary();
+      }
     } catch (error) {
       console.error("Error adding word:", error);
       toast.error("단어 추가에 실패했습니다.");
