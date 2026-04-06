@@ -789,13 +789,19 @@ const EditVocabulary = () => {
                   key={word.id}
                   word={word}
                   vocabularyId={id!}
-                  onUpdate={loadVocabulary}
+                  onUpdate={isLocal ? loadLocalVocab : loadVocabulary}
                   aiAutoMeaning={aiAutoMeaning}
                   onDelete={async () => {
                     try {
-                      await supabase.from("words").delete().eq("id", word.id);
-                      toast.success("단어가 삭제되었습니다!");
-                      loadVocabulary();
+                      if (isLocal) {
+                        localStorageService.deleteWord(word.id);
+                        toast.success("단어가 삭제되었습니다!");
+                        loadLocalVocab();
+                      } else {
+                        await supabase.from("words").delete().eq("id", word.id);
+                        toast.success("단어가 삭제되었습니다!");
+                        loadVocabulary();
+                      }
                     } catch (error) {
                       console.error("Error deleting word:", error);
                       toast.error("단어 삭제에 실패했습니다.");
