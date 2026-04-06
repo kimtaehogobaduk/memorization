@@ -101,11 +101,37 @@ const EditVocabulary = () => {
   const [bulkTotal, setBulkTotal] = useState(0);
   const [bulkResults, setBulkResults] = useState<Array<{ word: string; status: "pending" | "loading" | "done" | "error"; error?: string }>>([]);
 
+  const isLocal = isLocalVocab(id);
+
   useEffect(() => {
-    if (id && user) {
-      loadVocabulary();
+    if (id) {
+      if (isLocal) {
+        loadLocalVocab();
+      } else if (user) {
+        loadVocabulary();
+      }
     }
   }, [id, user]);
+
+  const loadLocalVocab = () => {
+    const vocab = loadLocalVocabulary(id!);
+    if (vocab) {
+      setName(vocab.name);
+      setDescription(vocab.description || "");
+      setLanguage(vocab.language);
+    }
+    const localWords = loadLocalWords(id!);
+    setWords(localWords.map(w => ({
+      id: w.id,
+      chapter_id: null,
+      word: w.word,
+      meaning: w.meaning,
+      example: w.example || "",
+      note: w.note || "",
+      part_of_speech: w.part_of_speech || "",
+      order_index: w.order_index,
+    })));
+  };
 
   const loadVocabulary = async () => {
     try {
