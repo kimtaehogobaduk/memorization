@@ -407,13 +407,19 @@ const EditVocabulary = () => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await supabase
-        .from("vocabularies")
-        .update({ name, description, language, is_public: isPublic })
-        .eq("id", id);
+      if (isLocal) {
+        localStorageService.updateVocabulary(id!, { name, description, language });
+        toast.success("단어장이 수정되었습니다!");
+        navigate(`/vocabularies/${id}`);
+      } else {
+        await supabase
+          .from("vocabularies")
+          .update({ name, description, language, is_public: isPublic })
+          .eq("id", id);
 
-      toast.success("단어장이 수정되었습니다!");
-      navigate(`/vocabularies/${id}`);
+        toast.success("단어장이 수정되었습니다!");
+        navigate(`/vocabularies/${id}`);
+      }
     } catch (error) {
       console.error("Error updating vocabulary:", error);
       toast.error("단어장 수정에 실패했습니다.");
