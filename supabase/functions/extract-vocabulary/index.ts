@@ -97,14 +97,12 @@ async function extractTextViaPdfCo(
   return extractedText;
 }
 
-// ── Cerebras: generate structured vocabulary from text ───────────────
-async function callCerebras(
+// ── Gemini: generate structured vocabulary from text ───────────────
+async function callGemini(
   text: string,
   includeDetails: boolean,
   apiKey: string
 ): Promise<ExtractionResult> {
-  const MODELS = ["llama-3.3-70b", "llama3.1-8b"];
-
   const detailsPrompt = includeDetails
     ? `For each word, also extract or generate:
 - "meaning": Korean meaning/definition (한국어 뜻)
@@ -149,29 +147,29 @@ Return ONLY valid JSON in this exact format:
 
 IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanation.`;
 
-  // Truncate text to avoid token limits
-  const truncatedText = text.slice(0, 100000);
+  // Truncate text to stay within token limits
+  const truncatedText = text.slice(0, 60000);
+
+  const MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
 
   for (const model of MODELS) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+        const res = await fetch(url, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              {
-                role: "user",
-                content: `다음은 단어장/문서의 텍스트입니다. 모든 영어 단어를 추출해주세요.\n\n${truncatedText}`,
-              },
-            ],
-            max_tokens: includeDetails ? 8192 : 4096,
-            temperature: 0.1,
+            contents: [{
+              parts: [{
+                text: `${systemPrompt}\n\n다음은 단어장/문서의 텍스트입니다. 모든 영어 단어를 추출해주세요.\n\n${truncatedText}`,
+              }],
+            }],
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: includeDetails ? 8192 : 4096,
+            },
           }),
         });
 
@@ -182,21 +180,21 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
 
         if (!res.ok) {
           const errText = await res.text();
-          console.error(`Cerebras ${model} attempt ${attempt + 1} failed:`, res.status, errText);
+          console.error(`Gemini ${model} attempt ${attempt + 1} failed:`, res.status, errText);
           if (res.status >= 500) {
             await sleep(1000 * (attempt + 1));
             continue;
           }
-          break; // Client error, try next model
+          break;
         }
 
         const data = await res.json();
-        const content = data.choices?.[0]?.message?.content || "";
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         if (!content) continue;
 
         return parseAIResponse(content);
       } catch (err) {
-        console.error(`Cerebras ${model} attempt ${attempt + 1} error:`, err);
+        console.error(`Gemini ${model} attempt ${attempt + 1} error:`, err);
         await sleep(1000);
       }
     }
