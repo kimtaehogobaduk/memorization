@@ -167,19 +167,20 @@ const FileVocabularyUpload = () => {
         try {
           const base64 = await fileToBase64Raw(file);
 
-          const { data, error: fnError } = await supabase.functions.invoke(
-            "extract-vocabulary",
-            {
-              body: {
-                file_base64: base64,
-                file_type: file.type,
-                include_details: includeDetails,
-              },
-            }
-          );
+          const response = await fetch("/api/extract-vocabulary", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              file_base64: base64,
+              file_type: file.type,
+              include_details: includeDetails,
+            }),
+          });
 
-          if (fnError) {
-            console.error(`File ${fi + 1} (${file.name}) edge fn error:`, fnError);
+          const data = await response.json();
+
+          if (!response.ok) {
+            console.error(`File ${fi + 1} (${file.name}) API error:`, data.error);
             continue;
           }
 
