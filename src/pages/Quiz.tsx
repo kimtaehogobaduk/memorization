@@ -115,18 +115,31 @@ const Quiz = () => {
 
   const exportToTestPaper = async () => {
     try {
-      const query = supabase
-        .from("words")
-        .select("id, word, meaning, part_of_speech")
-        .eq("vocabulary_id", id);
+      let words: { id: string; word: string; meaning: string; part_of_speech: string | null }[] = [];
 
-      if (chapterId) {
-        query.eq("chapter_id", chapterId);
+      if (isLocalVocab(id)) {
+        const localWords = loadLocalWords(id!);
+        words = localWords.map(w => ({
+          id: w.id,
+          word: w.word,
+          meaning: w.meaning,
+          part_of_speech: w.part_of_speech,
+        }));
+      } else {
+        const query = supabase
+          .from("words")
+          .select("id, word, meaning, part_of_speech")
+          .eq("vocabulary_id", id);
+
+        if (chapterId) {
+          query.eq("chapter_id", chapterId);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        words = data || [];
       }
 
-      const { data: words, error } = await query;
-
-      if (error) throw error;
       if (!words || words.length === 0) {
         toast.error("단어가 없습니다.");
         return;

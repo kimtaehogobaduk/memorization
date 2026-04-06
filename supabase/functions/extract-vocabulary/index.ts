@@ -57,19 +57,16 @@ async function extractTextViaPdfCo(
 
   // Step 2: Choose extraction endpoint based on file type
   const isPdf = fileType === "application/pdf";
-  const endpoint = isPdf
+
+  const actualEndpoint = isPdf
     ? "https://api.pdf.co/v1/pdf/convert/to/text"
-    : "https://api.pdf.co/v1/pdf/convert/to/text"; // PDF.co can handle images via this endpoint too with OCR
+    : "https://api.pdf.co/v1/pdf/ocr";
 
   const convertBody: Record<string, unknown> = {
     url: fileUrl,
     inline: true,
+    ...(isPdf ? {} : { lang: "eng" }),
   };
-
-  // For images, use the dedicated OCR endpoint
-  const actualEndpoint = isPdf
-    ? "https://api.pdf.co/v1/pdf/convert/to/text"
-    : "https://api.pdf.co/v1/pdf/convert/to/text"; // PDF.co auto-detects and does OCR
 
   const convertRes = await fetch(actualEndpoint, {
     method: "POST",
