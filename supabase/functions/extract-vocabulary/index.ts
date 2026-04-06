@@ -55,17 +55,12 @@ async function extractTextViaPdfCo(
   const fileUrl = uploadData.url;
   if (!fileUrl) throw new Error("PDF.co did not return a file URL");
 
-  // Step 2: Choose extraction endpoint based on file type
-  const isPdf = fileType === "application/pdf";
-
-  const actualEndpoint = isPdf
-    ? "https://api.pdf.co/v1/pdf/convert/to/text"
-    : "https://api.pdf.co/v1/pdf/ocr";
+  // Step 2: Extract text - PDF.co /pdf/convert/to/text handles both PDFs and images with OCR
+  const actualEndpoint = "https://api.pdf.co/v1/pdf/convert/to/text";
 
   const convertBody: Record<string, unknown> = {
     url: fileUrl,
     inline: true,
-    ...(isPdf ? {} : { lang: "eng" }),
   };
 
   const convertRes = await fetch(actualEndpoint, {
