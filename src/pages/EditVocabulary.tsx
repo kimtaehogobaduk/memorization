@@ -16,6 +16,8 @@ import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
 import { Plus, Trash2, Sparkles, Loader2, Upload, List } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { WordManager } from "@/components/WordManager";
+import { isLocalVocab, loadLocalWords, loadLocalVocabulary } from "@/utils/localVocabHelper";
+import { localStorageService } from "@/services/localStorageService";
 
 interface Chapter {
   id: string;
@@ -99,11 +101,37 @@ const EditVocabulary = () => {
   const [bulkTotal, setBulkTotal] = useState(0);
   const [bulkResults, setBulkResults] = useState<Array<{ word: string; status: "pending" | "loading" | "done" | "error"; error?: string }>>([]);
 
+  const isLocal = isLocalVocab(id);
+
   useEffect(() => {
-    if (id && user) {
-      loadVocabulary();
+    if (id) {
+      if (isLocal) {
+        loadLocalVocab();
+      } else if (user) {
+        loadVocabulary();
+      }
     }
   }, [id, user]);
+
+  const loadLocalVocab = () => {
+    const vocab = loadLocalVocabulary(id!);
+    if (vocab) {
+      setName(vocab.name);
+      setDescription(vocab.description || "");
+      setLanguage(vocab.language);
+    }
+    const localWords = loadLocalWords(id!);
+    setWords(localWords.map(w => ({
+      id: w.id,
+      chapter_id: null,
+      word: w.word,
+      meaning: w.meaning,
+      example: w.example || "",
+      note: w.note || "",
+      part_of_speech: w.part_of_speech || "",
+      order_index: w.order_index,
+    })));
+  };
 
   const loadVocabulary = async () => {
     try {
@@ -330,29 +358,44 @@ const EditVocabulary = () => {
 
     setAddingWord(true);
     try {
-      const { error } = await supabase
-        .from("words")
-        .insert({
-          vocabulary_id: id,
+      if (isLocal) {
+        localStorageService.saveWords([{
+          vocabulary_id: id!,
           word: newWord.word.trim(),
           meaning: newWord.meaning.trim(),
           example: newWord.example.trim() || null,
-          part_of_speech: newWord.part_of_speech.trim() || null,
           note: newWord.note.trim() || null,
+          part_of_speech: newWord.part_of_speech.trim() || null,
           order_index: words.length,
-          image_url: newWord.image_url || null,
-          frequency: newWord.frequency || 0,
-          difficulty: newWord.difficulty || 0,
-          synonyms: newWord.synonyms.trim() || null,
-          antonyms: newWord.antonyms.trim() || null,
-          derivatives: newWord.derivatives.length > 0 ? JSON.stringify(newWord.derivatives) : null,
-        } as any);
+        }]);
+        toast.success("단어가 추가되었습니다!");
+        setNewWord(emptyNewWord());
+        loadLocalVocab();
+      } else {
+        const { error } = await supabase
+          .from("words")
+          .insert({
+            vocabulary_id: id,
+            word: newWord.word.trim(),
+            meaning: newWord.meaning.trim(),
+            example: newWord.example.trim() || null,
+            part_of_speech: newWord.part_of_speech.trim() || null,
+            note: newWord.note.trim() || null,
+            order_index: words.length,
+            image_url: newWord.image_url || null,
+            frequency: newWord.frequency || 0,
+            difficulty: newWord.difficulty || 0,
+            synonyms: newWord.synonyms.trim() || null,
+            antonyms: newWord.antonyms.trim() || null,
+            derivatives: newWord.derivatives.length > 0 ? JSON.stringify(newWord.derivatives) : null,
+          } as any);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast.success("단어가 추가되었습니다!");
-      setNewWord(emptyNewWord());
-      loadVocabulary();
+        toast.success("단어가 추가되었습니다!");
+        setNewWord(emptyNewWord());
+        loadVocabulary();
+      }
     } catch (error) {
       console.error("Error adding word:", error);
       toast.error("단어 추가에 실패했습니다.");
@@ -364,13 +407,19 @@ const EditVocabulary = () => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await supabase
-        .from("vocabularies")
-        .update({ name, description, language, is_public: isPublic })
-        .eq("id", id);
+      if (isLocal) {
+        localStorageService.updateVocabulary(id!, { name, description, language });
+        toast.success("단어장이 수정되었습니다!");
+        navigate(`/vocabularies/${id}`);
+      } else {
+        await supabase
+          .from("vocabularies")
+          .update({ name, description, language, is_public: isPublic })
+          .eq("id", id);
 
-      toast.success("단어장이 수정되었습니다!");
-      navigate(`/vocabularies/${id}`);
+        toast.success("단어장이 수정되었습니다!");
+        navigate(`/vocabularies/${id}`);
+      }
     } catch (error) {
       console.error("Error updating vocabulary:", error);
       toast.error("단어장 수정에 실패했습니다.");
@@ -419,9 +468,9 @@ const EditVocabulary = () => {
       
       <div className="max-w-screen-xl mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className={`grid w-full ${isLocal ? 'grid-cols-2' : 'grid-cols-3'} mb-6`}>
             <TabsTrigger value="info">정보</TabsTrigger>
-            <TabsTrigger value="chapters">챕터</TabsTrigger>
+            {!isLocal && <TabsTrigger value="chapters">챕터</TabsTrigger>}
             <TabsTrigger value="words">단어</TabsTrigger>
           </TabsList>
 
@@ -740,13 +789,19 @@ const EditVocabulary = () => {
                   key={word.id}
                   word={word}
                   vocabularyId={id!}
-                  onUpdate={loadVocabulary}
+                  onUpdate={isLocal ? loadLocalVocab : loadVocabulary}
                   aiAutoMeaning={aiAutoMeaning}
                   onDelete={async () => {
                     try {
-                      await supabase.from("words").delete().eq("id", word.id);
-                      toast.success("단어가 삭제되었습니다!");
-                      loadVocabulary();
+                      if (isLocal) {
+                        localStorageService.deleteWord(word.id);
+                        toast.success("단어가 삭제되었습니다!");
+                        loadLocalVocab();
+                      } else {
+                        await supabase.from("words").delete().eq("id", word.id);
+                        toast.success("단어가 삭제되었습니다!");
+                        loadVocabulary();
+                      }
                     } catch (error) {
                       console.error("Error deleting word:", error);
                       toast.error("단어 삭제에 실패했습니다.");
