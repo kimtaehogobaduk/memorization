@@ -167,20 +167,16 @@ const FileVocabularyUpload = () => {
         try {
           const base64 = await fileToBase64Raw(file);
 
-          const response = await fetch("/api/extract-vocabulary", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+          const { data, error: invokeError } = await supabase.functions.invoke("extract-vocabulary", {
+            body: {
               file_base64: base64,
               file_type: file.type,
               include_details: includeDetails,
-            }),
+            },
           });
 
-          const data = await response.json();
-
-          if (!response.ok) {
-            console.error(`File ${fi + 1} (${file.name}) API error:`, data.error);
+          if (invokeError) {
+            console.error(`File ${fi + 1} (${file.name}) invoke error:`, invokeError);
             continue;
           }
 
@@ -216,7 +212,9 @@ const FileVocabularyUpload = () => {
       setExtractionProgress(100);
 
       if (allChapters.length === 0) {
-        throw new Error("추출된 단어가 없습니다. 다른 파일을 시도해주세요.");
+        throw new Error(
+          "파일에서 단어를 추출하지 못했습니다. PDF/이미지 품질을 확인하거나 잠시 후 다시 시도해주세요."
+        );
       }
 
       const totalWords = allChapters.reduce((sum, ch) => sum + ch.words.length, 0);
