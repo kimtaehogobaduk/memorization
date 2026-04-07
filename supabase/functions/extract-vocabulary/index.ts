@@ -50,7 +50,7 @@ function getGeminiApiKeys(): string[] {
 function buildSystemPrompt(includeDetails: boolean): string {
   const detailsPrompt = includeDetails
     ? `For each word, also extract or generate:
-- "meaning": Korean meaning/definition (한국어 뜻)
+- "meaning": Korean meaning/definition (한국어 뜻). If the source doesn't have Korean meanings, YOU MUST generate accurate Korean translations.
 - "example": example sentence if available
 - "part_of_speech": part of speech (품사, in Korean like 명사, 동사, 형용사)
 - "pronunciation": pronunciation guide
@@ -63,14 +63,24 @@ function buildSystemPrompt(includeDetails: boolean): string {
     ? `{"word": "example", "meaning": "예시", "example": "This is an example.", "part_of_speech": "명사", "pronunciation": "ɪɡˈzæmpəl", "synonyms": "instance, sample", "antonyms": "original", "derivatives": [{"word": "exemplary", "meaning": "모범적인"}]}`
     : `{"word": "example"}`;
 
-  return `You are a vocabulary extraction expert. Extract structured vocabulary data.
+  return `You are a vocabulary extraction expert. Extract structured vocabulary data from documents.
 
 CRITICAL RULES:
 1. Extract ALL English words from the content.
-2. Group into chapters if sections like "Day 1", "Unit 1", "Chapter 1" exist.
+2. Group into chapters if sections like "Day 1", "Unit 1", "Chapter 1", "Lesson 1", "Week 1", "Part 1", "Section 1", "Level 1", "Module 1", "Stage 1", "Round 1", "Set 1" exist.
 3. If no sections, use a single chapter called "전체 단어".
 4. Infer vocabulary name from document title if visible, otherwise use "".
 5. ${detailsPrompt}
+
+OCR ERROR CORRECTION:
+- Fix common OCR errors: "rn" → "m", "l" → "I" or "1" when contextually appropriate, "0" ↔ "O", etc.
+- Fix broken words that were split across lines.
+- If a word looks like gibberish or is clearly misspelled, correct it to the most likely intended English word.
+- Remove page numbers, headers, footers, and non-vocabulary content.
+
+KOREAN MEANING GENERATION:
+- If the source material does NOT contain Korean meanings, you MUST generate accurate Korean translations for every word.
+- Provide the most common/primary meaning first, then secondary meanings separated by commas.
 
 Return ONLY valid JSON:
 {"vocabulary_name": "","chapters": [{"name": "Day 1","words": [${wordShape}]}]}
