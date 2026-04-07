@@ -142,10 +142,28 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
 // ── Call Gemini with text ──────────────────────────────────────────────────
 async function callGeminiWithText(text, includeDetails, apiKey) {
   const systemPrompt = buildPromptParts(includeDetails);
-  const truncatedText = text.slice(0, 60000);
+  const chunks = [];
+  const maxChunkSize = 22000;
+  for (let i = 0; i < text.length; i += maxChunkSize) {
+    chunks.push(text.slice(i, i + maxChunkSize));
+  }
 
   // Models ordered by preference — gemini-2.5-flash is the latest and most capable
   const MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
+
+  if (chunks.length > 1) {
+    const combined = [];
+    for (const chunk of chunks) {
+      const partial = await callGeminiWithText(chunk, includeDetails, apiKey);
+      combined.push(...(partial.chapters || []));
+    }
+    return {
+      vocabulary_name: "",
+      chapters: combined,
+    };
+  }
+
+  const truncatedText = chunks[0] || "";
 
   for (const model of MODELS) {
     for (let attempt = 0; attempt < 3; attempt++) {
