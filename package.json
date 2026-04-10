@@ -7,6 +7,7 @@
     "dev": "concurrently \"node server/index.js\" \"vite\"",
     "frontend": "vite",
     "server": "node server/index.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
