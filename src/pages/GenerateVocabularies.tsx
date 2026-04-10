@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/integrations/api/client";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -25,11 +26,9 @@ const GenerateVocabularies = () => {
   };
 
   const generateBatch = async (startIndex: number) => {
-    const { data, error } = await supabase.functions.invoke('generate-vocabularies', {
-      body: {
-        count: batchSize,
-        startIndex
-      }
+    const { data, error } = await api.generateVocabularies({
+      count: batchSize,
+      startIndex
     });
 
     if (error) {

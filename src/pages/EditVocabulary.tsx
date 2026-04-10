@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/integrations/api/client";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
 import { Plus, Trash2, Sparkles, Loader2, Upload, List } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
@@ -130,7 +131,7 @@ const EditVocabulary = () => {
     if (!trimmedWord || !aiAutoMeaning) return;
     setFetchingNewMeaning(true);
     try {
-      const { data, error } = await supabase.functions.invoke("get-word-meaning", { body: { word: trimmedWord } });
+      const { data, error } = await api.getWordMeaning({ word: trimmedWord });
       if (error) throw new Error(error.message);
       setNewWord(prev => ({ ...prev, meaning: data?.meaning || prev.meaning, example: data?.example || prev.example, part_of_speech: data?.part_of_speech || prev.part_of_speech, pronunciation: data?.pronunciation || prev.pronunciation, frequency: data?.frequency || prev.frequency, difficulty: data?.difficulty || prev.difficulty, synonyms: data?.synonyms || prev.synonyms, antonyms: data?.antonyms || prev.antonyms, derivatives: Array.isArray(data?.derivatives) && data.derivatives.length > 0 ? data.derivatives : prev.derivatives }));
     } catch (error) {
@@ -205,7 +206,7 @@ const EditVocabulary = () => {
       const wordText = wordList[i];
       setBulkResults(prev => prev.map((r, ri) => ri === i ? { ...r, status: "loading" } : r));
       try {
-        const { data } = await supabase.functions.invoke("get-word-meaning", { body: { word: wordText } });
+        const { data } = await api.getWordMeaning({ word: wordText });
         const payload = {
           vocabulary_id: id,
           chapter_id: null,

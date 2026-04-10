@@ -12,6 +12,7 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { Brain, CheckSquare, Edit3, Grid3x3, Printer, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/integrations/api/client";
 import { toast } from "sonner";
 import { isLocalVocab, loadLocalWords, loadLocalVocabulary, getLocalSettings } from "@/utils/localVocabHelper";
 
@@ -164,9 +165,7 @@ const Quiz = () => {
         toast.info("AI가 시험 문제를 생성하고 있습니다... 잠시만 기다려주세요.");
         
         const limitedWords = shuffledWords.slice(0, 20);
-        const { data: fnData, error: fnError } = await supabase.functions.invoke("generate-ai-quiz", {
-          body: { words: limitedWords, difficulty: aiDifficulty, customRequest: aiCustomRequest },
-        });
+        const { data: fnData, error: fnError } = await api.generateAiQuiz({ words: limitedWords, difficulty: aiDifficulty, customRequest: aiCustomRequest });
 
         if (fnError || fnData?.error || !fnData?.questions?.length) {
           toast.error("AI 문제 생성에 실패했습니다. 다시 시도해주세요.");

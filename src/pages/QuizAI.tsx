@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Check, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/integrations/api/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -89,9 +90,7 @@ const QuizAI = () => {
       setLoadingMessage("AI가 문제를 생성하고 있어요... 🧠");
       const shuffled = [...words].sort(() => Math.random() - 0.5);
 
-      const { data: fnData, error: fnError } = await supabase.functions.invoke("generate-ai-quiz", {
-        body: { words: shuffled, difficulty, customRequest },
-      });
+      const { data: fnData, error: fnError } = await api.generateAiQuiz({ words: shuffled, difficulty, customRequest });
 
       if (fnError) throw fnError;
       if (fnData?.error) throw new Error(fnData.error);

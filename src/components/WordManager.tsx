@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, Trash2, Upload, Sparkles, Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/integrations/api/client";
 import { toast } from "sonner";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
 
@@ -31,7 +32,7 @@ export const WordManager = ({ word, onUpdate, onDelete, vocabularyId, aiAutoMean
     if (!trimmedWord || !aiAutoMeaning) return;
     setFetchingMeaning(true);
     try {
-      const { data, error } = await supabase.functions.invoke("get-word-meaning", { body: { word: trimmedWord } });
+      const { data, error } = await api.getWordMeaning({ word: trimmedWord });
       if (error) throw new Error(error.message);
       setEditedWord(prev => ({ ...prev, meaning: data?.meaning || prev.meaning, example: data?.example || prev.example, part_of_speech: data?.part_of_speech || prev.part_of_speech, frequency: data?.frequency || prev.frequency, difficulty: data?.difficulty || prev.difficulty, synonyms: data?.synonyms || prev.synonyms, antonyms: data?.antonyms || prev.antonyms, derivatives: Array.isArray(data?.derivatives) && data.derivatives.length > 0 ? data.derivatives : prev.derivatives }));
     } catch (error) {

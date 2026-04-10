@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Check, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/integrations/api/client";
 import { toast } from "sonner";
 import { isLocalVocab, loadLocalWords, getLocalSettings } from "@/utils/localVocabHelper";
 
@@ -197,9 +198,7 @@ const QuizWriting = () => {
   // AI-based validation for meaning answers
   const validateMeaningWithAI = async (word: string, userAns: string, correctMeaning: string): Promise<boolean> => {
     try {
-      const { data, error } = await supabase.functions.invoke("validate-meaning", {
-        body: { word, userAnswer: userAns, correctMeaning },
-      });
+      const { data, error } = await api.validateMeaning({ word, userAnswer: userAns, correctMeaning });
       if (error) throw error;
       return data?.valid === true;
     } catch (e) {
