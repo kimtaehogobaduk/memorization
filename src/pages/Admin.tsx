@@ -46,10 +46,11 @@ interface UserData {
   id: string;
   email: string;
   created_at: string;
+  last_sign_in_at?: string | null;
   profile?: {
     full_name: string | null;
     username: string | null;
-  };
+  } | null;
   role?: AppRole;
 }
 
@@ -95,6 +96,8 @@ const Admin = () => {
   const [groupSearch, setGroupSearch] = useState("");
   
   const [statsLoading, setStatsLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
 
   useEffect(() => {
     // 로그인 안 되어 있으면 로그인 페이지로만 보냄
@@ -145,36 +148,49 @@ const Admin = () => {
 
   const loadUsers = async () => {
     try {
-      // Get all users from auth.users via profiles
-      const { data: profilesData, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, full_name, username, created_at")
-        .order("created_at", { ascending: false });
+      setUsersLoading(true);
+      setUsersError(null);
 
-      if (profilesError) throw profilesError;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setUsersError("인증 세션이 없습니다.");
+        return;
+      }
 
-      // Get roles for each user
-      const { data: rolesData } = await supabase
-        .from("user_roles")
-        .select("user_id, role");
-
-      const rolesMap = new Map(rolesData?.map(r => [r.user_id, r.role as AppRole]) || []);
-
-      const usersWithRoles: UserData[] = (profilesData || []).map(profile => ({
-        id: profile.id,
-        email: "", // We can't access auth.users directly
-        created_at: profile.created_at || "",
-        profile: {
-          full_name: profile.full_name,
-          username: profile.username,
+      const response = await fetch("/api/admin/users", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         },
-        role: rolesMap.get(profile.id) || "user",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (result.error === "SERVICE_ROLE_KEY_MISSING") {
+          setUsersError("SUPABASE_SERVICE_ROLE_KEY 환경 변수가 설정되지 않았습니다. Replit Secrets에 추가해 주세요.");
+        } else {
+          setUsersError(result.error || "사용자 목록 로딩 실패");
+        }
+        toast.error("사용자 목록 로딩 실패");
+        return;
+      }
+
+      const usersData: UserData[] = (result.users || []).map((u: UserData) => ({
+        id: u.id,
+        email: u.email || "",
+        created_at: u.created_at || "",
+        last_sign_in_at: u.last_sign_in_at || null,
+        profile: u.profile || null,
+        role: (u.role as AppRole) || "user",
       }));
 
-      setUsers(usersWithRoles);
+      setUsers(usersData);
     } catch (error) {
       console.error("Error loading users:", error);
+      setUsersError("사용자 목록을 불러오는 중 오류가 발생했습니다.");
       toast.error("사용자 목록 로딩 실패");
+    } finally {
+      setUsersLoading(false);
     }
   };
 
@@ -469,7 +485,15 @@ const Admin = () => {
                 </div>
                 <ScrollArea className="h-[500px]">
                   <div className="space-y-3">
-                    {filteredUsers.map((u) => (
+                    {usersLoading && (
+                      <p className="text-center text-muted-foreground py-8">사용자 목록 로딩 중...</p>
+                    )}
+                    {!usersLoading && usersError && (
+                      <div className="text-center py-8 space-y-2">
+                        <p className="text-sm text-destructive">{usersError}</p>
+                      </div>
+                    )}
+                    {!usersLoading && !usersError && filteredUsers.map((u) => (
                       <Card key={u.id}>
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between gap-3">
@@ -477,12 +501,21 @@ const Admin = () => {
                               <p className="font-medium truncate">
                                 {u.profile?.full_name || u.profile?.username || "이름 없음"}
                               </p>
-                              <p className="text-sm text-muted-foreground">
-                                ID: {u.id.slice(0, 8)}...
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                가입일: {new Date(u.created_at).toLocaleDateString()}
-                              </p>
+                              {u.email && (
+                                <p className="text-sm text-muted-foreground truncate">
+                                  {u.email}
+                                </p>
+                              )}
+                              <div className="flex gap-3 mt-1">
+                                <p className="text-xs text-muted-foreground">
+                                  가입일: {new Date(u.created_at).toLocaleDateString()}
+                                </p>
+                                {u.last_sign_in_at && (
+                                  <p className="text-xs text-muted-foreground">
+                                    최근 로그인: {new Date(u.last_sign_in_at).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <Select
@@ -515,7 +548,7 @@ const Admin = () => {
                         </CardContent>
                       </Card>
                     ))}
-                    {filteredUsers.length === 0 && (
+                    {!usersLoading && !usersError && filteredUsers.length === 0 && (
                       <p className="text-center text-muted-foreground py-8">
                         사용자가 없습니다.
                       </p>
