@@ -682,6 +682,68 @@ app.post("/api/delete-user", async (req, res) => {
   }
 });
 
+// ─── GET /api/admin/users ─────────────────────────────────────────────────────
+// 관리자 전용: 이메일 포함 전체 사용자 목록을 일반 데이터처럼 반환
+
+app.get("/api/admin/users", async (req, res) => {
+  try {
+    const authHeader = req.headers["authorization"];
+    if (!authHeader) return res.status(401).json({ error: "No authorization header" });
+
+    // 요청자가 관리자인지 확인
+    const userSupabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user } } = await userSupabase.auth.getUser();
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const { data: roleData } = await userSupabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .single();
+    if (!roleData) return res.status(403).json({ error: "Admin access required" });
+
+    // 서비스 롤 키로 auth.users 전체 목록 가져오기
+    const adminSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data: authUsersData, error: listError } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
+    if (listError) throw listError;
+
+    const authUsers = authUsersData?.users || [];
+
+    // profiles 테이블에서 이름/유저네임 가져오기
+    const { data: profiles } = await adminSupabase
+      .from("profiles")
+      .select("id, full_name, username, created_at");
+
+    // user_roles 테이블에서 역할 가져오기
+    const { data: rolesData } = await adminSupabase
+      .from("user_roles")
+      .select("user_id, role");
+
+    const profilesMap = new Map((profiles || []).map(p => [p.id, p]));
+    const rolesMap = new Map((rolesData || []).map(r => [r.user_id, r.role]));
+
+    const users = authUsers.map(u => ({
+      id: u.id,
+      email: u.email || "",
+      created_at: u.created_at,
+      last_sign_in_at: u.last_sign_in_at || null,
+      profile: {
+        full_name: profilesMap.get(u.id)?.full_name || null,
+        username: profilesMap.get(u.id)?.username || null,
+      },
+      role: (rolesMap.get(u.id) || "user") as "admin" | "elder" | "user",
+    }));
+
+    res.json({ users });
+  } catch (error) {
+    console.error("admin/users error:", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });
+  }
+});
+
 // ─── Health check ─────────────────────────────────────────────────────────────
 
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));

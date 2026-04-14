@@ -28,7 +28,7 @@ import {
   Activity
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { apiDeleteUser } from "@/services/api";
+import { apiDeleteUser, apiGetAdminUsers, AdminUser } from "@/services/api";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -41,17 +41,6 @@ interface StatsData {
   totalGroups: number;
   publicVocabularies: number;
   publicGroups: number;
-}
-
-interface UserData {
-  id: string;
-  email: string;
-  created_at: string;
-  profile?: {
-    full_name: string | null;
-    username: string | null;
-  };
-  role?: AppRole;
 }
 
 interface VocabularyData {
@@ -87,7 +76,7 @@ const Admin = () => {
     publicGroups: 0,
   });
   
-  const [users, setUsers] = useState<UserData[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [vocabularies, setVocabularies] = useState<VocabularyData[]>([]);
   const [groups, setGroups] = useState<GroupData[]>([]);
   
@@ -146,33 +135,10 @@ const Admin = () => {
 
   const loadUsers = async () => {
     try {
-      // Get all users from auth.users via profiles
-      const { data: profilesData, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, full_name, username, created_at")
-        .order("created_at", { ascending: false });
-
-      if (profilesError) throw profilesError;
-
-      // Get roles for each user
-      const { data: rolesData } = await supabase
-        .from("user_roles")
-        .select("user_id, role");
-
-      const rolesMap = new Map(rolesData?.map(r => [r.user_id, r.role as AppRole]) || []);
-
-      const usersWithRoles: UserData[] = (profilesData || []).map(profile => ({
-        id: profile.id,
-        email: "", // We can't access auth.users directly
-        created_at: profile.created_at || "",
-        profile: {
-          full_name: profile.full_name,
-          username: profile.username,
-        },
-        role: rolesMap.get(profile.id) || "user",
-      }));
-
-      setUsers(usersWithRoles);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("인증 세션이 만료되었습니다."); return; }
+      const { users: fetchedUsers } = await apiGetAdminUsers(session.access_token);
+      setUsers(fetchedUsers);
     } catch (error) {
       console.error("Error loading users:", error);
       toast.error("사용자 목록 로딩 실패");
@@ -344,10 +310,11 @@ const Admin = () => {
     }
   };
 
-  const filteredUsers = users.filter(u => 
+  const filteredUsers = users.filter(u =>
     u.profile?.full_name?.toLowerCase().includes(userSearch.toLowerCase()) ||
     u.profile?.username?.toLowerCase().includes(userSearch.toLowerCase()) ||
-    u.email.toLowerCase().includes(userSearch.toLowerCase())
+    u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+    u.id.toLowerCase().includes(userSearch.toLowerCase())
   );
 
   const filteredVocabs = vocabularies.filter(v =>
@@ -464,13 +431,26 @@ const Admin = () => {
                             <div className="flex-1 min-w-0">
                               <p className="font-medium truncate">
                                 {u.profile?.full_name || u.profile?.username || "이름 없음"}
+                                {u.profile?.username && u.profile?.full_name && (
+                                  <span className="text-sm font-normal text-muted-foreground ml-1">@{u.profile.username}</span>
+                                )}
                               </p>
-                              <p className="text-sm text-muted-foreground">
-                                ID: {u.id.slice(0, 8)}...
+                              <p className="text-sm text-muted-foreground truncate">
+                                {u.email || "이메일 없음"}
                               </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                가입일: {new Date(u.created_at).toLocaleDateString()}
+                              <p className="text-xs text-muted-foreground font-mono mt-0.5 select-all">
+                                {u.id}
                               </p>
+                              <div className="flex gap-3 mt-1">
+                                <p className="text-xs text-muted-foreground">
+                                  가입일: {new Date(u.created_at).toLocaleDateString("ko-KR")}
+                                </p>
+                                {u.last_sign_in_at && (
+                                  <p className="text-xs text-muted-foreground">
+                                    최근 로그인: {new Date(u.last_sign_in_at).toLocaleDateString("ko-KR")}
+                                  </p>
+                                )}
+                              </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <Select
