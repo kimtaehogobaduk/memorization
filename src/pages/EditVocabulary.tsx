@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
+import { apiGetWordMeaning } from "@/services/api";
 import { Plus, Trash2, Sparkles, Loader2, Upload, List } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { WordManager } from "@/components/WordManager";
@@ -175,19 +176,7 @@ const EditVocabulary = () => {
 
     setFetchingNewMeaning(true);
     try {
-      const { data, error } = await supabase.functions.invoke("get-word-meaning", {
-        body: { word: trimmedWord },
-      });
-
-      if (error) {
-        let backendMessage = "";
-        const context = (error as { context?: Response }).context;
-        if (context) {
-          const parsed = await context.clone().json().catch(() => null);
-          backendMessage = parsed?.error ?? "";
-        }
-        throw new Error(backendMessage || error.message);
-      }
+      const data: any = await apiGetWordMeaning(trimmedWord);
 
       setNewWord(prev => ({
         ...prev,
@@ -303,10 +292,7 @@ const EditVocabulary = () => {
           // Fetch AI meaning
           let aiData: any = {};
           try {
-            const { data, error } = await supabase.functions.invoke("get-word-meaning", {
-              body: { word: wordText },
-            });
-            if (!error && data) aiData = data;
+            aiData = await apiGetWordMeaning(wordText) as any;
           } catch {}
 
           // Insert word

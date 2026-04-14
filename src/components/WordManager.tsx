@@ -8,6 +8,7 @@ import { ChevronDown, Trash2, Upload, Sparkles, Loader2, Plus } from "lucide-rea
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
+import { apiGetWordMeaning } from "@/services/api";
 
 interface Derivative {
   word: string;
@@ -48,19 +49,7 @@ export const WordManager = ({ word, onUpdate, onDelete, vocabularyId, aiAutoMean
 
     setFetchingMeaning(true);
     try {
-      const { data, error } = await supabase.functions.invoke("get-word-meaning", {
-        body: { word: trimmedWord },
-      });
-
-      if (error) {
-        let backendMessage = "";
-        const context = (error as { context?: Response }).context;
-        if (context) {
-          const parsed = await context.clone().json().catch(() => null);
-          backendMessage = parsed?.error ?? "";
-        }
-        throw new Error(backendMessage || error.message);
-      }
+      const data: any = await apiGetWordMeaning(trimmedWord);
 
       setEditedWord((prev: any) => ({
         ...prev,

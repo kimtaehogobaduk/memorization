@@ -11,6 +11,7 @@ import { Check, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { apiValidateMeaning } from "@/services/api";
 import { isLocalVocab, loadLocalWords, getLocalSettings } from "@/utils/localVocabHelper";
 
 interface Word {
@@ -160,10 +161,7 @@ const QuizWriting = () => {
   // AI-based validation for meaning answers
   const validateMeaningWithAI = async (word: string, userAns: string, correctMeaning: string): Promise<boolean> => {
     try {
-      const { data, error } = await supabase.functions.invoke("validate-meaning", {
-        body: { word, userAnswer: userAns, correctMeaning },
-      });
-      if (error) throw error;
+      const data: any = await apiValidateMeaning(word, userAns, correctMeaning);
       return data?.valid === true;
     } catch (e) {
       console.error("AI validation failed:", e);
