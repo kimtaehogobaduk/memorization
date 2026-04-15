@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { apiExtractVocabulary } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/layout/Header";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -167,16 +168,11 @@ const FileVocabularyUpload = () => {
         try {
           const base64 = await fileToBase64Raw(file);
 
-          const { data, error: invokeError } = await supabase.functions.invoke("extract-vocabulary", {
-            body: {
-              file_base64: base64,
-              file_type: file.type,
-              include_details: includeDetails,
-            },
-          });
-
-          if (invokeError) {
-            console.error(`File ${fi + 1} (${file.name}) invoke error:`, invokeError);
+          let data: any;
+          try {
+            data = await apiExtractVocabulary(base64, file.type, includeDetails);
+          } catch (extractErr) {
+            console.error(`File ${fi + 1} (${file.name}) extract error:`, extractErr);
             continue;
           }
 

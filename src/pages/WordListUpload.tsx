@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { apiGetWordMeaning } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/layout/Header";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -103,12 +104,7 @@ const WordListUpload = () => {
         setWords([...results]);
 
         try {
-          const { data, error } = await supabase.functions.invoke("get-word-meaning", {
-            body: { word: item.word },
-          });
-
-          if (error) throw error;
-          if (data?.error) throw new Error(data.error);
+          const data: any = await apiGetWordMeaning(item.word);
 
           results[idx] = {
             ...results[idx],

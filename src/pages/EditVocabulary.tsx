@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
+import { apiGetWordMeaning } from "@/services/api";
 import { Plus, Trash2, Sparkles, Loader2, Upload, List } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { WordManager } from "@/components/WordManager";
@@ -130,9 +131,22 @@ const EditVocabulary = () => {
     if (!trimmedWord || !aiAutoMeaning) return;
     setFetchingNewMeaning(true);
     try {
-      const { data, error } = await supabase.functions.invoke("get-word-meaning", { body: { word: trimmedWord } });
-      if (error) throw new Error(error.message);
-      setNewWord(prev => ({ ...prev, meaning: data?.meaning || prev.meaning, example: data?.example || prev.example, part_of_speech: data?.part_of_speech || prev.part_of_speech, pronunciation: data?.pronunciation || prev.pronunciation, frequency: data?.frequency || prev.frequency, difficulty: data?.difficulty || prev.difficulty, synonyms: data?.synonyms || prev.synonyms, antonyms: data?.antonyms || prev.antonyms, derivatives: Array.isArray(data?.derivatives) && data.derivatives.length > 0 ? data.derivatives : prev.derivatives }));
+      const data: any = await apiGetWordMeaning(trimmedWord);
+
+      setNewWord(prev => ({
+        ...prev,
+        meaning: data?.meaning || prev.meaning,
+        example: data?.example || prev.example,
+        part_of_speech: data?.part_of_speech || prev.part_of_speech,
+        pronunciation: data?.pronunciation || prev.pronunciation,
+        frequency: data?.frequency || prev.frequency,
+        difficulty: data?.difficulty || prev.difficulty,
+        synonyms: data?.synonyms || prev.synonyms,
+        antonyms: data?.antonyms || prev.antonyms,
+        derivatives: Array.isArray(data?.derivatives) && data.derivatives.length > 0
+          ? data.derivatives
+          : prev.derivatives,
+      }));
     } catch (error) {
       console.error("Error fetching AI meaning:", error);
       toast.error("AI 뜻 자동입력에 실패했습니다.");
@@ -169,6 +183,102 @@ const EditVocabulary = () => {
     }
   };
 
+  const addDerivative = () => {
+    setNewWord(prev => ({ ...prev, derivatives: [...prev.derivatives, { word: "", meaning: "" }] }));
+  };
+
+  const updateDerivative = (index: number, field: "word" | "meaning", value: string) => {
+    setNewWord(prev => {
+      const newDerivatives = [...prev.derivatives];
+      newDerivatives[index] = { ...newDerivatives[index], [field]: value };
+      return { ...prev, derivatives: newDerivatives };
+    });
+  };
+
+  const removeDerivative = (index: number) => {
+    setNewWord(prev => ({
+      ...prev,
+      derivatives: prev.derivatives.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleBulkProcess = async () => {
+    const wordList = bulkText
+      .split("\n")
+      .map(w => w.trim())
+      .filter(w => w.length > 0 && w.length < 100);
+
+    if (wordList.length === 0) {
+      toast.error("단어를 입력해주세요.");
+      return;
+    }
+    if (wordList.length > 200) {
+      toast.error("최대 200개까지 입력 가능합니다.");
+      return;
+    }
+
+    setBulkProcessing(true);
+    setBulkTotal(wordList.length);
+    setBulkProgress(0);
+    setBulkResults(wordList.map(w => ({ word: w, status: "pending" as const })));
+
+    let successCount = 0;
+    const batchSize = 3;
+
+    for (let i = 0; i < wordList.length; i += batchSize) {
+      const batch = wordList.slice(i, i + batchSize);
+      const promises = batch.map(async (wordText, batchIdx) => {
+        const globalIdx = i + batchIdx;
+        setBulkResults(prev => prev.map((r, ri) => ri === globalIdx ? { ...r, status: "loading" } : r));
+
+        try {
+          // Fetch AI meaning
+          let aiData: any = {};
+          try {
+            aiData = await apiGetWordMeaning(wordText) as any;
+          } catch {}
+
+          // Insert word
+          const { error: insertError } = await supabase
+            .from("words")
+            .insert({
+              vocabulary_id: id,
+              word: wordText,
+              meaning: aiData.meaning || wordText,
+              example: aiData.example || null,
+              part_of_speech: aiData.part_of_speech || null,
+              order_index: words.length + globalIdx,
+              frequency: aiData.frequency || 0,
+              difficulty: aiData.difficulty || 0,
+              synonyms: aiData.synonyms || null,
+              antonyms: aiData.antonyms || null,
+              derivatives: Array.isArray(aiData.derivatives) && aiData.derivatives.length > 0
+                ? JSON.stringify(aiData.derivatives) : null,
+            } as any);
+
+          if (insertError) throw insertError;
+
+          successCount++;
+          setBulkResults(prev => prev.map((r, ri) => ri === globalIdx ? { ...r, status: "done" } : r));
+        } catch (err) {
+          setBulkResults(prev => prev.map((r, ri) => ri === globalIdx ? { ...r, status: "error", error: "실패" } : r));
+        }
+
+        setBulkProgress(prev => prev + 1);
+      });
+
+      await Promise.all(promises);
+      if (i + batchSize < wordList.length) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+
+    toast.success(`${successCount}/${wordList.length}개 단어가 추가되었습니다!`);
+    setBulkProcessing(false);
+    setBulkText("");
+    loadVocabulary();
+  };
+
   const handleAddWord = async () => {
     if (!newWord.word.trim() || !newWord.meaning.trim()) { toast.error("단어와 뜻을 입력해주세요."); return; }
     setAddingWord(true);
@@ -191,48 +301,6 @@ const EditVocabulary = () => {
     } finally {
       setAddingWord(false);
     }
-  };
-
-  const handleBulkProcess = async () => {
-    const wordList = bulkText.split("\n").map(w => w.trim()).filter(w => w.length > 0 && w.length < 100);
-    if (wordList.length === 0) { toast.error("단어를 입력해주세요."); return; }
-    setBulkProcessing(true);
-    setBulkTotal(wordList.length);
-    setBulkProgress(0);
-    setBulkResults(wordList.map(w => ({ word: w, status: "pending" as const })));
-    let successCount = 0;
-    for (let i = 0; i < wordList.length; i++) {
-      const wordText = wordList[i];
-      setBulkResults(prev => prev.map((r, ri) => ri === i ? { ...r, status: "loading" } : r));
-      try {
-        const { data } = await supabase.functions.invoke("get-word-meaning", { body: { word: wordText } });
-        const payload = {
-          vocabulary_id: id,
-          chapter_id: null,
-          word: wordText,
-          meaning: data?.meaning || wordText,
-          example: data?.example || null,
-          part_of_speech: data?.part_of_speech || null,
-          order_index: words.length + i,
-          frequency: data?.frequency || 0,
-          difficulty: data?.difficulty || 0,
-          synonyms: data?.synonyms || null,
-          antonyms: data?.antonyms || null,
-          derivatives: Array.isArray(data?.derivatives) && data.derivatives.length > 0 ? JSON.stringify(data.derivatives) : null,
-        } as any;
-        const { error } = await supabase.from("words").insert(payload);
-        if (error) throw error;
-        successCount++;
-        setBulkResults(prev => prev.map((r, ri) => ri === i ? { ...r, status: "done" } : r));
-      } catch {
-        setBulkResults(prev => prev.map((r, ri) => ri === i ? { ...r, status: "error", error: "실패" } : r));
-      }
-      setBulkProgress(prev => prev + 1);
-    }
-    toast.success(`${successCount}/${wordList.length}개 단어가 추가되었습니다!`);
-    setBulkProcessing(false);
-    setBulkText("");
-    loadVocabulary();
   };
 
   const handleSave = async () => {

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { apiGetWordMeaning } from "@/services/api";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
 import { Plus, Trash2, ChevronDown, Upload, Sparkles, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -85,19 +86,7 @@ const CreateVocabulary = () => {
 
     setFetchingMeaning(wordId);
     try {
-      const { data, error } = await supabase.functions.invoke("get-word-meaning", {
-        body: { word: trimmedWord },
-      });
-
-      if (error) {
-        let backendMessage = "";
-        const context = (error as { context?: Response }).context;
-        if (context) {
-          const parsed = await context.clone().json().catch(() => null);
-          backendMessage = parsed?.error ?? "";
-        }
-        throw new Error(backendMessage || error.message);
-      }
+      const data: any = await apiGetWordMeaning(trimmedWord);
 
       lastRequestedWordRef.current[wordId] = normalizedWord;
       setWords((prev) =>
