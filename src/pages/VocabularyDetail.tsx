@@ -1,15 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Edit, FileText, Brain, Play, Volume2, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Edit, FileText, Brain, Play, Volume2, Star, Plus, Trash2, ArrowRightLeft, CheckSquare, X, Pencil } from "lucide-react";
+import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isLocalVocab, loadLocalWords, loadLocalVocabulary } from "@/utils/localVocabHelper";
+import { localStorageService } from "@/services/localStorageService";
+import { studyNotes } from "@/lib/studyNotes";
+import { WordManager } from "@/components/WordManager";
 
 interface Word {
   id: string;
@@ -24,6 +29,7 @@ interface Word {
   frequency: number | null;
   difficulty: number | null;
   derivatives: any | null;
+  image_url?: string | null;
 }
 
 interface Chapter {
@@ -51,75 +57,82 @@ const VocabularyDetail = () => {
   const [loading, setLoading] = useState(true);
   const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
   const [dictionaryWord, setDictionaryWord] = useState<string | null>(null);
-  const [flashcardIndex, setFlashcardIndex] = useState<number | null>(null);
-  const [flashcardFlipped, setFlashcardFlipped] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [selectedWordIds, setSelectedWordIds] = useState<string[]>([]);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [chapterActionOpen, setChapterActionOpen] = useState(false);
+  const [chapterActionMode, setChapterActionMode] = useState<"copy" | "move">("copy");
+  const [chapterActionTarget, setChapterActionTarget] = useState<string>("");
+  const [showAddWord, setShowAddWord] = useState(false);
+  const [newWord, setNewWord] = useState("");
+  const [newMeaning, setNewMeaning] = useState("");
+  const [showAddChapter, setShowAddChapter] = useState(false);
+  const [newChapterName, setNewChapterName] = useState("");
+  const [newChapterDescription, setNewChapterDescription] = useState("");
+  const [editingWordId, setEditingWordId] = useState<string | null>(null);
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+  const [editingChapterName, setEditingChapterName] = useState("");
 
   useEffect(() => {
-    if (id) {
-      loadVocabulary();
-    }
+    if (id) loadVocabulary();
   }, [id]);
+
+  useEffect(() => {
+    setFavoriteIds(new Set(studyNotes.getFavorites().map(f => f.id)));
+  }, []);
+
+  const isOwner = isLocalVocab(id) || vocabulary?.user_id === user?.id;
+  const filteredWords = useMemo(() => selectedChapter ? words.filter(w => w.chapter_id === selectedChapter) : words, [selectedChapter, words]);
 
   const loadVocabulary = async () => {
     try {
       setLoading(true);
-      
       if (isLocalVocab(id)) {
         const vocab = loadLocalVocabulary(id!);
-        if (!vocab) { setVocabulary(null); setLoading(false); return; }
-        setVocabulary({ id: vocab.id, name: vocab.name, description: vocab.description, language: vocab.language, user_id: vocab.user_id, is_public: false } as any);
+        if (!vocab) { setVocabulary(null); return; }
+        setVocabulary({ id: vocab.id, name: vocab.name, description: vocab.description, language: vocab.language, user_id: vocab.user_id } as any);
         setChapters([]);
         setWords(loadLocalWords(id!) as any);
-        setLoading(false);
         return;
       }
-      
-      console.log("[VocabularyDetail] Loading vocabulary with id:", id);
-
-      const { data: vocabData, error: vocabError } = await supabase
-        .from("vocabularies")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
-
-      if (vocabError) {
-        console.error("[VocabularyDetail] Error loading vocabulary:", vocabError);
-        throw vocabError;
-      }
-
-      if (!vocabData) {
-        console.log("[VocabularyDetail] No vocabulary found with id:", id);
-        setVocabulary(null);
-        setLoading(false);
-        return;
-      }
-
-      console.log("[VocabularyDetail] Vocabulary loaded:", vocabData);
-
-      const { data: chaptersData } = await supabase
-        .from("chapters")
-        .select("*")
-        .eq("vocabulary_id", id)
-        .order("order_index", { ascending: true });
-
-      const { data: wordsData, error: wordsError } = await supabase
-        .from("words")
-        .select("*")
-        .eq("vocabulary_id", id)
-        .order("order_index", { ascending: true });
-
-      if (wordsError) {
-        console.error("[VocabularyDetail] Error loading words:", wordsError);
-        throw wordsError;
-      }
-
-      console.log("[VocabularyDetail] Words loaded:", wordsData?.length || 0);
-
+      const { data: vocabData } = await supabase.from("vocabularies").select("*").eq("id", id).maybeSingle();
+      if (!vocabData) { setVocabulary(null); return; }
+      const { data: chaptersData } = await supabase.from("chapters").select("*").eq("vocabulary_id", id).order("order_index", { ascending: true });
+      const { data: wordsData } = await supabase.from("words").select("*").eq("vocabulary_id", id).order("order_index", { ascending: true });
       setVocabulary(vocabData);
-      setChapters(chaptersData || []);
-      setWords(wordsData || []);
-    } catch (error) {
-      console.error("[VocabularyDetail] Error loading vocabulary:", error);
+      
+      let loadedChapters = chaptersData || [];
+      let loadedWords = wordsData || [];
+
+      // Auto-assign orphan words to "Chapter 1" if owner
+      if (vocabData.user_id === user?.id) {
+        const orphanWords = loadedWords.filter(w => !w.chapter_id);
+        if (orphanWords.length > 0) {
+          let defaultChapter = loadedChapters.find(c => c.name === "Chapter 1");
+          if (!defaultChapter) {
+            const { data: newCh } = await supabase.from("chapters").insert({
+              vocabulary_id: id,
+              name: "Chapter 1",
+              description: null,
+              order_index: loadedChapters.length,
+            }).select().single();
+            if (newCh) {
+              defaultChapter = newCh;
+              loadedChapters = [...loadedChapters, newCh];
+            }
+          }
+          if (defaultChapter) {
+            await Promise.all(orphanWords.map(w =>
+              supabase.from("words").update({ chapter_id: defaultChapter!.id } as any).eq("id", w.id)
+            ));
+            loadedWords = loadedWords.map(w => w.chapter_id ? w : { ...w, chapter_id: defaultChapter!.id });
+          }
+        }
+      }
+
+      setChapters(loadedChapters);
+      setWords(loadedWords);
+    } catch {
       toast.error("단어장을 불러오는데 실패했습니다.");
       setVocabulary(null);
     } finally {
@@ -127,390 +140,332 @@ const VocabularyDetail = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <img 
-            src={new URL('@/assets/junsuk-08.png', import.meta.url).href} 
-            alt="Junsuk surprised" 
-            className="w-40 h-40 mx-auto mb-6 animate-bounce"
-          />
-          <p className="text-2xl font-semibold">로딩 중...</p>
-        </div>
-      </div>
-    );
-  }
+  const toggleFavorite = (word: Word) => {
+    const added = studyNotes.toggleFavorite({ id: word.id, word: word.word, meaning: word.meaning, vocabularyId: id || null });
+    setFavoriteIds(prev => {
+      const next = new Set(prev);
+      if (added) next.add(word.id); else next.delete(word.id);
+      return next;
+    });
+  };
 
-  if (!vocabulary) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <img 
-            src={new URL('@/assets/junsuk-16.png', import.meta.url).href} 
-            alt="Junsuk shy" 
-            className="w-24 h-24 mx-auto mb-4"
-          />
-          <p>단어장을 찾을 수 없습니다.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const filteredWords = selectedChapter
-    ? words.filter(w => w.chapter_id === selectedChapter)
-    : words;
-
-  const isOwner = vocabulary?.user_id === user?.id;
-
-  const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      window.speechSynthesis.speak(utterance);
+  const handleDeleteWord = async (wordId: string) => {
+    if (isLocalVocab(id)) {
+      localStorageService.deleteWord(wordId);
+      setWords(loadLocalWords(id!) as any);
     } else {
-      toast.error("음성 재생을 지원하지 않는 브라우저입니다.");
+      await supabase.from("words").delete().eq("id", wordId);
+      setWords(prev => prev.filter(w => w.id !== wordId));
+    }
+    setSelectedWordIds(prev => prev.filter(v => v !== wordId));
+  };
+
+  const handleSaveWord = async (wordId: string, payload: Partial<Word>) => {
+    if (isLocalVocab(id)) {
+      localStorageService.updateWord(wordId, payload as any);
+      setWords(loadLocalWords(id!) as any);
+    } else {
+      await supabase.from("words").update(payload as any).eq("id", wordId);
+      await loadVocabulary();
+    }
+    setEditingWordId(null);
+    toast.success("단어가 수정되었습니다");
+  };
+
+  const handleMoveCopy = async () => {
+    if (selectedWordIds.length === 0) return;
+    if (chapterActionMode === "move") {
+      if (isLocalVocab(id)) {
+        localStorageService.bulkUpdateWords(selectedWordIds, { chapter_id: chapterActionTarget || null } as any);
+        setWords(loadLocalWords(id!) as any);
+      } else {
+        await Promise.all(selectedWordIds.map(wordId => supabase.from("words").update({ chapter_id: chapterActionTarget || null } as any).eq("id", wordId)));
+        await loadVocabulary();
+      }
+    } else {
+      const selected = words.filter(w => selectedWordIds.includes(w.id));
+      if (isLocalVocab(id)) {
+        localStorageService.saveWords(selected.map(w => ({
+          vocabulary_id: id!,
+          chapter_id: chapterActionTarget || null,
+          word: w.word,
+          meaning: w.meaning,
+          example: w.example,
+          note: w.note,
+          part_of_speech: w.part_of_speech,
+          order_index: words.length,
+        } as any)));
+        setWords(loadLocalWords(id!) as any);
+      } else {
+        await supabase.from("words").insert(selected.map(w => ({
+          vocabulary_id: id,
+          chapter_id: chapterActionTarget || null,
+          word: w.word,
+          meaning: w.meaning,
+          example: w.example,
+          note: w.note,
+          part_of_speech: w.part_of_speech,
+          synonyms: w.synonyms,
+          antonyms: w.antonyms,
+          frequency: w.frequency,
+          difficulty: w.difficulty,
+          derivatives: w.derivatives,
+          image_url: w.image_url,
+          order_index: words.length,
+        })) as any);
+        await loadVocabulary();
+      }
+    }
+    setSelectedWordIds([]);
+    setSelectionMode(false);
+    setChapterActionOpen(false);
+    setChapterActionTarget("");
+    toast.success(chapterActionMode === "copy" ? "단어를 복사했습니다" : "단어를 이동했습니다");
+  };
+
+  const addChapter = async () => {
+    if (!newChapterName.trim()) return;
+    if (isLocalVocab(id)) return;
+    const { data } = await supabase.from("chapters").insert({ vocabulary_id: id, name: newChapterName.trim(), description: newChapterDescription.trim() || null, order_index: chapters.length }).select().single();
+    if (data) {
+      setChapters([...chapters, data]);
+      setShowAddChapter(false);
+      setNewChapterName("");
+      setNewChapterDescription("");
     }
   };
 
-  const openDictionary = (word: string) => {
-    setDictionaryWord(word);
+  const renameChapter = async (chapterId: string) => {
+    if (!editingChapterName.trim()) return;
+    if (isLocalVocab(id)) return;
+    await supabase.from("chapters").update({ name: editingChapterName.trim() }).eq("id", chapterId);
+    setChapters(prev => prev.map(c => c.id === chapterId ? { ...c, name: editingChapterName.trim() } : c));
+    setEditingChapterId(null);
+    setEditingChapterName("");
+    toast.success("챕터 이름이 수정되었습니다");
   };
+
+  const deleteChapter = async (chapterId: string) => {
+    if (isLocalVocab(id)) return;
+    // Move words to null chapter before deleting
+    await supabase.from("words").update({ chapter_id: null } as any).eq("chapter_id", chapterId);
+    await supabase.from("chapters").delete().eq("id", chapterId);
+    if (selectedChapter === chapterId) setSelectedChapter(null);
+    await loadVocabulary();
+    toast.success("챕터가 삭제되었습니다");
+  };
+
+  const speak = (text: string) => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-US";
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const toggleSelectionMode = () => {
+    if (selectionMode) {
+      setSelectionMode(false);
+      setSelectedWordIds([]);
+    } else {
+      setSelectionMode(true);
+    }
+  };
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="text-center">로딩 중...</div></div>;
+  if (!vocabulary) return <div className="min-h-screen flex items-center justify-center"><div className="text-center"><p>단어장을 찾을 수 없습니다.</p></div></div>;
 
   return (
     <div className="min-h-screen bg-background pb-6">
-      <Header
-        title={vocabulary.name}
-        showBack
-        onBack={() => navigate("/vocabularies")}
-        action={
-          isOwner && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(`/vocabularies/${id}/edit`)}
-            >
-              <Edit className="w-5 h-5" />
-            </Button>
-          )
-        }
-      />
-      
+      <Header title={vocabulary.name} showBack onBack={() => navigate("/vocabularies")} action={isOwner ? <Button variant="ghost" size="icon" onClick={() => navigate(`/vocabularies/${id}/edit`)}><Edit className="w-5 h-5" /></Button> : undefined} />
       <div className="max-w-screen-xl mx-auto px-4 py-6">
-        {vocabulary.description && (
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <p className="text-muted-foreground">{vocabulary.description}</p>
-            </CardContent>
-          </Card>
-        )}
+        {vocabulary.description && <Card className="mb-6"><CardContent className="p-4"><p className="text-muted-foreground">{vocabulary.description}</p></CardContent></Card>}
+        <div className="flex gap-3 mb-4">
+          <Button variant={!selectedChapter ? "default" : "outline"} className="flex-1" onClick={() => setSelectedChapter(null)}><FileText className="w-4 h-4 mr-2" />All List</Button>
+          <Button variant="outline" className="flex-1" onClick={() => navigate(`/quiz/${id}`)}><Brain className="w-4 h-4 mr-2" />All Quiz</Button>
+          <Button className="flex-1 bg-primary" onClick={() => navigate(`/study/${id}`)}><Play className="w-4 h-4 mr-2" />All Play</Button>
+        </div>
 
-        {/* All List/Quiz/Play Buttons */}
-        {words.length > 0 && (
-          <div className="flex gap-3 mb-6">
-            <Button
-              variant={!selectedChapter ? "default" : "outline"}
-              className="flex-1"
-              onClick={() => {
-                setSelectedChapter(null);
-                // Use requestAnimationFrame to ensure DOM update before scroll
-                requestAnimationFrame(() => {
-                  const el = document.getElementById("word-list-section");
-                  if (el) {
-                    el.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }
-                });
-              }}
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              All List
-              {!selectedChapter && <span className="ml-1 text-xs">({words.length})</span>}
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => navigate(`/quiz/${id}`)}
-            >
-              <Brain className="w-4 h-4 mr-2" />
-              All Quiz
-            </Button>
-            <Button
-              className="flex-1 bg-primary"
-              onClick={() => navigate(`/study/${id}`)}
-            >
-              <Play className="w-4 h-4 mr-2" />
-              All Play
-            </Button>
-          </div>
-        )}
-
-        {/* Chapter List */}
+        {/* Chapter tabs with edit capability */}
         {chapters.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold text-muted-foreground mb-3">챕터</h3>
-            <div className="space-y-3">
-              {chapters.map((chapter) => {
-                const chapterWords = words.filter(w => w.chapter_id === chapter.id);
-                return (
-                  <Card key={chapter.id} className="bg-gradient-card">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <h4 className="font-semibold">{chapter.name}</h4>
-                          {chapter.description && (
-                            <p className="text-xs text-muted-foreground">{chapter.description}</p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {chapterWords.length}개 단어
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => setSelectedChapter(chapter.id)}
-                        >
-                          <FileText className="w-3 h-3 mr-1" />
-                          List
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+            {chapters.map(ch => (
+              <div key={ch.id} className="flex items-center gap-1 shrink-0">
+                {editingChapterId === ch.id ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={editingChapterName}
+                      onChange={e => setEditingChapterName(e.target.value)}
+                      className="h-8 w-32 text-sm"
+                      onKeyDown={e => { if (e.key === "Enter") renameChapter(ch.id); if (e.key === "Escape") setEditingChapterId(null); }}
+                      autoFocus
+                    />
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => renameChapter(ch.id)}>
+                      <CheckSquare className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingChapterId(null)}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <Button
+                      size="sm"
+                      variant={selectedChapter === ch.id ? "default" : "outline"}
+                      onClick={() => setSelectedChapter(ch.id)}
+                      className="whitespace-nowrap"
+                    >
+                      {ch.name}
+                    </Button>
+                    {isOwner && selectedChapter === ch.id && (
+                      <div className="flex ml-1">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditingChapterId(ch.id); setEditingChapterName(ch.name); }}>
+                          <Pencil className="w-3 h-3" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => navigate(`/quiz/${id}?chapter=${chapter.id}`)}
-                        >
-                          <Brain className="w-3 h-3 mr-1" />
-                          Quiz
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => navigate(`/study/${id}?chapter=${chapter.id}`)}
-                        >
-                          <Play className="w-3 h-3 mr-1" />
-                          Play
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => { if (confirm("이 챕터를 삭제하시겠습니까?")) deleteChapter(ch.id); }}>
+                          <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Word List */}
-        <div id="word-list-section" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-muted-foreground">
-              {selectedChapter ? "챕터 단어" : "전체 단어"} ({filteredWords.length})
-            </h3>
-            {selectedChapter && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedChapter(null)}
-              >
-                전체 보기
+        {/* Owner actions */}
+        {isOwner && (
+          <div className="flex gap-2 mb-4 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => setShowAddChapter(true)}>
+              <Plus className="w-4 h-4 mr-1" />챕터 추가
+            </Button>
+            <Button variant="outline" size="sm" onClick={toggleSelectionMode}>
+              <CheckSquare className="w-4 h-4 mr-1" />{selectionMode ? "선택 취소" : "단어 선택"}
+            </Button>
+            {selectionMode && selectedWordIds.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setChapterActionOpen(true)}>
+                <ArrowRightLeft className="w-4 h-4 mr-1" />복사/이동 ({selectedWordIds.length})
               </Button>
             )}
           </div>
+        )}
 
-          {filteredWords.map((word, index) => (
-            <motion.div
-              key={word.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.03 }}
-            >
-              <Card 
-                className="cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
-                onClick={() => {
-                  setFlashcardIndex(index);
-                  setFlashcardFlipped(false);
-                }}
-              >
+        {/* Word list */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-muted-foreground">
+              {selectedChapter ? chapters.find(c => c.id === selectedChapter)?.name || "챕터 단어" : "전체 단어"} ({filteredWords.length})
+            </h3>
+            {isOwner && <Button size="sm" variant="outline" onClick={() => setShowAddWord(true)}><Plus className="w-4 h-4 mr-1" />추가</Button>}
+          </div>
+
+          {selectionMode && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Checkbox
+                checked={selectedWordIds.length > 0 && selectedWordIds.length === filteredWords.length}
+                onCheckedChange={(checked) => setSelectedWordIds(checked ? filteredWords.map(w => w.id) : [])}
+              />
+              <span>현재 목록 전체 선택</span>
+            </div>
+          )}
+
+          {filteredWords.map((word) => (
+            <motion.div key={word.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+              <Card>
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{word.word}</h3>
-                      {word.part_of_speech && (
-                        <span className="text-xs text-muted-foreground">
-                          {word.part_of_speech}
-                        </span>
+                  {editingWordId === word.id ? (
+                    <WordManager word={word} vocabularyId={id || ""} onDelete={() => handleDeleteWord(word.id)} onUpdate={() => { loadVocabulary(); setEditingWordId(null); }} />
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      {selectionMode && (
+                        <Checkbox
+                          checked={selectedWordIds.includes(word.id)}
+                          onCheckedChange={(checked) => setSelectedWordIds(prev => checked ? [...prev, word.id] : prev.filter(v => v !== word.id))}
+                        />
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-lg">{word.word}</h3>
+                          <button type="button" onClick={() => speak(word.word)} className="text-muted-foreground hover:text-primary"><Volume2 className="w-4 h-4" /></button>
+                          <button type="button" onClick={() => toggleFavorite(word)} className={favoriteIds.has(word.id) ? "text-yellow-500" : "text-muted-foreground hover:text-yellow-500"}>
+                            <Star className={`w-4 h-4 ${favoriteIds.has(word.id) ? "fill-yellow-500" : ""}`} />
+                          </button>
+                        </div>
+                        <p className="text-muted-foreground mt-1">{word.meaning}</p>
+                      </div>
+                      {isOwner && !selectionMode && (
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => setEditingWordId(word.id)}><Edit className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteWord(word.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        </div>
                       )}
                     </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          speak(word.word);
-                        }}
-                        className="text-primary"
-                      >
-                        <Volume2 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openDictionary(word.word);
-                        }}
-                        className="text-muted-foreground hover:text-primary"
-                        title="사전에서 검색"
-                      >
-                        <Search className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-foreground mb-2">{word.meaning}</p>
-                  {word.example && (
-                    <p className="text-sm text-muted-foreground italic mb-2">
-                      예문: {word.example}
-                    </p>
-                  )}
-                  {word.note && (
-                    <p className="text-sm text-muted-foreground">
-                      메모: {word.note}
-                    </p>
                   )}
                 </CardContent>
               </Card>
             </motion.div>
           ))}
         </div>
-
-        {words.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">아직 단어가 없습니다.</p>
-            {isOwner && (
-              <Button onClick={() => navigate(`/vocabularies/${id}/edit`)}>
-                단어 추가하기
-              </Button>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Flashcard Popup */}
-      <Dialog open={flashcardIndex !== null} onOpenChange={(open) => { if (!open) setFlashcardIndex(null); }}>
-        <DialogContent className="max-w-2xl w-[98vw] p-0 overflow-hidden border-0 bg-transparent shadow-none [&>button]:hidden">
-          {flashcardIndex !== null && filteredWords[flashcardIndex] && (() => {
-            const fw = filteredWords[flashcardIndex];
-            const derivs = Array.isArray(fw.derivatives) ? fw.derivatives : [];
-            return (
-              <div className="flex flex-col items-center gap-4">
-                <div
-                  className="w-full cursor-pointer perspective-1000"
-                  style={{ minHeight: 'calc(80vh - 80px)' }}
-                  onClick={() => setFlashcardFlipped(!flashcardFlipped)}
-                >
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={flashcardFlipped ? "back" : "front"}
-                      initial={{ rotateY: 90, opacity: 0 }}
-                      animate={{ rotateY: 0, opacity: 1 }}
-                      exit={{ rotateY: -90, opacity: 0 }}
-                      transition={{ duration: 0.25 }}
-                      className="w-full rounded-2xl bg-card border shadow-lg flex flex-col items-center justify-center p-10"
-                      style={{ minHeight: 'calc(80vh - 80px)' }}
-                    >
-                      {!flashcardFlipped ? (
-                        <div className="text-center">
-                          <p className="text-xs text-muted-foreground mb-4">탭하면 뒤집기</p>
-                          <h2 className="text-5xl font-bold mb-4">{fw.word}</h2>
-                          {fw.part_of_speech && (
-                            <span className="text-base text-muted-foreground">{fw.part_of_speech}</span>
-                          )}
-                          <div className="flex items-center justify-center gap-2 mt-4">
-                            {fw.frequency != null && fw.frequency > 0 && (
-                              <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">빈도 {"★".repeat(fw.frequency)}</span>
-                            )}
-                            {fw.difficulty != null && fw.difficulty > 0 && (
-                              <span className="text-xs px-2 py-1 rounded-full bg-destructive/10 text-destructive">난이도 {"★".repeat(fw.difficulty)}</span>
-                            )}
-                          </div>
-                          <Button variant="ghost" size="icon" className="mt-4 text-primary" onClick={(e) => { e.stopPropagation(); speak(fw.word); }}>
-                            <Volume2 className="w-6 h-6" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="text-center space-y-5 w-full max-w-lg">
-                          <h3 className="text-3xl font-bold">{fw.meaning}</h3>
-                          {fw.example && (
-                            <p className="text-base text-muted-foreground italic">{fw.example}</p>
-                          )}
-                          {fw.note && (
-                            <p className="text-sm text-muted-foreground">📝 {fw.note}</p>
-                          )}
-                          <div className="grid grid-cols-1 gap-3 text-left mt-4">
-                            {fw.synonyms && (
-                              <div className="p-3 rounded-lg bg-primary/5">
-                                <span className="text-xs font-semibold text-primary">유의어</span>
-                                <p className="text-sm mt-1">{fw.synonyms}</p>
-                              </div>
-                            )}
-                            {fw.antonyms && (
-                              <div className="p-3 rounded-lg bg-destructive/5">
-                                <span className="text-xs font-semibold text-destructive">반의어</span>
-                                <p className="text-sm mt-1">{fw.antonyms}</p>
-                              </div>
-                            )}
-                            {derivs.length > 0 && (
-                              <div className="p-3 rounded-lg bg-secondary/50">
-                                <span className="text-xs font-semibold text-secondary-foreground">파생어</span>
-                                <div className="mt-1 space-y-1">
-                                  {derivs.map((d: any, i: number) => (
-                                    <p key={i} className="text-sm"><span className="font-medium">{d.word}</span> — {d.meaning}</p>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-                <div className="flex items-center gap-4">
-                  <Button variant="outline" size="icon" disabled={flashcardIndex <= 0} onClick={() => { setFlashcardIndex(flashcardIndex - 1); setFlashcardFlipped(false); }}>
-                    <ChevronLeft className="w-5 h-5" />
-                  </Button>
-                  <span className="text-sm text-muted-foreground">{flashcardIndex + 1} / {filteredWords.length}</span>
-                  <Button variant="outline" size="icon" disabled={flashcardIndex >= filteredWords.length - 1} onClick={() => { setFlashcardIndex(flashcardIndex + 1); setFlashcardFlipped(false); }}>
-                    <ChevronRight className="w-5 h-5" />
-                  </Button>
-                </div>
-              </div>
-            );
-          })()}
+      {/* Add word dialog */}
+      <Dialog open={showAddWord} onOpenChange={setShowAddWord}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>단어 추가</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Input value={newWord} onChange={e => setNewWord(e.target.value)} placeholder="단어" />
+            <Input value={newMeaning} onChange={e => setNewMeaning(e.target.value)} placeholder="뜻" />
+            <Button onClick={async () => {
+              if (!newWord.trim() || !newMeaning.trim()) return;
+              const targetChapter = selectedChapter || (chapters.length > 0 ? chapters[0].id : null);
+              if (isLocalVocab(id)) {
+                localStorageService.saveWords([{ vocabulary_id: id!, chapter_id: targetChapter, word: newWord.trim(), meaning: newMeaning.trim(), example: "", note: "", part_of_speech: "", order_index: words.length } as any]);
+                setWords(loadLocalWords(id!) as any);
+              } else {
+                await supabase.from("words").insert({ vocabulary_id: id, chapter_id: targetChapter, word: newWord.trim(), meaning: newMeaning.trim(), order_index: words.length } as any);
+                await loadVocabulary();
+              }
+              setShowAddWord(false); setNewWord(""); setNewMeaning("");
+            }} className="w-full">추가</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
-      {/* Dictionary Popup */}
-      <Dialog open={!!dictionaryWord} onOpenChange={(open) => !open && setDictionaryWord(null)}>
-        <DialogContent className="max-w-3xl h-[80vh] p-0 overflow-hidden">
-          <DialogHeader className="p-4 pb-2 border-b">
-            <DialogTitle className="flex items-center justify-between">
-              <span>"{dictionaryWord}" 사전 검색</span>
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 h-full">
-            {dictionaryWord && (
-              <iframe
-                src={`https://en.dict.naver.com/#/search?query=${encodeURIComponent(dictionaryWord)}`}
-                className="w-full h-[calc(80vh-60px)] border-0"
-                title="네이버 사전"
-              />
-            )}
+      {/* Add chapter dialog */}
+      <Dialog open={showAddChapter} onOpenChange={setShowAddChapter}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>챕터 추가</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Input value={newChapterName} onChange={e => setNewChapterName(e.target.value)} placeholder="챕터 이름" />
+            <Input value={newChapterDescription} onChange={e => setNewChapterDescription(e.target.value)} placeholder="설명" />
+            <Button onClick={addChapter} className="w-full">추가</Button>
           </div>
         </DialogContent>
+      </Dialog>
+
+      {/* Move/Copy dialog */}
+      <Dialog open={chapterActionOpen} onOpenChange={setChapterActionOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>단어 복사/이동</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Button variant={chapterActionMode === "copy" ? "default" : "outline"} onClick={() => setChapterActionMode("copy")} className="flex-1">복사</Button>
+              <Button variant={chapterActionMode === "move" ? "default" : "outline"} onClick={() => setChapterActionMode("move")} className="flex-1">이동</Button>
+            </div>
+            <div className="grid gap-2 max-h-64 overflow-auto">
+              {chapters.map(ch => (
+                <Button key={ch.id} variant={chapterActionTarget === ch.id ? "default" : "outline"} onClick={() => setChapterActionTarget(ch.id)}>{ch.name}</Button>
+              ))}
+            </div>
+            <Button className="w-full" onClick={handleMoveCopy} disabled={!chapterActionTarget}>적용</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!dictionaryWord} onOpenChange={() => setDictionaryWord(null)}>
+        <DialogContent><DialogHeader><DialogTitle>{dictionaryWord}</DialogTitle></DialogHeader></DialogContent>
       </Dialog>
     </div>
   );

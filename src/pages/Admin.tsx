@@ -85,6 +85,8 @@ const Admin = () => {
   const [groupSearch, setGroupSearch] = useState("");
   
   const [statsLoading, setStatsLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
 
   useEffect(() => {
     // 로그인 안 되어 있으면 로그인 페이지로만 보냄
@@ -141,7 +143,10 @@ const Admin = () => {
       setUsers(fetchedUsers);
     } catch (error) {
       console.error("Error loading users:", error);
+      setUsersError("사용자 목록을 불러오는 중 오류가 발생했습니다.");
       toast.error("사용자 목록 로딩 실패");
+    } finally {
+      setUsersLoading(false);
     }
   };
 
@@ -424,7 +429,15 @@ const Admin = () => {
                 </div>
                 <ScrollArea className="h-[500px]">
                   <div className="space-y-3">
-                    {filteredUsers.map((u) => (
+                    {usersLoading && (
+                      <p className="text-center text-muted-foreground py-8">사용자 목록 로딩 중...</p>
+                    )}
+                    {!usersLoading && usersError && (
+                      <div className="text-center py-8 space-y-2">
+                        <p className="text-sm text-destructive">{usersError}</p>
+                      </div>
+                    )}
+                    {!usersLoading && !usersError && filteredUsers.map((u) => (
                       <Card key={u.id}>
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between gap-3">
@@ -483,7 +496,7 @@ const Admin = () => {
                         </CardContent>
                       </Card>
                     ))}
-                    {filteredUsers.length === 0 && (
+                    {!usersLoading && !usersError && filteredUsers.length === 0 && (
                       <p className="text-center text-muted-foreground py-8">
                         사용자가 없습니다.
                       </p>

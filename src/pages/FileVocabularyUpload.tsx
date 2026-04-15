@@ -208,7 +208,9 @@ const FileVocabularyUpload = () => {
       setExtractionProgress(100);
 
       if (allChapters.length === 0) {
-        throw new Error("추출된 단어가 없습니다. 다른 파일을 시도해주세요.");
+        throw new Error(
+          "파일에서 단어를 추출하지 못했습니다. PDF/이미지 품질을 확인하거나 잠시 후 다시 시도해주세요."
+        );
       }
 
       const totalWords = allChapters.reduce((sum, ch) => sum + ch.words.length, 0);
@@ -355,6 +357,7 @@ const FileVocabularyUpload = () => {
           example: w.example || null,
           note: null,
           part_of_speech: w.part_of_speech || null,
+          chapter_id: null,
           order_index: idx,
         }));
         localStorageService.saveWords(wordsToInsert);

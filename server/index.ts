@@ -683,7 +683,8 @@ app.post("/api/delete-user", async (req, res) => {
 });
 
 // ─── GET /api/admin/users ─────────────────────────────────────────────────────
-// 관리자 전용: 이메일 포함 전체 사용자 목록을 일반 데이터처럼 반환
+// 관리자 전용: profiles 테이블에서 직접 읽어 일반 데이터처럼 반환
+// (auth.admin API 불필요 - email은 profiles.email 컬럼에서 읽음)
 
 app.get("/api/admin/users", async (req, res) => {
   try {
@@ -705,36 +706,33 @@ app.get("/api/admin/users", async (req, res) => {
       .single();
     if (!roleData) return res.status(403).json({ error: "Admin access required" });
 
-    // 서비스 롤 키로 auth.users 전체 목록 가져오기
+    // 서비스 롤 키로 RLS 우회하여 profiles 전체 읽기
     const adminSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: authUsersData, error: listError } = await adminSupabase.auth.admin.listUsers({ perPage: 1000 });
-    if (listError) throw listError;
 
-    const authUsers = authUsersData?.users || [];
+    const [profilesResult, rolesResult] = await Promise.all([
+      adminSupabase
+        .from("profiles")
+        .select("id, email, full_name, username, created_at")
+        .order("created_at", { ascending: false }),
+      adminSupabase
+        .from("user_roles")
+        .select("user_id, role"),
+    ]);
 
-    // profiles 테이블에서 이름/유저네임 가져오기
-    const { data: profiles } = await adminSupabase
-      .from("profiles")
-      .select("id, full_name, username, created_at");
+    if (profilesResult.error) throw profilesResult.error;
 
-    // user_roles 테이블에서 역할 가져오기
-    const { data: rolesData } = await adminSupabase
-      .from("user_roles")
-      .select("user_id, role");
+    const rolesMap = new Map((rolesResult.data || []).map(r => [r.user_id, r.role]));
 
-    const profilesMap = new Map((profiles || []).map(p => [p.id, p]));
-    const rolesMap = new Map((rolesData || []).map(r => [r.user_id, r.role]));
-
-    const users = authUsers.map(u => ({
-      id: u.id,
-      email: u.email || "",
-      created_at: u.created_at,
-      last_sign_in_at: u.last_sign_in_at || null,
+    const users = (profilesResult.data || []).map(p => ({
+      id: p.id,
+      email: (p as any).email || "",
+      created_at: p.created_at || "",
+      last_sign_in_at: null,
       profile: {
-        full_name: profilesMap.get(u.id)?.full_name || null,
-        username: profilesMap.get(u.id)?.username || null,
+        full_name: p.full_name || null,
+        username: p.username || null,
       },
-      role: (rolesMap.get(u.id) || "user") as "admin" | "elder" | "user",
+      role: (rolesMap.get(p.id) || "user") as "admin" | "elder" | "user",
     }));
 
     res.json({ users });

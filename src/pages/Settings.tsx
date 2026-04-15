@@ -49,6 +49,7 @@ const Settings = () => {
   const [answerDelay, setAnswerDelay] = useState(2.0);
   const [autoPlayAudio, setAutoPlayAudio] = useState(false);
   const [quizFontSize, setQuizFontSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [smartReview, setSmartReview] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
   
   // Stats state
@@ -71,6 +72,7 @@ const Settings = () => {
         setAnswerDelay(local.answer_reveal_delay);
         setAutoPlayAudio(local.auto_play_audio);
         setQuizFontSize(local.quiz_font_size as 'small' | 'medium' | 'large');
+        setSmartReview(local.smart_review);
       }
     }
   }, [user, loading]);
@@ -112,6 +114,9 @@ const Settings = () => {
         setAutoPlayAudio(data.auto_play_audio || false);
         setQuizFontSize((data.quiz_font_size as 'small' | 'medium' | 'large') || 'medium');
       }
+      // smart_review is always stored in localStorage (not in user_settings table)
+      const local = getLocalSettings();
+      setSmartReview(local.smart_review);
     } catch (error) {
       console.error("Error loading settings:", error);
     }
@@ -179,6 +184,7 @@ const Settings = () => {
           answer_reveal_delay: answerDelay,
           auto_play_audio: autoPlayAudio,
           quiz_font_size: quizFontSize,
+          smart_review: smartReview,
         });
         toast.success("설정이 저장되었습니다!");
         setSettingsLoading(false);
@@ -216,6 +222,9 @@ const Settings = () => {
 
         if (error) throw error;
       }
+
+      // smart_review is always stored in localStorage
+      saveLocalSettings({ smart_review: smartReview });
 
       toast.success("설정이 저장되었습니다!");
     } catch (error) {
@@ -642,6 +651,22 @@ const Settings = () => {
                     id="autoPlayAudio"
                     checked={autoPlayAudio}
                     onCheckedChange={setAutoPlayAudio}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label htmlFor="smartReview">스마트 반복 복습</Label>
+                    <p className="text-sm text-muted-foreground">
+                      틀린 단어를 더 자주, 외운 단어는 덜 자주 출제합니다
+                    </p>
+                  </div>
+                  <Switch
+                    id="smartReview"
+                    checked={smartReview}
+                    onCheckedChange={setSmartReview}
                   />
                 </div>
 
