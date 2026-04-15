@@ -194,7 +194,6 @@ const ExcelUpload = () => {
           example: w.example || null,
           note: w.note || null,
           part_of_speech: w.part_of_speech || null,
-          chapter_id: null,
           order_index: index,
         }));
         localStorageService.saveWords(wordsToInsert);

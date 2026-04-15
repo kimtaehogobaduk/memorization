@@ -29,20 +29,6 @@ async function apiPostAuth<T = unknown>(endpoint: string, body: unknown, authTok
   return res.json();
 }
 
-async function apiGetAuth<T = unknown>(endpoint: string, authToken: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
-
 export const apiGetWordMeaning = (word: string) =>
   apiPost("/get-word-meaning", { word });
 
@@ -60,18 +46,3 @@ export const apiGenerateVocabularies = (count: number, startIndex: number) =>
 
 export const apiDeleteUser = (userId: string, authToken: string) =>
   apiPostAuth("/delete-user", { userId }, authToken);
-
-export const apiGetAdminUsers = (authToken: string) =>
-  apiGetAuth<{ users: AdminUser[] }>("/admin/users", authToken);
-
-export interface AdminUser {
-  id: string;
-  email: string;
-  created_at: string;
-  last_sign_in_at: string | null;
-  profile: {
-    full_name: string | null;
-    username: string | null;
-  };
-  role: "admin" | "elder" | "user";
-}

@@ -1,3 +1,5 @@
+// Local storage service for vocabularies when user is not logged in
+
 export interface LocalVocabulary {
   id: string;
   name: string;
@@ -10,7 +12,6 @@ export interface LocalVocabulary {
 export interface LocalWord {
   id: string;
   vocabulary_id: string;
-  chapter_id: string | null;
   word: string;
   meaning: string;
   example: string | null;
@@ -24,14 +25,17 @@ const VOCABULARIES_KEY = "local_vocabularies";
 const WORDS_KEY = "local_words";
 
 export const localStorageService = {
+  // Vocabularies
   getVocabularies(): LocalVocabulary[] {
     const data = localStorage.getItem(VOCABULARIES_KEY);
     return data ? JSON.parse(data) : [];
   },
+
   getVocabulary(id: string): LocalVocabulary | null {
     const vocabs = this.getVocabularies();
     return vocabs.find(v => v.id === id) || null;
   },
+
   saveVocabulary(vocab: Omit<LocalVocabulary, "id" | "created_at" | "user_id">): LocalVocabulary {
     const vocabs = this.getVocabularies();
     const newVocab: LocalVocabulary = {
@@ -44,6 +48,7 @@ export const localStorageService = {
     localStorage.setItem(VOCABULARIES_KEY, JSON.stringify(vocabs));
     return newVocab;
   },
+
   updateVocabulary(id: string, updates: Partial<LocalVocabulary>): void {
     const vocabs = this.getVocabularies();
     const index = vocabs.findIndex(v => v.id === id);
@@ -52,24 +57,41 @@ export const localStorageService = {
       localStorage.setItem(VOCABULARIES_KEY, JSON.stringify(vocabs));
     }
   },
+
   deleteVocabulary(id: string): void {
     const vocabs = this.getVocabularies();
-    localStorage.setItem(VOCABULARIES_KEY, JSON.stringify(vocabs.filter(v => v.id !== id)));
-    localStorage.setItem(WORDS_KEY, JSON.stringify(this.getWords().filter(w => w.vocabulary_id !== id)));
+    const filtered = vocabs.filter(v => v.id !== id);
+    localStorage.setItem(VOCABULARIES_KEY, JSON.stringify(filtered));
+    
+    // Also delete associated words
+    const words = this.getWords();
+    const filteredWords = words.filter(w => w.vocabulary_id !== id);
+    localStorage.setItem(WORDS_KEY, JSON.stringify(filteredWords));
   },
+
+  // Words
   getWords(): LocalWord[] {
     const data = localStorage.getItem(WORDS_KEY);
     return data ? JSON.parse(data) : [];
   },
+
   getWordsByVocabulary(vocabularyId: string): LocalWord[] {
-    return this.getWords().filter(w => w.vocabulary_id === vocabularyId);
+    const words = this.getWords();
+    return words.filter(w => w.vocabulary_id === vocabularyId);
   },
+
   saveWords(words: Omit<LocalWord, "id" | "created_at">[]): LocalWord[] {
     const existingWords = this.getWords();
-    const newWords: LocalWord[] = words.map(w => ({ ...w, id: `local_word_${Date.now()}_${Math.random()}`, created_at: new Date().toISOString() }));
-    localStorage.setItem(WORDS_KEY, JSON.stringify([...existingWords, ...newWords]));
+    const newWords: LocalWord[] = words.map(w => ({
+      ...w,
+      id: `local_word_${Date.now()}_${Math.random()}`,
+      created_at: new Date().toISOString(),
+    }));
+    const allWords = [...existingWords, ...newWords];
+    localStorage.setItem(WORDS_KEY, JSON.stringify(allWords));
     return newWords;
   },
+
   updateWord(id: string, updates: Partial<LocalWord>): void {
     const words = this.getWords();
     const index = words.findIndex(w => w.id === id);
@@ -78,11 +100,10 @@ export const localStorageService = {
       localStorage.setItem(WORDS_KEY, JSON.stringify(words));
     }
   },
+
   deleteWord(id: string): void {
-    localStorage.setItem(WORDS_KEY, JSON.stringify(this.getWords().filter(w => w.id !== id)));
-  },
-  bulkUpdateWords(ids: string[], updates: Partial<LocalWord>): void {
-    const words = this.getWords().map(w => ids.includes(w.id) ? { ...w, ...updates } : w);
-    localStorage.setItem(WORDS_KEY, JSON.stringify(words));
+    const words = this.getWords();
+    const filtered = words.filter(w => w.id !== id);
+    localStorage.setItem(WORDS_KEY, JSON.stringify(filtered));
   },
 };

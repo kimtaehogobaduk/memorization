@@ -1,6 +1,6 @@
-# 암기준섹 - Vocabulary Learning App
+# 암기준섹 (Vocabulary Study App)
 
-A Korean vocabulary learning app built with Lovable. Supports vocabulary management, quiz modes, group study, and AI-powered features.
+A Korean vocabulary learning app built with React, Vite, TypeScript, and Supabase. Supports vocabulary management, quiz modes, group study, and AI-powered features.
 
 ## Architecture
 
@@ -61,68 +61,12 @@ npm run server   # Backend API server only
 npm run build    # Production build to dist/
 ```
 
-The `npm run dev` command starts both servers concurrently:
-- **Express API server** on port 3001
-- **Vite dev server** on port 5000
-
-## Environment Variables / Secrets
-
-### Replit Secrets (set in Secrets panel)
-- `GEMINI_API_KEY` — Google Gemini API key for vocabulary extraction from files
-- `GEMINI_API_KEY_2` — Secondary Gemini key for rotation
-- `CEREBRAS_API_KEY` — Cerebras API key for quiz generation, word meanings, and answer validation
-
-### Replit Env Vars (shared environment)
-- `VITE_SUPABASE_URL` — Supabase project URL
-- `VITE_SUPABASE_PUBLISHABLE_KEY` — Supabase anon key
-- `VITE_SUPABASE_PROJECT_ID` — Supabase project ID
-
-### Optional (for admin features)
-- `SUPABASE_SERVICE_ROLE_KEY` — Required for user deletion and vocabulary generation admin features
-
-## API Routes (Express Server)
-
-| Route | Description |
-|-------|-------------|
-| `POST /api/extract-vocabulary` | Extract vocabulary from uploaded PDF/image using Gemini AI |
-| `POST /api/get-word-meaning` | Get Korean meaning, pronunciation, examples for an English word using Cerebras |
-| `POST /api/generate-ai-quiz` | Generate quiz questions for vocabulary words using Cerebras |
-| `POST /api/validate-meaning` | Validate user's Korean answer against correct meaning using Cerebras |
-| `POST /api/generate-vocabularies` | Admin: bulk generate vocabulary lists using Cerebras |
-| `POST /api/delete-user` | Admin: delete a user account via Supabase admin API |
-
-## Key Features
-- Vocabulary creation and management with chapters
-- AI-powered word meaning lookup (auto-fill)
-- File upload (PDF/image) for vocabulary extraction
-- Multiple quiz modes (multiple choice, writing, AI-generated, matching)
-- Group study features with real-time chat
-- Admin panel for user management
-- Bookshelf organization for vocabularies
-- Study progress tracking
-
-## File Structure
-```
-src/
-  integrations/
-    supabase/       # Supabase client + TypeScript types
-    api/            # Express API client (wraps fetch to /api/*)
-  pages/            # Route components
-  components/       # Shared UI components
-  hooks/            # Custom React hooks
-  utils/            # Helper utilities
-  services/         # Local storage service
-
-server/
-  index.js          # Express server entry point
-  extractVocabulary.js   # Gemini AI vocabulary extraction
-  getWordMeaning.js      # Cerebras word meaning lookup
-  generateAiQuiz.js      # Cerebras quiz generation
-  validateMeaning.js     # Cerebras answer validation
-  generateVocabularies.js # Cerebras bulk vocabulary generation
-  deleteUser.js          # Supabase admin user deletion
-
-supabase/
-  migrations/       # SQL migrations (applied to Supabase project)
-  functions/        # Legacy Deno edge functions (replaced by Express routes)
-```
+## Features
+- Vocabulary creation (manual, Excel upload, PDF/image upload, word list, AI-generated)
+- Multiple study modes: Flashcard, Multiple choice, Writing, Matching, Random
+- AI quiz generation with difficulty levels
+- Group study with real-time chat, polls, shared vocabularies
+- Public vocabulary marketplace
+- Admin panel for user/content management
+- Guest mode with localStorage fallback + cloud sync on login
+- Tutorial system for new users

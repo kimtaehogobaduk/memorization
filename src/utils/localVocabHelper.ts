@@ -37,7 +37,6 @@ export interface LocalSettings {
   quiz_font_size: string;
   theme: string;
   ai_auto_meaning: boolean;
-  smart_review: boolean;
 }
 
 const defaultSettings: LocalSettings = {
@@ -46,7 +45,6 @@ const defaultSettings: LocalSettings = {
   quiz_font_size: "medium",
   theme: "system",
   ai_auto_meaning: false,
-  smart_review: false,
 };
 
 export const getLocalSettings = (): LocalSettings => {

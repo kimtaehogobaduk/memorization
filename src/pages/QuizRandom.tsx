@@ -93,39 +93,6 @@ const QuizRandom = () => {
     }
   };
 
-  const applySmartReview = async (wordsData: Word[]): Promise<Word[]> => {
-    const smartReview = user
-      ? await supabase.from("user_settings").select("*").eq("user_id", user.id).single().then(() => {
-          const s = localStorage.getItem("local_settings");
-          return s ? JSON.parse(s).smart_review : false;
-        })
-      : (getLocalSettings() as any).smart_review;
-    
-    if (!smartReview || !user) return wordsData;
-    
-    try {
-      const wordIds = wordsData.map(w => w.id);
-      const { data: progressData } = await supabase
-        .from("study_progress")
-        .select("word_id, correct_count, incorrect_count")
-        .eq("user_id", user.id)
-        .in("word_id", wordIds);
-      
-      if (!progressData || progressData.length === 0) return wordsData;
-      
-      const progressMap = new Map(progressData.map(p => [p.word_id, p]));
-      return [...wordsData].sort((a, b) => {
-        const pa = progressMap.get(a.id);
-        const pb = progressMap.get(b.id);
-        const rateA = pa ? (pa.incorrect_count || 0) / ((pa.correct_count || 0) + 1) : 0.5;
-        const rateB = pb ? (pb.incorrect_count || 0) / ((pb.correct_count || 0) + 1) : 0.5;
-        return rateB - rateA;
-      });
-    } catch {
-      return wordsData;
-    }
-  };
-
   const loadWords = async () => {
     try {
       setLoading(true);
@@ -167,11 +134,6 @@ const QuizRandom = () => {
       if (error) throw error;
 
       let wordsData = data || [];
-      
-      if (!isRandom && !isRetry) {
-        wordsData = await applySmartReview(wordsData);
-      }
-      
       if (isRandom && !isRetry) wordsData = wordsData.sort(() => Math.random() - 0.5);
       if (questionCountParam && !isRetry) {
         const count = parseInt(questionCountParam);

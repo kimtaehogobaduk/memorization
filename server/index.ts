@@ -682,66 +682,6 @@ app.post("/api/delete-user", async (req, res) => {
   }
 });
 
-// ─── GET /api/admin/users ─────────────────────────────────────────────────────
-// 관리자 전용: profiles 테이블에서 직접 읽어 일반 데이터처럼 반환
-// (auth.admin API 불필요 - email은 profiles.email 컬럼에서 읽음)
-
-app.get("/api/admin/users", async (req, res) => {
-  try {
-    const authHeader = req.headers["authorization"];
-    if (!authHeader) return res.status(401).json({ error: "No authorization header" });
-
-    // 요청자가 관리자인지 확인
-    const userSupabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await userSupabase.auth.getUser();
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
-
-    const { data: roleData } = await userSupabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .single();
-    if (!roleData) return res.status(403).json({ error: "Admin access required" });
-
-    // 서비스 롤 키로 RLS 우회하여 profiles 전체 읽기
-    const adminSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    const [profilesResult, rolesResult] = await Promise.all([
-      adminSupabase
-        .from("profiles")
-        .select("id, email, full_name, username, created_at")
-        .order("created_at", { ascending: false }),
-      adminSupabase
-        .from("user_roles")
-        .select("user_id, role"),
-    ]);
-
-    if (profilesResult.error) throw profilesResult.error;
-
-    const rolesMap = new Map((rolesResult.data || []).map(r => [r.user_id, r.role]));
-
-    const users = (profilesResult.data || []).map(p => ({
-      id: p.id,
-      email: (p as any).email || "",
-      created_at: p.created_at || "",
-      last_sign_in_at: null,
-      profile: {
-        full_name: p.full_name || null,
-        username: p.username || null,
-      },
-      role: (rolesMap.get(p.id) || "user") as "admin" | "elder" | "user",
-    }));
-
-    res.json({ users });
-  } catch (error) {
-    console.error("admin/users error:", error);
-    res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });
-  }
-});
-
 // ─── Health check ─────────────────────────────────────────────────────────────
 
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));

@@ -36,7 +36,6 @@ import GenerateVocabularies from "./pages/GenerateVocabularies";
 import WordListUpload from "./pages/WordListUpload";
 import FileVocabularyUpload from "./pages/FileVocabularyUpload";
 import Settings from "./pages/Settings";
-import Statistics from "./pages/Statistics";
 import Admin from "./pages/Admin";
 import PhoneticGuide from "./pages/PhoneticGuide";
 import NotFound from "./pages/NotFound";
@@ -47,7 +46,10 @@ const App = () => {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 1750);
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 1750); // 1.75초
+
     return () => clearTimeout(timer);
   }, []);
 
@@ -58,11 +60,27 @@ const App = () => {
         <Sonner />
         <AnimatePresence mode="wait">
           {showSplash ? (
-            <motion.div key="splash" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-              <img src={splashImage} alt="암기준섹" className="max-w-full max-h-full object-contain p-4" />
+            <motion.div
+              key="splash"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-background"
+            >
+              <img 
+                src={splashImage} 
+                alt="암기준섹" 
+                className="max-w-full max-h-full object-contain p-4"
+              />
             </motion.div>
           ) : (
-            <motion.div key="main" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+            <motion.div
+              key="main"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
               <BrowserRouter>
                 <NotificationProvider />
                 <Routes>
@@ -99,9 +117,9 @@ const App = () => {
                   <Route path="/groups/:id" element={<GroupDetail />} />
                   <Route path="/groups/:id/settings" element={<GroupSettings />} />
                   <Route path="/settings" element={<Settings />} />
-                  <Route path="/statistics" element={<Statistics />} />
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/phonetic-guide" element={<PhoneticGuide />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>

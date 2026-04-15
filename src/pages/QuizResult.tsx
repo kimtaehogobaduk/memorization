@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, XCircle, Star } from "lucide-react";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import junsuk30 from "@/assets/junsuk-30.png";
 import junsuk01 from "@/assets/junsuk-01.png";
@@ -11,7 +11,6 @@ import junsuk27 from "@/assets/junsuk-27.png";
 import junsuk04 from "@/assets/junsuk-04.png";
 import junsuk13 from "@/assets/junsuk-13.png";
 import junsuk15 from "@/assets/junsuk-15.png";
-import { studyNotes } from "@/lib/studyNotes";
 
 interface IncorrectWord {
   id: string;
@@ -23,6 +22,7 @@ const QuizResult = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
+  
   const [score, setScore] = useState(0);
   const [total, setTotal] = useState(0);
   const [incorrectWords, setIncorrectWords] = useState<IncorrectWord[]>([]);
@@ -31,8 +31,10 @@ const QuizResult = () => {
     const scoreParam = parseInt(searchParams.get("score") || "0");
     const totalParam = parseInt(searchParams.get("total") || "0");
     const incorrectParam = searchParams.get("incorrect");
+    
     setScore(scoreParam);
     setTotal(totalParam);
+    
     if (incorrectParam) {
       try {
         const parsed = JSON.parse(decodeURIComponent(incorrectParam));
@@ -47,13 +49,14 @@ const QuizResult = () => {
   const correctCount = score;
   const incorrectCount = total - score;
 
+  // 점수에 따라 준섹 이미지 선택
   const getJunsukImage = () => {
-    if (percentage === 100) return junsuk15;
-    if (percentage >= 90) return junsuk30;
-    if (percentage >= 70) return junsuk01;
-    if (percentage >= 50) return junsuk27;
-    if (percentage >= 30) return junsuk04;
-    return junsuk13;
+    if (percentage === 100) return junsuk15; // 완벽 - 꽃 들고 행복
+    if (percentage >= 90) return junsuk30; // 기쁜 표정
+    if (percentage >= 70) return junsuk01; // 일반 표정
+    if (percentage >= 50) return junsuk27; // 약간 걱정
+    if (percentage >= 30) return junsuk04; // 걱정하는 표정
+    return junsuk13; // 어지러워하는 표정
   };
 
   const getJunsukMessage = () => {
@@ -67,14 +70,24 @@ const QuizResult = () => {
 
   const handleRetryIncorrect = () => {
     if (incorrectWords.length === 0) return;
+    
     const quizType = searchParams.get("quizType") || "multiple";
     const questionType = searchParams.get("questionType") || "meaning-to-word";
     const choices = searchParams.get("choices") || "4";
     const delay = searchParams.get("delay") || "2";
     const chapter = searchParams.get("chapter");
+    
     const incorrectIds = incorrectWords.map(w => w.id).join(",");
-    const params = new URLSearchParams({ retry: "true", incorrectIds, delay });
-    if (chapter) params.append("chapter", chapter);
+    const params = new URLSearchParams({
+      retry: "true",
+      incorrectIds,
+      delay,
+    });
+    
+    if (chapter) {
+      params.append("chapter", chapter);
+    }
+    
     if (quizType === "multiple") {
       params.append("type", questionType);
       params.append("choices", choices);
@@ -89,33 +102,79 @@ const QuizResult = () => {
 
   const handleStudyIncorrect = () => {
     if (incorrectWords.length === 0) return;
+    
     const incorrectIds = incorrectWords.map(w => w.id).join(",");
     const chapter = searchParams.get("chapter");
-    const params = new URLSearchParams({ incorrectIds });
-    if (chapter) params.append("chapter", chapter);
-    navigate(`/study/${id}?${params.toString()}`);
-  };
-
-  const handleSaveFavorites = () => {
-    incorrectWords.forEach((word) => {
-      studyNotes.toggleFavorite({ id: word.id, word: word.word, meaning: word.meaning, vocabularyId: id || null });
+    
+    const params = new URLSearchParams({
+      incorrectIds,
     });
+    
+    if (chapter) {
+      params.append("chapter", chapter);
+    }
+    
+    navigate(`/study/${id}?${params.toString()}`);
   };
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Header title="퀴즈 결과" showBack onBack={() => navigate(`/vocabularies/${id}`)} />
+      <Header 
+        title="퀴즈 결과" 
+        showBack 
+        onBack={() => navigate(`/vocabularies/${id}`)}
+      />
+      
       <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5 }}>
+        {/* Score Card with Junsuk */}
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
           <Card className="p-8 bg-gradient-junsuk border-2 border-junsuk-blue/30 shadow-junsuk">
             <div className="text-center space-y-6">
-              <motion.div initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: 0.2, type: "spring", stiffness: 180, damping: 12 }} whileHover={{ scale: 1.1, rotate: 5 }} className="w-40 h-40 mx-auto">
-                <img src={getJunsukImage()} alt="준섹이" className="w-full h-full object-contain drop-shadow-2xl" />
+              {/* Junsuk Character */}
+              <motion.div
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ 
+                  delay: 0.2, 
+                  type: "spring", 
+                  stiffness: 180,
+                  damping: 12
+                }}
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                className="w-40 h-40 mx-auto"
+              >
+                <img 
+                  src={getJunsukImage()} 
+                  alt="준섹이" 
+                  className="w-full h-full object-contain drop-shadow-2xl"
+                />
               </motion.div>
+
+              {/* Score */}
               <div>
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.4, type: "spring", stiffness: 200 }} className="text-7xl font-extrabold text-junsuk-blue mb-2">{percentage}%</motion.div>
-                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="text-2xl font-bold text-foreground">{getJunsukMessage()}</motion.p>
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
+                  className="text-7xl font-extrabold text-junsuk-blue mb-2"
+                >
+                  {percentage}%
+                </motion.div>
+                <motion.p
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="text-2xl font-bold text-foreground"
+                >
+                  {getJunsukMessage()}
+                </motion.p>
               </div>
+
+              {/* Stats */}
               <div className="flex justify-center gap-8 text-base">
                 <div className="flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-md">
                   <CheckCircle2 className="w-5 h-5 text-success" />
@@ -130,13 +189,51 @@ const QuizResult = () => {
           </Card>
         </motion.div>
 
+        {/* Incorrect Words List */}
         {incorrectWords.length > 0 && (
-          <div className="grid grid-cols-1 gap-3 pt-4">
-            <Button onClick={handleRetryIncorrect} className="w-full" size="lg">틀린단어 다시풀기</Button>
-            <Button onClick={handleStudyIncorrect} className="w-full" size="lg" variant="outline">틀린단어 공부하기</Button>
-            <Button onClick={handleSaveFavorites} className="w-full" size="lg" variant="secondary">
-              <Star className="w-4 h-4 mr-2" />
-              틀린단어 즐겨찾기 저장
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-muted-foreground px-1">
+              복습이 필요한 단어 ({incorrectWords.length}개)
+            </h3>
+            {incorrectWords.map((word, index) => (
+              <motion.div
+                key={word.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <Card className="p-4 hover:bg-accent/50 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-lg">{word.word}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{word.meaning}</p>
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        {incorrectWords.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 pt-4">
+            <Button
+              onClick={handleRetryIncorrect}
+              className="w-full"
+              size="lg"
+              variant="default"
+            >
+              틀린단어 다시풀기
+            </Button>
+            <Button
+              onClick={handleStudyIncorrect}
+              className="w-full"
+              size="lg"
+              variant="outline"
+            >
+              틀린단어 공부하기
             </Button>
           </div>
         )}
@@ -145,7 +242,9 @@ const QuizResult = () => {
           <div className="text-center py-8">
             <p className="text-lg font-semibold text-success mb-4">🎉 완벽합니다!</p>
             <p className="text-muted-foreground mb-6">모든 문제를 맞히셨습니다.</p>
-            <Button onClick={() => navigate(`/vocabularies/${id}`)}>단어장으로 돌아가기</Button>
+            <Button onClick={() => navigate(`/vocabularies/${id}`)}>
+              단어장으로 돌아가기
+            </Button>
           </div>
         )}
       </div>
