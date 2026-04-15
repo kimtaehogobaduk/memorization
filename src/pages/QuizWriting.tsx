@@ -11,7 +11,6 @@ import { Check, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { apiValidateMeaning } from "@/services/api";
 import { isLocalVocab, loadLocalWords, getLocalSettings } from "@/utils/localVocabHelper";
 
 interface Word {
@@ -76,11 +75,43 @@ const QuizWriting = () => {
     }
   };
 
+  const applySmartReview = async (wordsData: Word[]): Promise<Word[]> => {
+    const smartReview = user
+      ? await supabase.from("user_settings").select("*").eq("user_id", user.id).single().then(() => {
+          const s = localStorage.getItem("local_settings");
+          return s ? JSON.parse(s).smart_review : false;
+        })
+      : (getLocalSettings() as any).smart_review;
+    
+    if (!smartReview || !user) return wordsData;
+    
+    try {
+      const wordIds = wordsData.map(w => w.id);
+      const { data: progressData } = await supabase
+        .from("study_progress")
+        .select("word_id, correct_count, incorrect_count")
+        .eq("user_id", user.id)
+        .in("word_id", wordIds);
+      
+      if (!progressData || progressData.length === 0) return wordsData;
+      
+      const progressMap = new Map(progressData.map(p => [p.word_id, p]));
+      return [...wordsData].sort((a, b) => {
+        const pa = progressMap.get(a.id);
+        const pb = progressMap.get(b.id);
+        const rateA = pa ? (pa.incorrect_count || 0) / ((pa.correct_count || 0) + 1) : 0.5;
+        const rateB = pb ? (pb.incorrect_count || 0) / ((pb.correct_count || 0) + 1) : 0.5;
+        return rateB - rateA;
+      });
+    } catch {
+      return wordsData;
+    }
+  };
+
   const loadWords = async () => {
     try {
       setLoading(true);
 
-      // Check if any vocabId is local
       const hasLocal = vocabIds.some(vid => vid && isLocalVocab(vid));
       if (hasLocal) {
         let allWords: Word[] = [];
@@ -122,6 +153,11 @@ const QuizWriting = () => {
       if (error) throw error;
 
       let wordsData = data || [];
+      
+      if (!isRandom && !isRetry) {
+        wordsData = await applySmartReview(wordsData);
+      }
+      
       if (isRandom && !isRetry) {
         wordsData = wordsData.sort(() => Math.random() - 0.5);
       }
@@ -161,7 +197,10 @@ const QuizWriting = () => {
   // AI-based validation for meaning answers
   const validateMeaningWithAI = async (word: string, userAns: string, correctMeaning: string): Promise<boolean> => {
     try {
-      const data: any = await apiValidateMeaning(word, userAns, correctMeaning);
+      const { data, error } = await supabase.functions.invoke("validate-meaning", {
+        body: { word, userAnswer: userAns, correctMeaning },
+      });
+      if (error) throw error;
       return data?.valid === true;
     } catch (e) {
       console.error("AI validation failed:", e);

@@ -10,7 +10,6 @@ import { Check, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { apiGenerateAIQuiz } from "@/services/api";
 import { cn } from "@/lib/utils";
 
 interface AIQuestion {
@@ -90,8 +89,12 @@ const QuizAI = () => {
       setLoadingMessage("AI가 문제를 생성하고 있어요... 🧠");
       const shuffled = [...words].sort(() => Math.random() - 0.5);
 
-      const fnData: any = await apiGenerateAIQuiz(shuffled, difficulty, customRequest);
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("generate-ai-quiz", {
+        body: { words: shuffled, difficulty, customRequest },
+      });
 
+      if (fnError) throw fnError;
+      if (fnData?.error) throw new Error(fnData.error);
       if (!fnData?.questions?.length) throw new Error("문제 생성 실패");
 
       setQuestions(fnData.questions);

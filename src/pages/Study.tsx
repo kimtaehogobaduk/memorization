@@ -9,7 +9,7 @@ import { Check, X, Eye, EyeOff, FileText, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { isLocalVocab, loadLocalWords, loadLocalVocabulary } from "@/utils/localVocabHelper";
+import { isLocalVocab, loadLocalWords, loadLocalVocabulary, getLocalSettings } from "@/utils/localVocabHelper";
 
 interface Word {
   id: string;
@@ -94,8 +94,34 @@ const Study = () => {
       if (error) throw error;
 
       let wordsData = data || [];
-      if (isRandom && incorrectIds.length === 0) {
-        wordsData = wordsData.sort(() => Math.random() - 0.5);
+      const settings = getLocalSettings();
+
+      if (incorrectIds.length === 0) {
+        if (isRandom) {
+          wordsData = wordsData.sort(() => Math.random() - 0.5);
+        } else if (settings.smart_review && user) {
+          // Smart review: sort by incorrect_count / (correct_count + 1) descending
+          try {
+            const { data: progressData } = await supabase
+              .from("study_progress")
+              .select("word_id, correct_count, incorrect_count")
+              .eq("user_id", user.id)
+              .eq("vocabulary_id", id);
+            const progressMap = new Map(
+              (progressData || []).map((p) => [
+                p.word_id,
+                { correct: p.correct_count ?? 0, incorrect: p.incorrect_count ?? 0 },
+              ])
+            );
+            wordsData = wordsData.sort((a, b) => {
+              const pa = progressMap.get(a.id) ?? { correct: 0, incorrect: 0 };
+              const pb = progressMap.get(b.id) ?? { correct: 0, incorrect: 0 };
+              const scoreA = pa.incorrect / (pa.correct + 1);
+              const scoreB = pb.incorrect / (pb.correct + 1);
+              return scoreB - scoreA;
+            });
+          } catch {}
+        }
       }
 
       setWords(wordsData);

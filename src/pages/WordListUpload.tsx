@@ -2,7 +2,6 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { apiGetWordMeaning } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/layout/Header";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -104,7 +103,12 @@ const WordListUpload = () => {
         setWords([...results]);
 
         try {
-          const data: any = await apiGetWordMeaning(item.word);
+          const { data, error } = await supabase.functions.invoke("get-word-meaning", {
+            body: { word: item.word },
+          });
+
+          if (error) throw error;
+          if (data?.error) throw new Error(data.error);
 
           results[idx] = {
             ...results[idx],
@@ -201,6 +205,7 @@ const WordListUpload = () => {
           example: w.example || null,
           note: null,
           part_of_speech: w.part_of_speech || null,
+          chapter_id: null,
           order_index: idx,
         }));
         localStorageService.saveWords(wordsToInsert);

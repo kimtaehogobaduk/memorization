@@ -28,7 +28,6 @@ import {
   Activity
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { apiDeleteUser } from "@/services/api";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -293,7 +292,20 @@ const Admin = () => {
         return;
       }
 
-      await apiDeleteUser(userId, session.access_token);
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || '사용자 삭제 실패');
+      }
 
       toast.success("사용자가 삭제되었습니다.");
       loadUsers();
