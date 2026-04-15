@@ -205,6 +205,7 @@ const WordListUpload = () => {
           example: w.example || null,
           note: null,
           part_of_speech: w.part_of_speech || null,
+          chapter_id: null,
           order_index: idx,
         }));
         localStorageService.saveWords(wordsToInsert);
