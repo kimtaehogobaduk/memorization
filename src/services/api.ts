@@ -56,7 +56,7 @@ export const apiExtractVocabulary = (file_base64: string, file_type: string, inc
   apiPost("/extract-vocabulary", { file_base64, file_type, include_details });
 
 export const apiGenerateVocabularies = (count: number, startIndex: number) =>
-  apiPost("/generate-vocabularies", { count, startIndex });
+  apiPost<{ success: boolean; processed?: number; error?: string }>("/generate-vocabularies", { count, startIndex });
 
 export const apiDeleteUser = (userId: string, authToken: string) =>
   apiPostAuth("/delete-user", { userId }, authToken);
