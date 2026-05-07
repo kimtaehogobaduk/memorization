@@ -28,7 +28,7 @@ import {
   Activity
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { apiDeleteUser, apiGetAdminUsers, AdminUser } from "@/services/api";
+import type { AdminUser } from "@/services/api";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -137,13 +137,20 @@ const Admin = () => {
 
   const loadUsers = async () => {
     try {
+      setUsersLoading(true);
+      setUsersError(null);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("인증 세션이 만료되었습니다."); return; }
-      const { users: fetchedUsers } = await apiGetAdminUsers(session.access_token);
-      setUsers(fetchedUsers);
+      const { data, error } = await supabase.functions.invoke("admin-users", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setUsers((data as { users: AdminUser[] }).users || []);
     } catch (error) {
       console.error("Error loading users:", error);
-      setUsersError("사용자 목록을 불러오는 중 오류가 발생했습니다.");
+      const msg = error instanceof Error ? error.message : "사용자 목록을 불러오는 중 오류가 발생했습니다.";
+      setUsersError(msg);
       toast.error("사용자 목록 로딩 실패");
     } finally {
       setUsersLoading(false);
@@ -264,7 +271,12 @@ const Admin = () => {
         return;
       }
 
-      await apiDeleteUser(userId, session.access_token);
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { userId },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
 
       toast.success("사용자가 삭제되었습니다.");
       loadUsers();
