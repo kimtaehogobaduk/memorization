@@ -7,7 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Edit, FileText, Brain, Play, Volume2, Star, Plus, Trash2, ArrowRightLeft, CheckSquare, X, Pencil } from "lucide-react";
+import { Edit, FileText, Brain, Play, Volume2, Star, Plus, Trash2, ArrowRightLeft, CheckSquare, X, Pencil, Printer } from "lucide-react";
+import { PrintWordList } from "@/components/PrintWordList";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -72,6 +73,7 @@ const VocabularyDetail = () => {
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [editingChapterName, setEditingChapterName] = useState("");
+  const [printOpen, setPrintOpen] = useState(false);
 
   useEffect(() => {
     if (id) loadVocabulary();
@@ -338,6 +340,9 @@ const VocabularyDetail = () => {
         {/* Owner actions */}
         {isOwner && (
           <div className="flex gap-2 mb-4 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
+              <Printer className="w-4 h-4 mr-1" />단어 리스트 프린트
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setShowAddChapter(true)}>
               <Plus className="w-4 h-4 mr-1" />챕터 추가
             </Button>
@@ -463,6 +468,8 @@ const VocabularyDetail = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <PrintWordList open={printOpen} onOpenChange={setPrintOpen} words={filteredWords as any} title={vocabulary.name + (selectedChapter ? " - " + (chapters.find(c => c.id === selectedChapter)?.name || "") : "")} />
 
       <Dialog open={!!dictionaryWord} onOpenChange={() => setDictionaryWord(null)}>
         <DialogContent><DialogHeader><DialogTitle>{dictionaryWord}</DialogTitle></DialogHeader></DialogContent>
