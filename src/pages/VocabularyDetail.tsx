@@ -469,6 +469,8 @@ const VocabularyDetail = () => {
         </DialogContent>
       </Dialog>
 
+      <PrintWordList open={printOpen} onOpenChange={setPrintOpen} words={filteredWords as any} title={vocabulary.name + (selectedChapter ? " - " + (chapters.find(c => c.id === selectedChapter)?.name || "") : "")} />
+
       <Dialog open={!!dictionaryWord} onOpenChange={() => setDictionaryWord(null)}>
         <DialogContent><DialogHeader><DialogTitle>{dictionaryWord}</DialogTitle></DialogHeader></DialogContent>
       </Dialog>
