@@ -73,6 +73,7 @@ const VocabularyDetail = () => {
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [editingChapterName, setEditingChapterName] = useState("");
+  const [printOpen, setPrintOpen] = useState(false);
 
   useEffect(() => {
     if (id) loadVocabulary();
