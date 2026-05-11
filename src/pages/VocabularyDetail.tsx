@@ -340,6 +340,9 @@ const VocabularyDetail = () => {
         {/* Owner actions */}
         {isOwner && (
           <div className="flex gap-2 mb-4 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
+              <Printer className="w-4 h-4 mr-1" />단어 리스트 프린트
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setShowAddChapter(true)}>
               <Plus className="w-4 h-4 mr-1" />챕터 추가
             </Button>
