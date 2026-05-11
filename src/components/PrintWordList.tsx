@@ -164,6 +164,16 @@ ${words.map((w, i) => `<tr>${s.showIndex ? `<td>${i + 1}</td>` : ""}${cols.map(c
 }).join("")}</tr>`).join("")}
 </tbody>
 </table>
+${(s.hideMeaning || s.hideWord) ? `
+<div style="page-break-before:always;margin-top:24px">
+  <h2 style="font-size:${s.fontSize + 4}px;margin-bottom:12px">답지</h2>
+  <table>
+    <thead><tr><th>#</th>${s.hideWord ? `<th>단어</th>` : ""}${s.hideMeaning ? `<th>뜻</th>` : ""}</tr></thead>
+    <tbody>
+      ${words.map((w, i) => `<tr><td>${i + 1}</td>${s.hideWord ? `<td>${String(w.word ?? "").replace(/</g, "&lt;")}</td>` : ""}${s.hideMeaning ? `<td>${String(w.meaning ?? "").replace(/</g, "&lt;")}</td>` : ""}</tr>`).join("")}
+    </tbody>
+  </table>
+</div>` : ""}
 </body></html>`;
   };
 
