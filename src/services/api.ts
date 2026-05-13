@@ -49,6 +49,12 @@ export const apiGetWordMeaning = (word: string) =>
 export const apiValidateMeaning = (word: string, userAnswer: string, correctMeaning: string) =>
   apiPost("/validate-meaning", { word, userAnswer, correctMeaning });
 
+export const apiGradeSentence = (word: string, meaning: string, sentence: string) =>
+  apiPost<{ correct: boolean; reason: string; fallback?: boolean; error?: boolean }>(
+    "/grade-sentence",
+    { word, meaning, sentence }
+  );
+
 export const apiGenerateAIQuiz = (words: unknown[], difficulty: string, customRequest: string) =>
   apiPost("/generate-ai-quiz", { words, difficulty, customRequest });
 
