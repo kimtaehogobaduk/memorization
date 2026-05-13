@@ -25,6 +25,7 @@ import QuizResult from "./pages/QuizResult";
 import QuizAI from "./pages/QuizAI";
 import QuizAIResult from "./pages/QuizAIResult";
 import QuizRandom from "./pages/QuizRandom";
+import QuizSentence from "./pages/QuizSentence";
 import Groups from "./pages/Groups";
 import CreateGroup from "./pages/CreateGroup";
 import JoinGroup from "./pages/JoinGroup";
@@ -89,6 +90,7 @@ const App = () => {
                   <Route path="/quiz/:id/writing" element={<QuizWriting />} />
                   <Route path="/quiz/:id/matching" element={<QuizMatching />} />
                   <Route path="/quiz/:id/random" element={<QuizRandom />} />
+                  <Route path="/quiz/:id/sentence" element={<QuizSentence />} />
                   <Route path="/quiz/:id/result" element={<QuizResult />} />
                   <Route path="/quiz/:id/ai" element={<QuizAI />} />
                   <Route path="/quiz/:id/ai-result" element={<QuizAIResult />} />
