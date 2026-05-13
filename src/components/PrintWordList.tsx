@@ -80,6 +80,7 @@ interface Settings {
   hideMeaning: boolean;
   hideWord: boolean;
   orientation: Orientation;
+  shuffle: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -94,6 +95,7 @@ const DEFAULTS: Settings = {
   hideMeaning: false,
   hideWord: false,
   orientation: "portrait",
+  shuffle: false,
 };
 
 export const PrintWordList = ({ open, onOpenChange, words, title }: Props) => {
@@ -140,6 +142,7 @@ export const PrintWordList = ({ open, onOpenChange, words, title }: Props) => {
     }
 
     const pageSize = s.orientation === "landscape" ? "A4 landscape" : "A4 portrait";
+    const displayWords = s.shuffle ? [...words].sort(() => Math.random() - 0.5) : words;
 
     return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
 <style>
@@ -156,7 +159,7 @@ ${forPdf ? "" : `<div class="no-print" style="margin-bottom:12px"><button onclic
 <table>
 ${s.showHeader ? `<thead><tr>${s.showIndex ? "<th>#</th>" : ""}${cols.map(c => `<th>${c.label}</th>`).join("")}</tr></thead>` : ""}
 <tbody>
-${words.map((w, i) => `<tr>${s.showIndex ? `<td>${i + 1}</td>` : ""}${cols.map(c => {
+${displayWords.map((w, i) => `<tr>${s.showIndex ? `<td>${i + 1}</td>` : ""}${cols.map(c => {
   const v = (w[c.key] ?? "") as string;
   const hide = (s.hideMeaning && c.key === "meaning") || (s.hideWord && c.key === "word");
   const cls = hide ? "hidden-cell" : "";
@@ -170,7 +173,7 @@ ${(s.hideMeaning || s.hideWord) ? `
   <table>
     <thead><tr><th>#</th>${s.hideWord ? `<th>단어</th>` : ""}${s.hideMeaning ? `<th>뜻</th>` : ""}</tr></thead>
     <tbody>
-      ${words.map((w, i) => `<tr><td>${i + 1}</td>${s.hideWord ? `<td>${String(w.word ?? "").replace(/</g, "&lt;")}</td>` : ""}${s.hideMeaning ? `<td>${String(w.meaning ?? "").replace(/</g, "&lt;")}</td>` : ""}</tr>`).join("")}
+      ${displayWords.map((w, i) => `<tr><td>${i + 1}</td>${s.hideWord ? `<td>${String(w.word ?? "").replace(/</g, "&lt;")}</td>` : ""}${s.hideMeaning ? `<td>${String(w.meaning ?? "").replace(/</g, "&lt;")}</td>` : ""}</tr>`).join("")}
     </tbody>
   </table>
 </div>` : ""}
@@ -284,6 +287,10 @@ ${(s.hideMeaning || s.hideWord) ? `
             <label className="flex items-center gap-2 text-sm">
               <Checkbox checked={s.hideWord} onCheckedChange={v => update("hideWord", !!v)} />
               단어 숨기기 (시험용)
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={s.shuffle} onCheckedChange={v => update("shuffle", !!v)} />
+              단어 랜덤 배열
             </label>
           </div>
 
