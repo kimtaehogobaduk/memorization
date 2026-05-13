@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
-import { Brain, CheckSquare, Edit3, Grid3x3, Printer, Sparkles } from "lucide-react";
+import { Brain, CheckSquare, Edit3, Grid3x3, Printer, Sparkles, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { apiGenerateAIQuiz } from "@/services/api";
