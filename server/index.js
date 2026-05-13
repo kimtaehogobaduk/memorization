@@ -7,6 +7,7 @@ import { validateMeaningHandler } from "./validateMeaning.js";
 import { generateVocabulariesHandler } from "./generateVocabularies.js";
 import { deleteUserHandler } from "./deleteUser.js";
 import { getAdminUsersHandler } from "./getAdminUsers.js";
+import { gradeSentenceHandler } from "./gradeSentence.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
