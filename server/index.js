@@ -19,6 +19,7 @@ app.post("/api/extract-vocabulary", extractVocabularyHandler);
 app.post("/api/get-word-meaning", getWordMeaningHandler);
 app.post("/api/generate-ai-quiz", generateAiQuizHandler);
 app.post("/api/validate-meaning", validateMeaningHandler);
+app.post("/api/grade-sentence", gradeSentenceHandler);
 app.post("/api/generate-vocabularies", generateVocabulariesHandler);
 app.post("/api/delete-user", deleteUserHandler);
 app.get("/api/admin/users", getAdminUsersHandler);
