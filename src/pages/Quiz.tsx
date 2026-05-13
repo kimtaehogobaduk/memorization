@@ -26,7 +26,7 @@ const Quiz = () => {
   const [wordCount, setWordCount] = useState(0);
 
   // Quiz settings
-  const [quizType, setQuizType] = useState<"multiple" | "writing" | "matching" | "random" | "ai">("multiple");
+  const [quizType, setQuizType] = useState<"multiple" | "writing" | "matching" | "random" | "ai" | "sentence">("multiple");
   const [questionType, setQuestionType] = useState<"word-to-meaning" | "meaning-to-word">("meaning-to-word");
   const [choiceCount, setChoiceCount] = useState(4);
   const [questionCount, setQuestionCount] = useState<number | "">("");
