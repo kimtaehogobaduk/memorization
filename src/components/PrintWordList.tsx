@@ -80,6 +80,7 @@ interface Settings {
   hideMeaning: boolean;
   hideWord: boolean;
   orientation: Orientation;
+  shuffle: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -94,6 +95,7 @@ const DEFAULTS: Settings = {
   hideMeaning: false,
   hideWord: false,
   orientation: "portrait",
+  shuffle: false,
 };
 
 export const PrintWordList = ({ open, onOpenChange, words, title }: Props) => {
