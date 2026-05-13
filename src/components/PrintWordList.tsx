@@ -288,6 +288,10 @@ ${(s.hideMeaning || s.hideWord) ? `
               <Checkbox checked={s.hideWord} onCheckedChange={v => update("hideWord", !!v)} />
               단어 숨기기 (시험용)
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={s.shuffle} onCheckedChange={v => update("shuffle", !!v)} />
+              단어 랜덤 배열
+            </label>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
