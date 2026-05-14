@@ -78,7 +78,11 @@ const QuizSentence = () => {
     const cw = words[currentIndex];
     setIsChecking(true);
     try {
-      const res = await apiGradeSentence(cw.word, cw.meaning, sentence.trim());
+      const { data, error } = await supabase.functions.invoke("grade-sentence", {
+        body: { word: cw.word, meaning: cw.meaning, sentence: sentence.trim() },
+      });
+      if (error) throw error;
+      const res = data as { correct: boolean; reason: string };
       setResult({ correct: res.correct, reason: res.reason });
       if (res.correct) { playCorrectSound(); setScore(s => s + 1); }
       else { playIncorrectSound(); setIncorrectWords(prev => [...prev, cw]); }
