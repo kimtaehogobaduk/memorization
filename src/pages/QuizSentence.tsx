@@ -9,7 +9,6 @@ import { Check, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { apiGradeSentence } from "@/services/api";
 import { isLocalVocab, loadLocalWords } from "@/utils/localVocabHelper";
 import { useQuizSound } from "@/hooks/useQuizSound";
 
@@ -79,7 +78,11 @@ const QuizSentence = () => {
     const cw = words[currentIndex];
     setIsChecking(true);
     try {
-      const res = await apiGradeSentence(cw.word, cw.meaning, sentence.trim());
+      const { data, error } = await supabase.functions.invoke("grade-sentence", {
+        body: { word: cw.word, meaning: cw.meaning, sentence: sentence.trim() },
+      });
+      if (error) throw error;
+      const res = data as { correct: boolean; reason: string };
       setResult({ correct: res.correct, reason: res.reason });
       if (res.correct) { playCorrectSound(); setScore(s => s + 1); }
       else { playIncorrectSound(); setIncorrectWords(prev => [...prev, cw]); }
@@ -147,8 +150,7 @@ const QuizSentence = () => {
           <motion.div key={currentIndex} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
             <Card className="p-8 text-center bg-primary text-primary-foreground mb-4">
               <p className="text-sm opacity-80 mb-2">아래 단어로 영어 문장을 만들어보세요</p>
-              <h2 className="font-bold text-4xl mb-1">{current.word}</h2>
-              <p className="opacity-90 text-base">{current.meaning}</p>
+              <h2 className="font-bold text-4xl">{current.word}</h2>
             </Card>
 
             <Textarea
