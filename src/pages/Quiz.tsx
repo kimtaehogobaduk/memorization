@@ -730,6 +730,8 @@ const Quiz = () => {
       navigate(`/quiz/${id}/writing?${params.toString()}`);
     } else if (quizType === "matching") {
       navigate(`/quiz/${id}/matching?${params.toString()}`);
+    } else if (quizType === "sentence") {
+      navigate(`/quiz/${id}/sentence?${params.toString()}`);
     }
   };
 
@@ -751,6 +753,12 @@ const Quiz = () => {
       icon: Grid3x3,
       title: "단어 짝짓기",
       description: "단어와 뜻 연결하기",
+    },
+    {
+      type: "sentence",
+      icon: PenLine,
+      title: "단어로 문장 작성",
+      description: "주어진 단어로 영어 문장을 만들고 AI가 채점해요",
     },
     {
       type: "random",
