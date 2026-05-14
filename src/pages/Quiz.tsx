@@ -730,6 +730,8 @@ const Quiz = () => {
       navigate(`/quiz/${id}/writing?${params.toString()}`);
     } else if (quizType === "matching") {
       navigate(`/quiz/${id}/matching?${params.toString()}`);
+    } else if (quizType === "sentence") {
+      navigate(`/quiz/${id}/sentence?${params.toString()}`);
     }
   };
 
