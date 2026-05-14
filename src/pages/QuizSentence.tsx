@@ -150,8 +150,7 @@ const QuizSentence = () => {
           <motion.div key={currentIndex} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
             <Card className="p-8 text-center bg-primary text-primary-foreground mb-4">
               <p className="text-sm opacity-80 mb-2">아래 단어로 영어 문장을 만들어보세요</p>
-              <h2 className="font-bold text-4xl mb-1">{current.word}</h2>
-              <p className="opacity-90 text-base">{current.meaning}</p>
+              <h2 className="font-bold text-4xl">{current.word}</h2>
             </Card>
 
             <Textarea
