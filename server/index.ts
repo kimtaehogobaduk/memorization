@@ -255,7 +255,7 @@ ${meaning ? `단어의 뜻: "${meaning}"` : ""}
       method: "POST",
       headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b",
+        model: "llama3.1-8b",
         messages: [
           { role: "system", content: "당신은 영어 작문 채점 AI입니다. 반드시 JSON 객체로만 응답하세요." },
           { role: "user", content: prompt },
