@@ -43,24 +43,42 @@ ${meaning ? `단어의 뜻: "${meaning}"` : ""}
 또는
 {"correct": false, "reason": "왜 틀렸는지 한국어로 명확히 설명 (1-3문장)"}`;
 
-    const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "llama-3.3-70b",
-        messages: [
-          { role: "system", content: "당신은 영어 작문 채점 AI입니다. 반드시 JSON 객체로만 응답하세요." },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.2,
-        max_tokens: 300,
-        response_format: { type: "json_object" },
-      }),
-    });
+    const MODELS = ["gpt-oss-120b", "llama3.1-8b"];
+    let response: Response | null = null;
+    let lastErrText = "";
+    for (const model of MODELS) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const r = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: "당신은 영어 작문 채점 AI입니다. 반드시 유효한 JSON 객체로만 응답하세요." },
+              { role: "user", content: prompt },
+            ],
+            temperature: 0.2,
+            max_tokens: 400,
+            response_format: { type: "json_object" },
+            stream: false,
+          }),
+        });
+        if (r.ok) { response = r; break; }
+        lastErrText = await r.text();
+        console.error(`Cerebras ${model} attempt ${attempt + 1} failed:`, r.status, lastErrText);
+        if (r.status === 404) break; // try next model
+        if (r.status === 429 || r.status >= 500) {
+          await new Promise((res) => setTimeout(res, 800 * (attempt + 1)));
+          continue;
+        }
+        break;
+      }
+      if (response) break;
+    }
 
-    if (!response.ok) {
-      console.error("Cerebras error:", response.status, await response.text());
-      return new Response(JSON.stringify({ correct: true, reason: "AI 채점 실패. 정답 처리합니다.", fallback: true }), {
+    if (!response) {
+      return new Response(JSON.stringify({ correct: false, reason: `AI 채점에 실패했습니다. 잠시 후 다시 시도해주세요. (${lastErrText.slice(0, 120)})`, error: true }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -81,7 +99,7 @@ ${meaning ? `단어의 뜻: "${meaning}"` : ""}
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("grade-sentence error:", error);
-    return new Response(JSON.stringify({ correct: true, reason: "오류 발생. 정답 처리합니다.", error: true }), {
+    return new Response(JSON.stringify({ correct: false, reason: "채점 중 오류가 발생했습니다. 다시 시도해주세요.", error: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
