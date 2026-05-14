@@ -99,7 +99,7 @@ ${meaning ? `단어의 뜻: "${meaning}"` : ""}
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("grade-sentence error:", error);
-    return new Response(JSON.stringify({ correct: true, reason: "오류 발생. 정답 처리합니다.", error: true }), {
+    return new Response(JSON.stringify({ correct: false, reason: "채점 중 오류가 발생했습니다. 다시 시도해주세요.", error: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
