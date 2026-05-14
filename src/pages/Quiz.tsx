@@ -755,6 +755,12 @@ const Quiz = () => {
       description: "단어와 뜻 연결하기",
     },
     {
+      type: "sentence",
+      icon: PenLine,
+      title: "단어로 문장 작성",
+      description: "주어진 단어로 영어 문장을 만들고 AI가 채점해요",
+    },
+    {
       type: "random",
       icon: Brain,
       title: "모든 유형 랜덤풀기",
