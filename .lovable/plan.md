@@ -1,51 +1,20 @@
+원인 분석 결과, `grade-sentence` 백엔드 함수가 Cerebras에 존재하지 않거나 권한이 없는 모델 ID `llama-3.3-70b`를 호출하고 있습니다. 실제 함수 로그에도 `Model llama-3.3-70b does not exist or you do not have access to it` 404가 반복 기록되어 있고, 프로젝트의 다른 Cerebras 기능들은 정상 모델 ID인 `llama3.1-8b`를 사용하고 있습니다. 그래서 AI가 채점에 실패하고, 현재 코드는 실패를 숨긴 채 `AI 채점 실패. 정답 처리합니다.`로 fallback 처리하고 있습니다.
 
+구현 계획:
 
-## Replit 작업 이어하기 - 남은 작업 계획
+1. `supabase/functions/grade-sentence/index.ts` 수정
+   - 모델 ID를 현재 프로젝트에서 쓰는 Cerebras 지원 모델 `llama3.1-8b`로 변경합니다.
+   - 404/429/5xx 같은 Cerebras 오류를 더 명확히 처리하고, 일시적 오류는 재시도하도록 보강합니다.
+   - JSON 파싱 실패 시에도 응답 원문에서 JSON을 복구하는 로직을 유지/강화합니다.
+   - AI 호출 실패를 무조건 정답 처리하는 fallback은 제거하거나 최소화해서, 실제 채점 결과가 아닌 경우 사용자가 오해하지 않게 합니다.
 
-Replit이 진행하던 6가지 작업의 현재 상태를 분석했습니다.
+2. `server/gradeSentence.js`와 필요 시 `server/index.ts`의 동일한 구형 모델 설정도 함께 정리
+   - 현재 앱은 Cloud 함수(`supabase.functions.invoke`)를 쓰지만, 남아 있는 서버 코드에도 같은 잘못된 모델 ID가 있어 이후 혼선을 막기 위해 동일하게 수정합니다.
 
-### 완료된 작업
-1. **Settings - 스마트 반복 복습 토글** - 이미 구현됨 (line 659-671)
-2. **Study - 스마트 반복 복습 정렬** - 이미 구현됨 (line 99-124, study_progress 기반 정렬)
+3. 검증
+   - 수정 후 `grade-sentence` 함수를 직접 호출 테스트해서 `AI 채점 실패` fallback이 아니라 실제 `{ correct, reason }` 형태의 채점 결과가 돌아오는지 확인합니다.
+   - 예시로 `aim / What's your aim?` 같은 정상 문장과, 단어를 쓰지 않은 문장 하나를 테스트해 성공/오답 모두 확인합니다.
 
-### 남은 작업
-
-#### 1. QuizMultipleChoice/QuizWriting/QuizRandom - 스마트 반복 복습 정렬 적용
-현재 3개 퀴즈 페이지에는 smart_review 정렬이 없음. Study.tsx와 동일한 로직(study_progress 테이블에서 incorrect/correct 비율로 정렬)을 추가.
-
-- `src/pages/QuizMultipleChoice.tsx` - loadWords()에서 Supabase 단어 로드 후 smart_review 설정 확인 → study_progress 조회 → 오답률 높은 단어 우선 정렬
-- `src/pages/QuizWriting.tsx` - 동일 로직 적용
-- `src/pages/QuizRandom.tsx` - 동일 로직 적용
-
-#### 2. VocabularyDetail - 챕터 관리 + 단어 추가/수정/삭제 + 즐겨찾기 즉시 반영
-현재 VocabularyDetail은 읽기 전용. 다음을 추가:
-
-- **챕터 필터 탭**: chapters 배열이 있을 때 상단에 챕터 선택 버튼들 표시
-- **즐겨찾기 토글 즉시 반영**: 현재 toggleFavorite 호출 후 항상 "저장했습니다" 토스트만 표시 → isFavorite 상태를 관리하여 별 아이콘 색상 즉시 변경 (노란색 ↔ 회색)
-- **단어 추가/수정/삭제**: isOwner일 때 단어 카드에 수정/삭제 버튼, 하단에 단어 추가 FAB
-
-#### 3. Statistics - 즐겨찾기 기반 복습 페이지 개선
-현재 단순 즐겨찾기 목록만 표시. 개선 사항:
-
-- 즐겨찾기 단어로 빠른 퀴즈 시작 버튼 추가
-- TTS 발음 재생 버튼 추가
-- 단어 카드 클릭 시 뜻 토글 (플래시카드 효과)
-
-#### 4. OCR 프롬프트 품질 보정 강화
-현재 extract-vocabulary edge function의 프롬프트가 기본적. 개선:
-
-- 프롬프트에 "OCR 오류 보정" 지시 추가 (예: 흔한 OCR 오류 패턴 자동 수정)
-- 한국어 뜻이 없는 경우 AI가 자동 생성하도록 명시
-- 챕터 구분 패턴을 더 다양하게 인식 (Lesson, Week, Part 등)
-
-### 구현 순서
-1. 퀴즈 3개 파일에 스마트 반복 복습 정렬 추가 (병렬)
-2. VocabularyDetail 즐겨찾기 즉시 반영 + 챕터 필터
-3. Statistics 복습 기능 강화
-4. OCR 프롬프트 개선 + edge function 재배포
-
-### 기술 세부사항
-- 스마트 복습 정렬: `getLocalSettings().smart_review` 확인 → `supabase.from("study_progress").select(...)` → `incorrect_count / (correct_count + 1)` 내림차순 정렬
-- 즐겨찾기 상태: `studyNotes.isFavorite(word.id)`를 각 단어에 체크하여 `favoriteIds` Set으로 관리
-- VocabularyDetail 단어 CRUD: 로컬 단어장은 `localStorageService`, Supabase 단어장은 `supabase.from("words")` 사용
-
+기대 결과:
+- 사용자가 제출하면 더 이상 반복적으로 `AI 채점 실패. 정답 처리합니다.`가 뜨지 않고, 실제 AI 채점 이유가 표시됩니다.
+- 단어 뜻은 기존처럼 퀴즈 화면에 노출하지 않습니다.
