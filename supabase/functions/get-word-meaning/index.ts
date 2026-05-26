@@ -34,7 +34,7 @@ const cache = new Map<string, { data: WordInfo; expiresAt: number }>();
 const inFlight = new Map<string, Promise<WordInfo>>();
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 
-const MODELS = ["llama3.1-8b"];
+const MODELS = ["llama3.1-8b", "gpt-oss-120b", "qwen-3-235b-a22b-instruct-2507"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function extractJSON(raw: string): Record<string, unknown> {
