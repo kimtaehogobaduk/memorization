@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 const API_BASE = "/api";
 
 async function apiPost<T = unknown>(endpoint: string, body: unknown): Promise<T> {
