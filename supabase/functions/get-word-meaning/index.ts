@@ -53,6 +53,11 @@ function extractJSON(raw: string): Record<string, unknown> {
   try { return JSON.parse(cleaned); } catch { /* continue */ }
   cleaned = cleaned.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
   try { return JSON.parse(cleaned); } catch { /* continue */ }
+  // Quote unquoted property names: {foo: ...} or , foo: ...
+  cleaned = cleaned.replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":');
+  // Convert single-quoted strings to double-quoted
+  cleaned = cleaned.replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, (_m, p1) => `"${p1.replace(/"/g, '\\"')}"`);
+  try { return JSON.parse(cleaned); } catch { /* continue */ }
   const inStr = (cleaned.split('"').length - 1) % 2 === 1;
   if (inStr) cleaned += '"';
   let braces = 0;
@@ -134,7 +139,8 @@ CRITICAL: 한자만 있는 단어는 기본적으로 중국어로 해석하되, 
           { role: "user", content: `Word: "${word}"` },
         ],
         temperature: 0.2,
-        max_tokens: 500,
+        max_tokens: 800,
+        response_format: { type: "json_object" },
       }),
     });
 
