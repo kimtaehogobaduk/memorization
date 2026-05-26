@@ -134,7 +134,8 @@ CRITICAL: 한자만 있는 단어는 기본적으로 중국어로 해석하되, 
           { role: "user", content: `Word: "${word}"` },
         ],
         temperature: 0.2,
-        max_tokens: 500,
+        max_tokens: 800,
+        response_format: { type: "json_object" },
       }),
     });
 
