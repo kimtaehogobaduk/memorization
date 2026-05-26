@@ -4,117 +4,110 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { syncLocalDataToSupabase } from "@/utils/syncLocalData";
 
+// Shared module-level state to prevent loading flicker on navigation
+type AuthState = {
+  user: User | null;
+  session: Session | null;
+  loading: boolean;
+  isAdmin: boolean;
+};
+
+let sharedState: AuthState = {
+  user: null,
+  session: null,
+  loading: true,
+  isAdmin: false,
+};
+
+const listeners = new Set<(s: AuthState) => void>();
+let initialized = false;
+let syncedFor: string | null = null;
+
+const setShared = (patch: Partial<AuthState>) => {
+  sharedState = { ...sharedState, ...patch };
+  listeners.forEach((l) => l(sharedState));
+};
+
+const checkAdminRole = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    setShared({ isAdmin: !error && !!data });
+  } catch (error) {
+    console.error("Error checking admin role:", error);
+    setShared({ isAdmin: false });
+  }
+};
+
+const initAuth = () => {
+  if (initialized) return;
+  initialized = true;
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    setShared({ session, user: session?.user ?? null, loading: false });
+    if (session?.user) {
+      setTimeout(() => checkAdminRole(session.user.id), 0);
+      if (syncedFor !== session.user.id) {
+        syncedFor = session.user.id;
+        syncLocalDataToSupabase(session.user.id).then((count) => {
+          if (count && count > 0) console.log(`Synced ${count} local vocabularies to cloud`);
+        });
+      }
+    } else {
+      setShared({ isAdmin: false });
+      syncedFor = null;
+    }
+  });
+
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    setShared({ session, user: session?.user ?? null, loading: false });
+    if (session?.user) setTimeout(() => checkAdminRole(session.user.id), 0);
+  });
+};
+
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const syncedRef = useRef(false);
+  const [state, setState] = useState<AuthState>(sharedState);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-        
-        // Check admin role when session changes
-        if (session?.user) {
-          setTimeout(() => {
-            checkAdminRole(session.user.id);
-          }, 0);
-          // Sync local data on login
-          if (!syncedRef.current) {
-            syncedRef.current = true;
-            syncLocalDataToSupabase(session.user.id).then(count => {
-              if (count && count > 0) {
-                console.log(`Synced ${count} local vocabularies to cloud`);
-              }
-            });
-          }
-        } else {
-          setIsAdmin(false);
-          syncedRef.current = false;
-        }
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-      
-      // Check admin role for existing session
-      if (session?.user) {
-        setTimeout(() => {
-          checkAdminRole(session.user.id);
-        }, 0);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    initAuth();
+    const listener = (s: AuthState) => setState(s);
+    listeners.add(listener);
+    // Sync in case state changed between render and subscribe
+    setState(sharedState);
+    return () => { listeners.delete(listener); };
   }, []);
-
-  const checkAdminRole = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .eq("role", "admin")
-        .maybeSingle();
-      
-      if (!error && data) {
-        setIsAdmin(true);
-      } else {
-        setIsAdmin(false);
-      }
-    } catch (error) {
-      console.error("Error checking admin role:", error);
-      setIsAdmin(false);
-    }
-  };
 
   const signUp = async (email: string, password: string, fullName: string) => {
     const redirectUrl = `${window.location.origin}/`;
-    
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName,
-        },
-      },
+      options: { emailRedirectTo: redirectUrl, data: { full_name: fullName } },
     });
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
   };
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
-    if (!error) {
-      navigate("/auth");
-    }
+    if (!error) navigate("/auth");
     return { error };
   };
 
   return {
-    user,
-    session,
-    loading,
-    isAdmin,
+    user: state.user,
+    session: state.session,
+    loading: state.loading,
+    isAdmin: state.isAdmin,
     signUp,
     signIn,
     signOut,
