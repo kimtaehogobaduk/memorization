@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 const API_BASE = "/api";
 
 async function apiPost<T = unknown>(endpoint: string, body: unknown): Promise<T> {
@@ -43,8 +45,11 @@ async function apiGetAuth<T = unknown>(endpoint: string, authToken: string): Pro
   return res.json();
 }
 
-export const apiGetWordMeaning = (word: string) =>
-  apiPost("/get-word-meaning", { word });
+export const apiGetWordMeaning = async (word: string) => {
+  const { data, error } = await supabase.functions.invoke("get-word-meaning", { body: { word } });
+  if (error) throw error;
+  return data;
+};
 
 export const apiValidateMeaning = (word: string, userAnswer: string, correctMeaning: string) =>
   apiPost("/validate-meaning", { word, userAnswer, correctMeaning });
