@@ -77,18 +77,19 @@ const CreateVocabulary = () => {
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRequestedWordRef = useRef<Record<string, string>>({});
 
-  const fetchAIMeaning = useCallback(async (wordId: string, word: string) => {
+  const fetchAIMeaning = useCallback(async (wordId: string, word: string, partOfSpeech: string) => {
     const trimmedWord = word.trim();
     if (!trimmedWord || !aiAutoMeaning || trimmedWord.length < 3) return;
 
     const normalizedWord = trimmedWord.toLowerCase();
-    if (lastRequestedWordRef.current[wordId] === normalizedWord) return;
+    const reqKey = `${normalizedWord}::${partOfSpeech || ""}`;
+    if (lastRequestedWordRef.current[wordId] === reqKey) return;
 
     setFetchingMeaning(wordId);
     try {
-      const data: any = await apiGetWordMeaning(trimmedWord);
+      const data: any = await apiGetWordMeaning(trimmedWord, partOfSpeech || undefined);
 
-      lastRequestedWordRef.current[wordId] = normalizedWord;
+      lastRequestedWordRef.current[wordId] = reqKey;
       setWords((prev) =>
         prev.map((w) => {
           if (w.id !== wordId) return w;
@@ -96,7 +97,7 @@ const CreateVocabulary = () => {
             ...w,
             meaning: data?.meaning || w.meaning,
             example: data?.example || w.example,
-            part_of_speech: data?.part_of_speech || w.part_of_speech,
+            part_of_speech: partOfSpeech || data?.part_of_speech || w.part_of_speech,
             pronunciation: data?.pronunciation || w.pronunciation,
             frequency: data?.frequency || w.frequency,
             difficulty: data?.difficulty || w.difficulty,
@@ -128,11 +129,26 @@ const CreateVocabulary = () => {
     const trimmed = value.trim();
     if (aiAutoMeaning && trimmed.length >= 3) {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      const currentPos = words.find(w => w.id === wordId)?.part_of_speech || "";
       debounceTimerRef.current = setTimeout(() => {
-        fetchAIMeaning(wordId, trimmed);
+        fetchAIMeaning(wordId, trimmed, currentPos);
       }, 1500);
     }
   };
+
+  const handlePosChange = (wordId: string, value: string) => {
+    const pos = value === "auto" ? "" : value;
+    updateWord(wordId, "part_of_speech", pos);
+    const w = words.find(x => x.id === wordId);
+    const trimmed = (w?.word || "").trim();
+    if (aiAutoMeaning && trimmed.length >= 3) {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        fetchAIMeaning(wordId, trimmed, pos);
+      }, 300);
+    }
+  };
+
 
   const addWord = () => {
     const w = emptyWord();
