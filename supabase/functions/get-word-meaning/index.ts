@@ -102,7 +102,7 @@ function parseWordInfo(payload: any): WordInfo {
   return result;
 }
 
-async function requestCerebrasModel(model: string, word: string, apiKey: string): Promise<WordInfo> {
+async function requestCerebrasModel(model: string, word: string, apiKey: string, partOfSpeech: string): Promise<WordInfo> {
   for (let attempt = 0; attempt < 3; attempt++) {
     const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
       method: "POST",
@@ -136,7 +136,7 @@ Return ONLY a JSON object (no markdown, no extra text) with these keys:
 
 CRITICAL: 한자만 있는 단어는 기본적으로 중국어로 해석하되, 일본어로도 자주 쓰이는 단어라면 meaning에 "(중) ~ / (일) ~" 형식으로 두 언어의 뜻을 구분해서 함께 표기하세요. meaning은 반드시 한국어.`,
           },
-          { role: "user", content: `Word: "${word}"` },
+          { role: "user", content: partOfSpeech ? `Word: "${word}"\n\nIMPORTANT: 사용자가 품사를 "${partOfSpeech}"(으)로 지정했습니다. 반드시 이 품사로 해석한 뜻/예문/유의어/반의어/파생어를 반환하세요. part_of_speech 필드는 "${partOfSpeech}"로 설정하세요. 동일 단어가 여러 품사로 쓰이더라도, 지정된 품사의 의미만 반환합니다.` : `Word: "${word}"` },
         ],
         temperature: 0.2,
         max_tokens: 800,
@@ -167,11 +167,11 @@ CRITICAL: 한자만 있는 단어는 기본적으로 중국어로 해석하되, 
   throw new Error(`[${model}] failed after retries`);
 }
 
-async function callCerebras(word: string, apiKey: string): Promise<WordInfo> {
+async function callCerebras(word: string, apiKey: string, partOfSpeech: string): Promise<WordInfo> {
   let lastError: Error | null = null;
   for (const model of MODELS) {
     try {
-      const result = await requestCerebrasModel(model, word, apiKey);
+      const result = await requestCerebrasModel(model, word, apiKey, partOfSpeech);
       console.log(`Success with model: ${model}`);
       return result;
     } catch (err) {
@@ -188,14 +188,16 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
   try {
-    const { word } = await req.json();
+    const { word, part_of_speech } = await req.json();
     const trimmedWord = typeof word === "string" ? word.trim() : "";
+    const partOfSpeech = typeof part_of_speech === "string" ? part_of_speech.trim() : "";
     if (!trimmedWord) {
       return new Response(JSON.stringify(EMPTY_RESULT), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const normalizedWord = trimmedWord.toLowerCase();
+    const cacheKey = partOfSpeech ? `${trimmedWord.toLowerCase()}::${partOfSpeech}` : trimmedWord.toLowerCase();
+    const normalizedWord = cacheKey;
     const now = Date.now();
     const cached = cache.get(normalizedWord);
     if (cached && cached.expiresAt > now) {
@@ -212,7 +214,7 @@ serve(async (req) => {
     const CEREBRAS_API_KEY = Deno.env.get("CEREBRAS_API_KEY");
     if (!CEREBRAS_API_KEY) throw new Error("CEREBRAS_API_KEY is not configured");
 
-    const requestPromise = callCerebras(normalizedWord, CEREBRAS_API_KEY);
+    const requestPromise = callCerebras(trimmedWord.toLowerCase(), CEREBRAS_API_KEY, partOfSpeech);
     inFlight.set(normalizedWord, requestPromise);
     try {
       const result = await requestPromise;
