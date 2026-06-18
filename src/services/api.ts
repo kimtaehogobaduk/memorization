@@ -45,8 +45,10 @@ async function apiGetAuth<T = unknown>(endpoint: string, authToken: string): Pro
   return res.json();
 }
 
-export const apiGetWordMeaning = async (word: string) => {
-  const { data, error } = await supabase.functions.invoke("get-word-meaning", { body: { word } });
+export const apiGetWordMeaning = async (word: string, partOfSpeech?: string) => {
+  const { data, error } = await supabase.functions.invoke("get-word-meaning", {
+    body: { word, part_of_speech: partOfSpeech || "" },
+  });
   if (error) throw error;
   return data;
 };
