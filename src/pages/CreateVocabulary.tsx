@@ -462,8 +462,31 @@ const CreateVocabulary = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor={`part_of_speech-${currentWord.id}`}>품사 (선택)</Label>
-                  <Input id={`part_of_speech-${currentWord.id}`} value={currentWord.part_of_speech} onChange={(e) => updateWord(currentWord.id, "part_of_speech", e.target.value)} placeholder="예: 명사, 동사" />
+                  <Label htmlFor={`part_of_speech-${currentWord.id}`} className="flex items-center gap-2">
+                    품사 (선택)
+                    {aiAutoMeaning && (
+                      <span className="text-xs text-muted-foreground">선택 시 해당 품사의 뜻으로 AI 자동입력</span>
+                    )}
+                  </Label>
+                  <Select
+                    value={currentWord.part_of_speech || "auto"}
+                    onValueChange={(v) => handlePosChange(currentWord.id, v)}
+                  >
+                    <SelectTrigger id={`part_of_speech-${currentWord.id}`}>
+                      <SelectValue placeholder="자동 (AI가 결정)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">자동 (AI가 결정)</SelectItem>
+                      <SelectItem value="명사">명사</SelectItem>
+                      <SelectItem value="동사">동사</SelectItem>
+                      <SelectItem value="형용사">형용사</SelectItem>
+                      <SelectItem value="부사">부사</SelectItem>
+                      <SelectItem value="전치사">전치사</SelectItem>
+                      <SelectItem value="접속사">접속사</SelectItem>
+                      <SelectItem value="감탄사">감탄사</SelectItem>
+                      <SelectItem value="대명사">대명사</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
