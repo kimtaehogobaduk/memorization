@@ -77,10 +77,14 @@ const CreateVocabulary = () => {
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRequestedWordRef = useRef<Record<string, string>>({});
   const wordInputRef = useRef<HTMLInputElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (currentPage > 0) {
       setTimeout(() => wordInputRef.current?.focus(), 50);
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
     }
   }, [currentPage]);
 
@@ -374,7 +378,7 @@ const CreateVocabulary = () => {
 
         {/* 페이지 1+: 각 단어 입력 */}
         {currentPage > 0 && currentWord && (
-          <Card>
+          <Card ref={cardRef}>
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-lg font-semibold">단어 {currentPage}</span>
