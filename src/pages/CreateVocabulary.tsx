@@ -78,6 +78,12 @@ const CreateVocabulary = () => {
   const lastRequestedWordRef = useRef<Record<string, string>>({});
   const wordInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (currentPage > 0) {
+      setTimeout(() => wordInputRef.current?.focus(), 50);
+    }
+  }, [currentPage]);
+
   const fetchAIMeaning = useCallback(async (wordId: string, word: string, partOfSpeech: string) => {
     const trimmedWord = word.trim();
     if (!trimmedWord || !aiAutoMeaning || trimmedWord.length < 3) return;
