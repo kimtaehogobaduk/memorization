@@ -214,12 +214,25 @@ serve(async (req) => {
     const CEREBRAS_API_KEY = Deno.env.get("CEREBRAS_API_KEY");
     if (!CEREBRAS_API_KEY) throw new Error("CEREBRAS_API_KEY is not configured");
 
-    const requestPromise = callCerebras(trimmedWord.toLowerCase(), CEREBRAS_API_KEY, partOfSpeech);
-    inFlight.set(normalizedWord, requestPromise);
+    const requestPromise = (async () => {
+      try {
+        const r = await callCerebras(trimmedWord.toLowerCase(), CEREBRAS_API_KEY, partOfSpeech);
+        if (partOfSpeech && r.part_of_speech && r.part_of_speech.trim() !== partOfSpeech) {
+          throw new Error(`POS mismatch: got "${r.part_of_speech}", expected "${partOfSpeech}"`);
+        }
+        return { result: r, autoFallback: false };
+      } catch (err) {
+        if (!partOfSpeech) throw err;
+        console.warn(`POS "${partOfSpeech}" failed for "${trimmedWord}", falling back to general:`, err instanceof Error ? err.message : err);
+        const r = await callCerebras(trimmedWord.toLowerCase(), CEREBRAS_API_KEY, "");
+        return { result: r, autoFallback: true };
+      }
+    })();
+    inFlight.set(normalizedWord, requestPromise.then((x) => x.result));
     try {
-      const result = await requestPromise;
+      const { result, autoFallback } = await requestPromise;
       cache.set(normalizedWord, { data: result, expiresAt: now + CACHE_TTL_MS });
-      return new Response(JSON.stringify(result), {
+      return new Response(JSON.stringify({ ...result, auto_fallback: autoFallback }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } finally {
