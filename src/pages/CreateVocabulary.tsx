@@ -77,10 +77,14 @@ const CreateVocabulary = () => {
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRequestedWordRef = useRef<Record<string, string>>({});
   const wordInputRef = useRef<HTMLInputElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (currentPage > 0) {
       setTimeout(() => wordInputRef.current?.focus(), 50);
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
     }
   }, [currentPage]);
 
