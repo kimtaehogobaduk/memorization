@@ -76,6 +76,7 @@ const CreateVocabulary = () => {
   const [fetchingMeaning, setFetchingMeaning] = useState<string | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRequestedWordRef = useRef<Record<string, string>>({});
+  const wordInputRef = useRef<HTMLInputElement>(null);
 
   const fetchAIMeaning = useCallback(async (wordId: string, word: string, partOfSpeech: string) => {
     const trimmedWord = word.trim();
