@@ -546,16 +546,18 @@ const CreateVocabulary = () => {
 
         {/* 페이지 네비게이션 */}
         <div className="mt-6 space-y-4">
-          <div className="flex justify-center gap-2 flex-wrap">
+          <div className="flex justify-center gap-2">
             <Button type="button" variant={currentPage === 0 ? "default" : "outline"} size="sm" onClick={() => goToPage(0)} className="min-w-[60px]">정보</Button>
-            {words.map((word, index) => (
-              <Button key={word.id} type="button" variant={currentPage === index + 1 ? "default" : "outline"} size="sm" onClick={() => goToPage(index + 1)} className="min-w-[40px]">
-                {index + 1}
-              </Button>
-            ))}
             <Button type="button" variant="outline" size="sm" onClick={addWord}>
               <Plus className="w-4 h-4" />
             </Button>
+          </div>
+          <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
+            {words.map((word, index) => (
+              <Button key={word.id} type="button" variant={currentPage === index + 1 ? "default" : "outline"} size="sm" onClick={() => goToPage(index + 1)} className="w-full">
+                {index + 1}
+              </Button>
+            ))}
           </div>
           <div className="flex gap-3">
             <Button type="button" variant="outline" className="flex-1" onClick={goToPrevPage} disabled={currentPage === 0}>이전</Button>
