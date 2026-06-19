@@ -452,7 +452,7 @@ const CreateVocabulary = () => {
                       </span>
                     )}
                   </Label>
-                  <Input id={`word-${currentWord.id}`} value={currentWord.word} onChange={(e) => handleWordChange(currentWord.id, e.target.value)} placeholder="단어" />
+                  <Input ref={wordInputRef} id={`word-${currentWord.id}`} value={currentWord.word} onChange={(e) => handleWordChange(currentWord.id, e.target.value)} placeholder="단어" />
                 </div>
 
                 <div className="space-y-2">
