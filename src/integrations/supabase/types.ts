@@ -274,6 +274,42 @@ export type Database = {
           },
         ]
       }
+      otp_codes: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          metadata: Json | null
+          purpose: string
+          used: boolean
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          metadata?: Json | null
+          purpose: string
+          used?: boolean
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          metadata?: Json | null
+          purpose?: string
+          used?: boolean
+        }
+        Relationships: []
+      }
       poll_votes: {
         Row: {
           created_at: string | null
@@ -430,6 +466,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      trusted_devices: {
+        Row: {
+          created_at: string
+          device_id: string
+          device_name: string | null
+          id: string
+          last_seen_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          device_name?: string | null
+          id?: string
+          last_seen_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          device_name?: string | null
+          id?: string
+          last_seen_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
