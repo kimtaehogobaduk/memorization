@@ -10,8 +10,35 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
-const GATEWAY_URL = "https://connector-gateway.lovable.dev/resend";
+const GOOGLE_MAIL_API_KEY = Deno.env.get("GOOGLE_MAIL_API_KEY")!;
+const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
+
+// UTF-8 safe base64 (for Korean subject/body)
+function b64Utf8(s: string) {
+  const bytes = new TextEncoder().encode(s);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function b64UrlUtf8(s: string) {
+  return b64Utf8(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function encodeSubject(s: string) {
+  return `=?UTF-8?B?${b64Utf8(s)}?=`;
+}
+function buildRawEmail(to: string, subject: string, html: string) {
+  const msg = [
+    `From: 암기준섹 <me>`,
+    `To: ${to}`,
+    `Subject: ${encodeSubject(subject)}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: text/html; charset="UTF-8"`,
+    `Content-Transfer-Encoding: base64`,
+    ``,
+    b64Utf8(html),
+  ].join("\r\n");
+  return b64UrlUtf8(msg);
+}
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false },
