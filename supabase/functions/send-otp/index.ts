@@ -132,24 +132,20 @@ Deno.serve(async (req) => {
 
     const { label, subject } = purposeMap[purpose];
     const html = emailHtml(code, label);
+    const raw = buildRawEmail(normalizedEmail, subject, html);
 
-    const r = await fetch(`${GATEWAY_URL}/emails`, {
+    const r = await fetch(`${GATEWAY_URL}/users/me/messages/send`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "X-Connection-Api-Key": RESEND_API_KEY,
+        "X-Connection-Api-Key": GOOGLE_MAIL_API_KEY,
       },
-      body: JSON.stringify({
-        from: "암기준섹 <onboarding@resend.dev>",
-        to: [normalizedEmail],
-        subject,
-        html,
-      }),
+      body: JSON.stringify({ raw }),
     });
     const body = await r.text();
     if (!r.ok) {
-      console.error("resend error", r.status, body);
+      console.error("gmail error", r.status, body);
       return new Response(JSON.stringify({ error: "이메일 발송 실패", detail: body }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
