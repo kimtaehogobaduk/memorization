@@ -94,18 +94,16 @@ const WordListUpload = () => {
     setWords(initialWords);
 
     const results = [...initialWords];
-    const BATCH_SIZE = 3;
+    const BATCH_SIZE = 2; // 안전한 동시 호출 수 (3은 레이트 리밋 충돌)
+    const MAX_RETRIES = 2;
 
-    for (let i = 0; i < results.length; i += BATCH_SIZE) {
-      const batch = results.slice(i, i + BATCH_SIZE);
-      const promises = batch.map(async (item, batchIdx) => {
-        const idx = i + batchIdx;
-        results[idx] = { ...results[idx], status: "loading" };
-        setWords([...results]);
-
+    const fetchOne = async (idx: number) => {
+      results[idx] = { ...results[idx], status: "loading" };
+      setWords([...results]);
+      let lastErr: unknown;
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
-          const data: any = await apiGetWordMeaning(item.word);
-
+          const data: any = await apiGetWordMeaning(results[idx].word);
           results[idx] = {
             ...results[idx],
             meaning: data.meaning || "",
@@ -119,24 +117,36 @@ const WordListUpload = () => {
             derivatives: data.derivatives || [],
             status: "done",
           };
+          return;
         } catch (err) {
-          results[idx] = {
-            ...results[idx],
-            status: "error",
-            error: err instanceof Error ? err.message : "실패",
-          };
+          lastErr = err;
+          // 점진적 백오프 후 재시도
+          await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
         }
-      });
+      }
+      results[idx] = {
+        ...results[idx],
+        status: "error",
+        error: lastErr instanceof Error ? lastErr.message : "실패",
+      };
+    };
 
-      await Promise.all(promises);
+    for (let i = 0; i < results.length; i += BATCH_SIZE) {
+      const batchIdxs = Array.from({ length: Math.min(BATCH_SIZE, results.length - i) }, (_, k) => i + k);
+      // 동시 호출 살짝 stagger 해서 동일 키 동시 충돌 회피
+      await Promise.all(
+        batchIdxs.map((idx, k) => new Promise<void>((resolve) => {
+          setTimeout(() => { fetchOne(idx).finally(() => resolve()); }, k * 150);
+        }))
+      );
       setWords([...results]);
-      setProgress(Math.round(((i + batch.length) / results.length) * 100));
+      setProgress(Math.round(((i + batchIdxs.length) / results.length) * 100));
 
-      // Rate limit pause between batches
       if (i + BATCH_SIZE < results.length) {
-        await new Promise((r) => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, 800));
       }
     }
+
 
     setProcessing(false);
     setProgress(100);
