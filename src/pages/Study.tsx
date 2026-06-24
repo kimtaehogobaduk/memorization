@@ -294,47 +294,57 @@ const Study = () => {
 
   const derivs = Array.isArray(currentWord.derivatives) ? currentWord.derivatives : [];
 
-  const MetadataSection = () => (
-    <div className="grid grid-cols-1 gap-2 text-left mt-4 w-full">
-      {currentWord.synonyms && (
-        <div className="p-2 rounded-lg bg-primary/5">
-          <span className="text-xs font-semibold text-primary">유의어</span>
-          <p className="text-sm mt-0.5">{currentWord.synonyms}</p>
-        </div>
-      )}
-      {currentWord.antonyms && (
-        <div className="p-2 rounded-lg bg-destructive/5">
-          <span className="text-xs font-semibold text-destructive">반의어</span>
-          <p className="text-sm mt-0.5">{currentWord.antonyms}</p>
-        </div>
-      )}
-      {derivs.length > 0 && (
-        <div className="p-2 rounded-lg bg-secondary/50">
-          <span className="text-xs font-semibold text-secondary-foreground">파생어</span>
-          <div className="mt-0.5 space-y-0.5">
-            {derivs.map((d: any, i: number) => (
-              <p key={i} className="text-sm"><span className="font-medium">{d.word}</span> — {d.meaning}</p>
-            ))}
+  const MetadataSection = ({ word }: { word: Word }) => {
+    const ds = Array.isArray(word.derivatives) ? word.derivatives : [];
+    return (
+      <div className="grid grid-cols-1 gap-2 text-left mt-4 w-full">
+        {word.synonyms && (
+          <div className="p-2 rounded-lg bg-primary/5">
+            <span className="text-xs font-semibold text-primary">유의어</span>
+            <p className="text-sm mt-0.5">{word.synonyms}</p>
           </div>
-        </div>
-      )}
-    </div>
-  );
+        )}
+        {word.antonyms && (
+          <div className="p-2 rounded-lg bg-destructive/5">
+            <span className="text-xs font-semibold text-destructive">반의어</span>
+            <p className="text-sm mt-0.5">{word.antonyms}</p>
+          </div>
+        )}
+        {ds.length > 0 && (
+          <div className="p-2 rounded-lg bg-secondary/50">
+            <span className="text-xs font-semibold text-secondary-foreground">파생어</span>
+            <div className="mt-0.5 space-y-0.5">
+              {ds.map((d: any, i: number) => (
+                <p key={i} className="text-sm"><span className="font-medium">{d.word}</span> — {d.meaning}</p>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
-  const renderCardContent = () => {
-    switch (viewMode) {
+  const renderCardContent = (word: Word, isFlipped: boolean) => {
+    // Flipping a "word-only" or "meaning-only" card swaps front/back
+    let effectiveMode: ViewMode = viewMode;
+    if (isFlipped) {
+      if (viewMode === "word-only") effectiveMode = "meaning-only";
+      else if (viewMode === "meaning-only") effectiveMode = "word-only";
+    }
+
+    switch (effectiveMode) {
       case "word-only":
         return (
           <div className="text-center">
             <p className="text-sm text-muted-foreground mb-4">단어</p>
-            <h2 className="text-5xl font-bold">{currentWord.word}</h2>
-            {currentWord.part_of_speech && <p className="text-base text-muted-foreground mt-2">{currentWord.part_of_speech}</p>}
+            <h2 className="text-5xl font-bold">{word.word}</h2>
+            {word.part_of_speech && <p className="text-base text-muted-foreground mt-2">{word.part_of_speech}</p>}
             <div className="flex items-center justify-center gap-2 mt-3">
-              {currentWord.frequency != null && currentWord.frequency > 0 && (
-                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">빈도 {"★".repeat(currentWord.frequency)}</span>
+              {word.frequency != null && word.frequency > 0 && (
+                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">빈도 {"★".repeat(word.frequency)}</span>
               )}
-              {currentWord.difficulty != null && currentWord.difficulty > 0 && (
-                <span className="text-xs px-2 py-1 rounded-full bg-destructive/10 text-destructive">난이도 {"★".repeat(currentWord.difficulty)}</span>
+              {word.difficulty != null && word.difficulty > 0 && (
+                <span className="text-xs px-2 py-1 rounded-full bg-destructive/10 text-destructive">난이도 {"★".repeat(word.difficulty)}</span>
               )}
             </div>
           </div>
@@ -343,33 +353,36 @@ const Study = () => {
         return (
           <div className="text-center">
             <p className="text-sm text-muted-foreground mb-4">뜻</p>
-            <h2 className="text-3xl font-bold">{currentWord.meaning}</h2>
-            <MetadataSection />
+            <h2 className="text-3xl font-bold">{word.meaning}</h2>
+            <MetadataSection word={word} />
           </div>
         );
       case "both":
         return (
           <div className="text-center">
-            <h2 className="text-4xl font-bold mb-4">{currentWord.word}</h2>
-            {currentWord.part_of_speech && <p className="text-sm text-muted-foreground mb-2">{currentWord.part_of_speech}</p>}
-            <p className="text-2xl text-muted-foreground">{currentWord.meaning}</p>
-            <MetadataSection />
+            <h2 className="text-4xl font-bold mb-4">{word.word}</h2>
+            {word.part_of_speech && <p className="text-sm text-muted-foreground mb-2">{word.part_of_speech}</p>}
+            <p className="text-2xl text-muted-foreground">{word.meaning}</p>
+            <MetadataSection word={word} />
           </div>
         );
       case "example":
         return (
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-4">{currentWord.word}</h2>
-            {currentWord.part_of_speech && <p className="text-sm text-muted-foreground mb-2">{currentWord.part_of_speech}</p>}
-            <p className="text-xl text-muted-foreground mb-3">{currentWord.meaning}</p>
-            {currentWord.example && (
-              <p className="text-base text-muted-foreground italic">{currentWord.example}</p>
+            <h2 className="text-3xl font-bold mb-4">{word.word}</h2>
+            {word.part_of_speech && <p className="text-sm text-muted-foreground mb-2">{word.part_of_speech}</p>}
+            <p className="text-xl text-muted-foreground mb-3">{word.meaning}</p>
+            {word.example && (
+              <p className="text-base text-muted-foreground italic">{word.example}</p>
             )}
-            <MetadataSection />
+            <MetadataSection word={word} />
           </div>
         );
     }
   };
+
+  const prevWord = currentIndex > 0 ? words[currentIndex - 1] : null;
+  const nextWord = currentIndex < words.length - 1 ? words[currentIndex + 1] : null;
 
   return (
     <div className="min-h-screen bg-background relative">
@@ -397,90 +410,125 @@ const Study = () => {
 
         {/* View Mode Buttons */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          <Button
-            variant={viewMode === "word-only" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("word-only")}
-          >
-            <Eye className="w-4 h-4 mr-1" />
-            단어만
+          <Button variant={viewMode === "word-only" ? "default" : "outline"} size="sm" onClick={() => setViewMode("word-only")}>
+            <Eye className="w-4 h-4 mr-1" />단어만
           </Button>
-          <Button
-            variant={viewMode === "meaning-only" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("meaning-only")}
-          >
-            <EyeOff className="w-4 h-4 mr-1" />
-            뜻만
+          <Button variant={viewMode === "meaning-only" ? "default" : "outline"} size="sm" onClick={() => setViewMode("meaning-only")}>
+            <EyeOff className="w-4 h-4 mr-1" />뜻만
           </Button>
-          <Button
-            variant={viewMode === "both" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("both")}
-          >
+          <Button variant={viewMode === "both" ? "default" : "outline"} size="sm" onClick={() => setViewMode("both")}>
             단어+뜻
           </Button>
-          <Button
-            variant={viewMode === "example" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("example")}
-          >
-            <FileText className="w-4 h-4 mr-1" />
-            예문 포함
+          <Button variant={viewMode === "example" ? "default" : "outline"} size="sm" onClick={() => setViewMode("example")}>
+            <FileText className="w-4 h-4 mr-1" />예문 포함
           </Button>
         </div>
 
-        <div className="flex items-center justify-center" style={{ minHeight: 'calc(70vh - 120px)' }}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentIndex}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.3 }}
-              className="w-full max-w-2xl"
+        {/* Card carousel with side previews */}
+        <div className="relative flex items-center justify-center" style={{ minHeight: 'calc(60vh - 80px)' }}>
+          {/* Previous preview (left) */}
+          {prevWord && (
+            <button
+              onClick={goPrev}
+              className="hidden md:flex absolute left-0 lg:left-4 top-1/2 -translate-y-1/2 w-40 lg:w-56 h-56 lg:h-72 rounded-2xl bg-card/60 border-2 border-dashed border-muted-foreground/20 items-center justify-center cursor-pointer hover:bg-card/80 transition-all opacity-50 hover:opacity-80 z-0"
+              aria-label="이전 단어"
             >
-              <Card className="p-10 bg-gradient-card shadow-lg" style={{ minHeight: '400px' }}>
-                <div className="mb-4 flex justify-end">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => speak(currentWord.word)}
-                    className="text-primary"
-                  >
-                    <Volume2 className="w-6 h-6" />
-                  </Button>
-                </div>
-                {renderCardContent()}
-              </Card>
+              <div className="text-center px-2">
+                <p className="text-xs text-muted-foreground mb-2">← 이전</p>
+                <p className="text-lg font-semibold truncate max-w-[10rem] lg:max-w-[12rem]">{prevWord.word}</p>
+              </div>
+            </button>
+          )}
 
+          {/* Next preview (right) */}
+          {nextWord && (
+            <button
+              onClick={goNext}
+              className="hidden md:flex absolute right-0 lg:right-4 top-1/2 -translate-y-1/2 w-40 lg:w-56 h-56 lg:h-72 rounded-2xl bg-card/60 border-2 border-dashed border-muted-foreground/20 items-center justify-center cursor-pointer hover:bg-card/80 transition-all opacity-50 hover:opacity-80 z-0"
+              aria-label="다음 단어"
+            >
+              <div className="text-center px-2">
+                <p className="text-xs text-muted-foreground mb-2">다음 →</p>
+                <p className="text-lg font-semibold truncate max-w-[10rem] lg:max-w-[12rem]">{nextWord.word}</p>
+              </div>
+            </button>
+          )}
+
+          {/* Center card */}
+          <div className="w-full max-w-2xl relative z-10 px-2 md:px-0">
+            <AnimatePresence mode="wait" custom={direction}>
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6 flex gap-4"
+                key={currentIndex}
+                custom={direction}
+                initial={{ opacity: 0, x: direction * 80, scale: 0.95 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: -direction * 80, scale: 0.95 }}
+                transition={{ duration: 0.25 }}
+                className="w-full"
               >
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => handleAnswer(false)}
+                <Card
+                  className="p-8 md:p-10 bg-gradient-card shadow-lg cursor-pointer select-none"
+                  style={{ minHeight: '400px' }}
+                  onClick={toggleFlip}
                 >
-                  <X className="w-5 h-5 mr-2 text-destructive" />
-                  모르겠어요
-                </Button>
-                <Button
-                  className="flex-1 bg-success hover:bg-success/90"
-                  onClick={() => handleAnswer(true)}
-                >
-                  <Check className="w-5 h-5 mr-2" />
-                  알아요
-                </Button>
+                  <div className="mb-4 flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">
+                      {flipped ? "뒷면" : "앞면"} · 카드 클릭/↑↓ 로 뒤집기
+                    </span>
+                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); speak(currentWord.word); }} className="text-primary">
+                      <Volume2 className="w-6 h-6" />
+                    </Button>
+                  </div>
+                  {renderCardContent(currentWord, flipped)}
+                </Card>
               </motion.div>
-            </motion.div>
-          </AnimatePresence>
+            </AnimatePresence>
+          </div>
         </div>
+
+        {/* Multi-skip nav buttons */}
+        <div className="mt-6 flex items-center justify-center gap-1 sm:gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={() => jumpBy(-10)} disabled={currentIndex === 0} title="10단어 뒤로">
+            <ChevronsLeft className="w-4 h-4" />-10
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => jumpBy(-5)} disabled={currentIndex === 0} title="5단어 뒤로">
+            <ChevronsLeft className="w-4 h-4" />-5
+          </Button>
+          <Button variant="outline" size="sm" onClick={goPrev} disabled={currentIndex === 0} title="이전 단어 (←)">
+            <ChevronLeft className="w-4 h-4" />이전
+          </Button>
+          <Button variant="secondary" size="sm" onClick={toggleFlip} title="카드 뒤집기 (↑↓)">
+            <RotateCw className="w-4 h-4 mr-1" />뒤집기
+          </Button>
+          <Button variant="outline" size="sm" onClick={goNext} disabled={currentIndex >= words.length - 1} title="다음 단어 (→ / Enter)">
+            다음<ChevronRight className="w-4 h-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => jumpBy(5)} disabled={currentIndex >= words.length - 1} title="5단어 앞으로">
+            +5<ChevronsRight className="w-4 h-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => jumpBy(10)} disabled={currentIndex >= words.length - 1} title="10단어 앞으로">
+            +10<ChevronsRight className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Answer buttons */}
+        <div className="mt-4 max-w-2xl mx-auto flex gap-4">
+          <Button variant="outline" className="flex-1" onClick={() => handleAnswer(false)}>
+            <X className="w-5 h-5 mr-2 text-destructive" />모르겠어요
+          </Button>
+          <Button className="flex-1 bg-success hover:bg-success/90" onClick={() => handleAnswer(true)}>
+            <Check className="w-5 h-5 mr-2" />알아요
+          </Button>
+        </div>
+
+        {/* Keyboard hint */}
+        <p className="text-center text-xs text-muted-foreground mt-4 hidden md:block">
+          단축키: ← 이전 · → / Enter 다음 · ↑↓ / Space 뒤집기
+        </p>
       </div>
     </div>
   );
 };
+
 
 export default Study;
