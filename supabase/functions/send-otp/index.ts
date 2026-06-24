@@ -26,9 +26,12 @@ function b64UrlUtf8(s: string) {
 function encodeSubject(s: string) {
   return `=?UTF-8?B?${b64Utf8(s)}?=`;
 }
-function buildRawEmail(to: string, subject: string, html: string) {
+function buildRawEmail(to: string, subject: string, html: string, fromAddr?: string) {
+  const fromHeader = fromAddr
+    ? `${encodeSubject("암기준섹")} <${fromAddr}>`
+    : encodeSubject("암기준섹");
   const msg = [
-    `From: 암기준섹 <me>`,
+    `From: ${fromHeader}`,
     `To: ${to}`,
     `Subject: ${encodeSubject(subject)}`,
     `MIME-Version: 1.0`,
@@ -132,7 +135,25 @@ Deno.serve(async (req) => {
 
     const { label, subject } = purposeMap[purpose];
     const html = emailHtml(code, label);
-    const raw = buildRawEmail(normalizedEmail, subject, html);
+
+    // Get sender's own Gmail address (so From has a valid address spec)
+    let fromAddr: string | undefined;
+    try {
+      const pr = await fetch(`${GATEWAY_URL}/users/me/profile`, {
+        headers: {
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "X-Connection-Api-Key": GOOGLE_MAIL_API_KEY,
+        },
+      });
+      if (pr.ok) {
+        const pj = await pr.json();
+        fromAddr = pj?.emailAddress;
+      } else {
+        await pr.text();
+      }
+    } catch (_) { /* ignore */ }
+
+    const raw = buildRawEmail(normalizedEmail, subject, html, fromAddr);
 
     const r = await fetch(`${GATEWAY_URL}/users/me/messages/send`, {
       method: "POST",
