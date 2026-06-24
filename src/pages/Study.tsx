@@ -133,54 +133,122 @@ const Study = () => {
     }
   };
 
+  // Direction of slide animation: 1 = forward, -1 = backward
+  const [direction, setDirection] = useState(1);
+
+  const recordAnswer = async (isCorrect: boolean, wordId: string) => {
+    if (!user || isLocalVocab(id)) return;
+    try {
+      const { data: existingProgress } = await supabase
+        .from("study_progress")
+        .select("*")
+        .eq("user_id", user?.id)
+        .eq("word_id", wordId)
+        .single();
+
+      if (existingProgress) {
+        await supabase
+          .from("study_progress")
+          .update({
+            correct_count: isCorrect ? existingProgress.correct_count + 1 : existingProgress.correct_count,
+            incorrect_count: !isCorrect ? existingProgress.incorrect_count + 1 : existingProgress.incorrect_count,
+            last_studied_at: new Date().toISOString(),
+          })
+          .eq("id", existingProgress.id);
+      } else {
+        await supabase.from("study_progress").insert({
+          user_id: user?.id,
+          word_id: wordId,
+          vocabulary_id: id,
+          correct_count: isCorrect ? 1 : 0,
+          incorrect_count: !isCorrect ? 1 : 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error updating progress:", error);
+    }
+  };
+
   const handleAnswer = async (isCorrect: boolean) => {
     const currentWord = words[currentIndex];
+    if (!currentWord) return;
+    await recordAnswer(isCorrect, currentWord.id);
 
-    if (user && !isLocalVocab(id)) {
-      try {
-        const { data: existingProgress } = await supabase
-          .from("study_progress")
-          .select("*")
-          .eq("user_id", user?.id)
-          .eq("word_id", currentWord.id)
-          .single();
-
-        if (existingProgress) {
-          await supabase
-            .from("study_progress")
-            .update({
-              correct_count: isCorrect ? existingProgress.correct_count + 1 : existingProgress.correct_count,
-              incorrect_count: !isCorrect ? existingProgress.incorrect_count + 1 : existingProgress.incorrect_count,
-              last_studied_at: new Date().toISOString(),
-            })
-            .eq("id", existingProgress.id);
-        } else {
-          await supabase
-            .from("study_progress")
-            .insert({
-              user_id: user?.id,
-              word_id: currentWord.id,
-              vocabulary_id: id,
-              correct_count: isCorrect ? 1 : 0,
-              incorrect_count: !isCorrect ? 1 : 0,
-            });
-        }
-      } catch (error) {
-        console.error("Error updating progress:", error);
-      }
-    }
-
-    // Move to next card
     if (currentIndex < words.length - 1) {
+      setDirection(1);
       setFlipped(false);
-      setTimeout(() => {
-        setCurrentIndex(currentIndex + 1);
-      }, 300);
+      setCurrentIndex(currentIndex + 1);
     } else {
       toast.success("학습 완료!");
       navigate(`/vocabularies/${id}`);
     }
   };
+
+  const goNext = useCallback(() => {
+    setWords((prev) => {
+      setCurrentIndex((ci) => {
+        if (ci < prev.length - 1) {
+          setDirection(1);
+          setFlipped(false);
+          return ci + 1;
+        }
+        return ci;
+      });
+      return prev;
+    });
+  }, []);
+
+  const goPrev = useCallback(() => {
+    setCurrentIndex((ci) => {
+      if (ci > 0) {
+        setDirection(-1);
+        setFlipped(false);
+        return ci - 1;
+      }
+      return ci;
+    });
+  }, []);
+
+  const jumpBy = useCallback((delta: number) => {
+    setWords((prev) => {
+      setCurrentIndex((ci) => {
+        const next = Math.max(0, Math.min(prev.length - 1, ci + delta));
+        if (next !== ci) {
+          setDirection(delta > 0 ? 1 : -1);
+          setFlipped(false);
+        }
+        return next;
+      });
+      return prev;
+    });
+  }, []);
+
+  const toggleFlip = useCallback(() => {
+    setFlipped((f) => !f);
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Ignore when typing in inputs
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      if (e.key === "ArrowRight" || e.key === "Enter") {
+        e.preventDefault();
+        goNext();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        goPrev();
+      } else if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === " ") {
+        e.preventDefault();
+        toggleFlip();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [goNext, goPrev, toggleFlip]);
+
 
   if (loading) {
     return (
