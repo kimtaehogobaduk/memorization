@@ -50,6 +50,8 @@ const Settings = () => {
   const [autoPlayAudio, setAutoPlayAudio] = useState(false);
   const [quizFontSize, setQuizFontSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [smartReview, setSmartReview] = useState(false);
+  const [newDeviceEmailNotify, setNewDeviceEmailNotify] = useState(false);
+  const [newDeviceVerify, setNewDeviceVerify] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(false);
   
   // Stats state
@@ -113,6 +115,8 @@ const Settings = () => {
         setAnswerDelay(data.answer_reveal_delay || 2.0);
         setAutoPlayAudio(data.auto_play_audio || false);
         setQuizFontSize((data.quiz_font_size as 'small' | 'medium' | 'large') || 'medium');
+        setNewDeviceEmailNotify((data as any).new_device_email_notify ?? false);
+        setNewDeviceVerify((data as any).new_device_verify_enabled ?? true);
       }
       // smart_review is always stored in localStorage (not in user_settings table)
       const local = getLocalSettings();

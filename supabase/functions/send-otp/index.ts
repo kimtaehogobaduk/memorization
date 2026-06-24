@@ -96,7 +96,34 @@ const purposeMap: Record<string, { label: string; subject: string }> = {
   signup: { label: "회원가입을 마무리해요!", subject: "[암기준섹] 회원가입 인증코드" },
   recovery: { label: "비밀번호 재설정 인증", subject: "[암기준섹] 비밀번호 재설정 코드" },
   device_verify: { label: "새 기기 로그인 확인", subject: "[암기준섹] 새 기기 로그인 인증코드" },
+  device_notify: { label: "새 기기에서 로그인 알림", subject: "[암기준섹] 새 기기에서 로그인했어요" },
 };
+
+function notifyHtml(deviceName: string, when: string) {
+  return `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><title>새 기기 로그인 알림</title></head>
+<body style="margin:0;padding:0;background:#f4f6fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:40px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px rgba(30,64,175,0.12);">
+        <tr><td style="background:linear-gradient(135deg,#60a5fa 0%,#a78bfa 50%,#f472b6 100%);padding:36px 24px;text-align:center;">
+          <div style="font-size:56px;line-height:1;">🔐✨</div>
+          <h1 style="margin:14px 0 4px;color:#ffffff;font-size:26px;font-weight:800;">새 기기에서 로그인했어요</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 12px;color:#0f172a;font-size:15px;line-height:1.6;">새로운 기기에서 회원님의 계정에 로그인했어요.</p>
+          <div style="background:#f8fafc;border-radius:12px;padding:16px;margin:16px 0;">
+            <p style="margin:0 0 6px;color:#475569;font-size:13px;"><strong>기기:</strong> ${deviceName}</p>
+            <p style="margin:0;color:#475569;font-size:13px;"><strong>시간:</strong> ${when}</p>
+          </div>
+          <p style="margin:0;color:#64748b;font-size:13px;line-height:1.6;">본인이 아니라면 즉시 비밀번호를 변경해주세요.</p>
+          <p style="margin:14px 0 0;color:#94a3b8;font-size:12px;">— 준섹이 드림 🐥</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -121,20 +148,30 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Invalidate previous unused codes
-    await admin.from("otp_codes").update({ used: true }).eq("email", normalizedEmail).eq("purpose", purpose).eq("used", false);
+    let html: string;
+    let subject: string;
 
-    const code = generate6();
-    const code_hash = await sha256(code);
-    const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    if (purpose === "device_notify") {
+      const deviceName = (metadata && (metadata as any).device_name) || "알 수 없는 기기";
+      const when = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+      subject = purposeMap[purpose].subject;
+      html = notifyHtml(deviceName, when);
+    } else {
+      // Invalidate previous unused codes
+      await admin.from("otp_codes").update({ used: true }).eq("email", normalizedEmail).eq("purpose", purpose).eq("used", false);
 
-    const { error: insErr } = await admin.from("otp_codes").insert({
-      email: normalizedEmail, code_hash, purpose, metadata: metadata ?? null, expires_at,
-    });
-    if (insErr) throw insErr;
+      const code = generate6();
+      const code_hash = await sha256(code);
+      const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-    const { label, subject } = purposeMap[purpose];
-    const html = emailHtml(code, label);
+      const { error: insErr } = await admin.from("otp_codes").insert({
+        email: normalizedEmail, code_hash, purpose, metadata: metadata ?? null, expires_at,
+      });
+      if (insErr) throw insErr;
+
+      subject = purposeMap[purpose].subject;
+      html = emailHtml(code, purposeMap[purpose].label);
+    }
 
     // Get sender's own Gmail address (so From has a valid address spec)
     let fromAddr: string | undefined;

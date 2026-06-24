@@ -112,7 +112,32 @@ const Auth = () => {
         navigate("/");
         return;
       }
-      // Not trusted: require OTP
+      // Not trusted: check user security preferences
+      const { data: settings } = await supabase
+        .from("user_settings")
+        .select("new_device_verify_enabled, new_device_email_notify")
+        .eq("user_id", uid)
+        .maybeSingle();
+      const verifyEnabled = settings?.new_device_verify_enabled ?? true;
+      const notifyEnabled = settings?.new_device_email_notify ?? false;
+
+      if (!verifyEnabled) {
+        // Skip OTP, trust device immediately
+        await supabase.from("trusted_devices").upsert({
+          user_id: uid, device_id: did, device_name: getDeviceName(),
+          last_seen_at: new Date().toISOString(),
+        }, { onConflict: "user_id,device_id" });
+        if (notifyEnabled) {
+          // Fire-and-forget notification email
+          supabase.functions.invoke("send-otp", {
+            body: { email: email.trim().toLowerCase(), purpose: "device_notify", metadata: { device_name: getDeviceName() } },
+          }).catch(() => {});
+        }
+        toast.success("로그인 성공!");
+        navigate("/");
+        return;
+      }
+      // Verify required: send OTP
       await requestOtp("device_verify");
       setStep("otp-device");
       toast.message("새 기기에서 로그인하시는군요!", { description: "이메일로 보낸 6자리 코드를 입력해주세요." });
