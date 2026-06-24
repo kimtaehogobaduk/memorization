@@ -532,6 +532,60 @@ const Settings = () => {
               </CardContent>
             </Card>
 
+            {/* Login security card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5" />
+                  로그인 보안
+                </CardTitle>
+                <CardDescription>
+                  새 기기에서 로그인할 때의 동작을 설정하세요
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1 pr-4">
+                    <Label htmlFor="newDeviceEmailNotify">새 기기 로그인 시 이메일 알림</Label>
+                    <p className="text-sm text-muted-foreground">
+                      새로운 기기에서 로그인하면 알림 메일을 보내드려요
+                    </p>
+                  </div>
+                  <Switch
+                    id="newDeviceEmailNotify"
+                    checked={newDeviceEmailNotify}
+                    onCheckedChange={setNewDeviceEmailNotify}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1 pr-4">
+                    <Label htmlFor="newDeviceVerify">새 기기 로그인 시 인증하기</Label>
+                    <p className="text-sm text-muted-foreground">
+                      새 기기에서 로그인할 때 이메일로 받은 6자리 코드 입력을 요구해요 (권장)
+                    </p>
+                  </div>
+                  <Switch
+                    id="newDeviceVerify"
+                    checked={newDeviceVerify}
+                    onCheckedChange={setNewDeviceVerify}
+                  />
+                </div>
+
+                <Button
+                  onClick={handleSettingsUpdate}
+                  className="w-full"
+                  disabled={settingsLoading}
+                >
+                  {settingsLoading ? "저장 중..." : "보안 설정 저장"}
+                </Button>
+              </CardContent>
+            </Card>
+
+
+
             <Card>
               <CardContent className="p-4">
                 <Button
