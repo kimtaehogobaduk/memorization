@@ -76,7 +76,7 @@ const QuizMatching = () => {
         if (isRetry && incorrectIds.length > 0) {
           allWords = allWords.filter(w => incorrectIds.includes(w.id));
         }
-        if (isRandom && !isRetry) allWords = allWords.sort(() => Math.random() - 0.5);
+        if (isRandom && !isRetry) allWords = [...allWords].sort(() => Math.random() - 0.5);
         setAllWords(allWords);
         return;
       }
@@ -101,7 +101,7 @@ const QuizMatching = () => {
 
       let wordsData = data || [];
       if (isRandom && !isRetry) {
-        wordsData = wordsData.sort(() => Math.random() - 0.5);
+        wordsData = [...wordsData].sort(() => Math.random() - 0.5);
       }
 
       setAllWords(wordsData);

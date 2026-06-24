@@ -60,7 +60,7 @@ const Study = () => {
           wordsData = wordsData.filter(w => incorrectIds.includes(w.id));
         }
         if (isRandom && incorrectIds.length === 0) {
-          wordsData = wordsData.sort(() => Math.random() - 0.5);
+          wordsData = [...wordsData].sort(() => Math.random() - 0.5);
         }
         setWords(wordsData);
         return;
@@ -98,7 +98,7 @@ const Study = () => {
 
       if (incorrectIds.length === 0) {
         if (isRandom) {
-          wordsData = wordsData.sort(() => Math.random() - 0.5);
+          wordsData = [...wordsData].sort(() => Math.random() - 0.5);
         } else if (settings.smart_review && user) {
           // Smart review: sort by incorrect_count / (correct_count + 1) descending
           try {

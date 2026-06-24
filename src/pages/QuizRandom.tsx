@@ -58,6 +58,7 @@ const QuizRandom = () => {
 
   const isRandom = searchParams.get("random") === "true";
   const answerDelay = parseFloat(searchParams.get("delay") || "2");
+  const shouldRandomizeQuestions = isRandom;
   const chapterId = searchParams.get("chapter");
   const choiceCount = parseInt(searchParams.get("choices") || "4");
   const isRetry = searchParams.get("retry") === "true";
@@ -147,9 +148,12 @@ const QuizRandom = () => {
         setWords(allWords);
         const types: QuestionType[] = ["multiple", "writing"];
         const directions: Array<"word-to-meaning" | "meaning-to-word"> = ["word-to-meaning", "meaning-to-word"];
-        setPlan(allWords.map((word) => ({
-          word, type: types[Math.floor(Math.random() * types.length)],
-          questionDirection: directions[Math.floor(Math.random() * directions.length)],
+        setPlan(allWords.map((word, index) => ({
+          word,
+          type: shouldRandomizeQuestions ? types[Math.floor(Math.random() * types.length)] : types[index % types.length],
+          questionDirection: shouldRandomizeQuestions
+            ? directions[Math.floor(Math.random() * directions.length)]
+            : directions[index % directions.length],
         })));
         return;
       }
@@ -181,9 +185,12 @@ const QuizRandom = () => {
       setWords(wordsData);
       const types: QuestionType[] = ["multiple", "writing"];
       const directions: Array<"word-to-meaning" | "meaning-to-word"> = ["word-to-meaning", "meaning-to-word"];
-      setPlan(wordsData.map((word) => ({
-        word, type: types[Math.floor(Math.random() * types.length)],
-        questionDirection: directions[Math.floor(Math.random() * directions.length)],
+      setPlan(wordsData.map((word, index) => ({
+        word,
+        type: shouldRandomizeQuestions ? types[Math.floor(Math.random() * types.length)] : types[index % types.length],
+        questionDirection: shouldRandomizeQuestions
+          ? directions[Math.floor(Math.random() * directions.length)]
+          : directions[index % directions.length],
       })));
     } catch (error) {
       console.error("Error loading words:", error);
