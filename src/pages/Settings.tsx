@@ -209,8 +209,10 @@ const Settings = () => {
             answer_reveal_delay: answerDelay,
             auto_play_audio: autoPlayAudio,
             quiz_font_size: quizFontSize,
+            new_device_email_notify: newDeviceEmailNotify,
+            new_device_verify_enabled: newDeviceVerify,
             updated_at: new Date().toISOString(),
-          })
+          } as any)
           .eq("user_id", user?.id);
 
         if (error) throw error;
@@ -222,7 +224,9 @@ const Settings = () => {
             answer_reveal_delay: answerDelay,
             auto_play_audio: autoPlayAudio,
             quiz_font_size: quizFontSize,
-          });
+            new_device_email_notify: newDeviceEmailNotify,
+            new_device_verify_enabled: newDeviceVerify,
+          } as any);
 
         if (error) throw error;
       }
