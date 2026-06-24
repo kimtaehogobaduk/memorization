@@ -279,11 +279,14 @@ const Quiz = () => {
       // For random type, mix all quiz types
       if (quizType === "random") {
         const quizTypes = ["multiple-word-to-meaning", "multiple-meaning-to-word", "writing", "matching"];
+        const shouldRandomizeQuestions = isRandomOrder;
         let questionNumber = 1;
         const allAnswers: Array<{ num: number; answer: string }> = [];
 
         shuffledWords.forEach((word, index) => {
-          const randomType = quizTypes[Math.floor(Math.random() * quizTypes.length)];
+          const randomType = shouldRandomizeQuestions
+            ? quizTypes[Math.floor(Math.random() * quizTypes.length)]
+            : quizTypes[index % quizTypes.length];
           
           if (randomType === "multiple-word-to-meaning" || randomType === "multiple-meaning-to-word") {
             const wrongChoices = shuffledWords
@@ -317,7 +320,9 @@ const Quiz = () => {
             allAnswers.push({ num: questionNumber, answer: correctAnswer });
             questionNumber++;
           } else if (randomType === "writing") {
-            const question = Math.random() > 0.5 ? word.word : word.meaning;
+            const question = shouldRandomizeQuestions
+              ? (Math.random() > 0.5 ? word.word : word.meaning)
+              : (index % 2 === 0 ? word.word : word.meaning);
             const answer = question === word.word ? word.meaning : word.word;
             
             questionsHtml += `
@@ -335,7 +340,9 @@ const Quiz = () => {
           }
         });
 
-        const matchingWords = shuffledWords.filter(() => Math.random() < 0.3).slice(0, 8);
+        const matchingWords = shouldRandomizeQuestions
+          ? shuffledWords.filter(() => Math.random() < 0.3).slice(0, 8)
+          : shuffledWords.slice(0, Math.min(8, shuffledWords.length));
         if (matchingWords.length >= 6) {
           const groupSize = Math.min(matchingWords.length, 8);
           const matchingGroup = matchingWords.slice(0, groupSize);

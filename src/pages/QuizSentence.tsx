@@ -59,7 +59,7 @@ const QuizSentence = () => {
         wordsData = data || [];
       }
       if (isRetry && incorrectIds.length > 0) wordsData = wordsData.filter(w => incorrectIds.includes(w.id));
-      if (isRandom && !isRetry) wordsData = wordsData.sort(() => Math.random() - 0.5);
+      if (isRandom && !isRetry) wordsData = [...wordsData].sort(() => Math.random() - 0.5);
       if (questionCountParam && !isRetry) {
         const c = parseInt(questionCountParam);
         if (!isNaN(c) && c > 0) wordsData = wordsData.slice(0, c);

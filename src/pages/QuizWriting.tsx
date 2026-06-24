@@ -125,7 +125,7 @@ const QuizWriting = () => {
           allWords = allWords.filter(w => incorrectIds.includes(w.id));
         }
         if (isRandom && !isRetry) {
-          allWords = allWords.sort(() => Math.random() - 0.5);
+          allWords = [...allWords].sort(() => Math.random() - 0.5);
         }
         if (questionCountParam && !isRetry) {
           const count = parseInt(questionCountParam);
@@ -160,7 +160,7 @@ const QuizWriting = () => {
       }
       
       if (isRandom && !isRetry) {
-        wordsData = wordsData.sort(() => Math.random() - 0.5);
+        wordsData = [...wordsData].sort(() => Math.random() - 0.5);
       }
 
       if (questionCountParam && !isRetry) {
