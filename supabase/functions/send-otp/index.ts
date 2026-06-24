@@ -26,9 +26,12 @@ function b64UrlUtf8(s: string) {
 function encodeSubject(s: string) {
   return `=?UTF-8?B?${b64Utf8(s)}?=`;
 }
-function buildRawEmail(to: string, subject: string, html: string) {
+function buildRawEmail(to: string, subject: string, html: string, fromAddr?: string) {
+  const fromHeader = fromAddr
+    ? `${encodeSubject("암기준섹")} <${fromAddr}>`
+    : encodeSubject("암기준섹");
   const msg = [
-    `From: 암기준섹 <me>`,
+    `From: ${fromHeader}`,
     `To: ${to}`,
     `Subject: ${encodeSubject(subject)}`,
     `MIME-Version: 1.0`,
