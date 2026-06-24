@@ -15,7 +15,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { LogOut, User, Upload, Settings as SettingsIcon, Zap, BookOpen, TrendingUp, Award, Users, Type, Lock, Eye, EyeOff, HelpCircle } from "lucide-react";
+import { LogOut, User, Upload, Settings as SettingsIcon, Zap, BookOpen, TrendingUp, Award, Users, Type, Lock, Eye, EyeOff, HelpCircle, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
@@ -50,6 +50,8 @@ const Settings = () => {
   const [autoPlayAudio, setAutoPlayAudio] = useState(false);
   const [quizFontSize, setQuizFontSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [smartReview, setSmartReview] = useState(false);
+  const [newDeviceEmailNotify, setNewDeviceEmailNotify] = useState(false);
+  const [newDeviceVerify, setNewDeviceVerify] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(false);
   
   // Stats state
@@ -113,6 +115,8 @@ const Settings = () => {
         setAnswerDelay(data.answer_reveal_delay || 2.0);
         setAutoPlayAudio(data.auto_play_audio || false);
         setQuizFontSize((data.quiz_font_size as 'small' | 'medium' | 'large') || 'medium');
+        setNewDeviceEmailNotify((data as any).new_device_email_notify ?? false);
+        setNewDeviceVerify((data as any).new_device_verify_enabled ?? true);
       }
       // smart_review is always stored in localStorage (not in user_settings table)
       const local = getLocalSettings();
@@ -205,8 +209,10 @@ const Settings = () => {
             answer_reveal_delay: answerDelay,
             auto_play_audio: autoPlayAudio,
             quiz_font_size: quizFontSize,
+            new_device_email_notify: newDeviceEmailNotify,
+            new_device_verify_enabled: newDeviceVerify,
             updated_at: new Date().toISOString(),
-          })
+          } as any)
           .eq("user_id", user?.id);
 
         if (error) throw error;
@@ -218,7 +224,9 @@ const Settings = () => {
             answer_reveal_delay: answerDelay,
             auto_play_audio: autoPlayAudio,
             quiz_font_size: quizFontSize,
-          });
+            new_device_email_notify: newDeviceEmailNotify,
+            new_device_verify_enabled: newDeviceVerify,
+          } as any);
 
         if (error) throw error;
       }
@@ -523,6 +531,60 @@ const Settings = () => {
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Login security card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5" />
+                  로그인 보안
+                </CardTitle>
+                <CardDescription>
+                  새 기기에서 로그인할 때의 동작을 설정하세요
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1 pr-4">
+                    <Label htmlFor="newDeviceEmailNotify">새 기기 로그인 시 이메일 알림</Label>
+                    <p className="text-sm text-muted-foreground">
+                      새로운 기기에서 로그인하면 알림 메일을 보내드려요
+                    </p>
+                  </div>
+                  <Switch
+                    id="newDeviceEmailNotify"
+                    checked={newDeviceEmailNotify}
+                    onCheckedChange={setNewDeviceEmailNotify}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1 pr-4">
+                    <Label htmlFor="newDeviceVerify">새 기기 로그인 시 인증하기</Label>
+                    <p className="text-sm text-muted-foreground">
+                      새 기기에서 로그인할 때 이메일로 받은 6자리 코드 입력을 요구해요 (권장)
+                    </p>
+                  </div>
+                  <Switch
+                    id="newDeviceVerify"
+                    checked={newDeviceVerify}
+                    onCheckedChange={setNewDeviceVerify}
+                  />
+                </div>
+
+                <Button
+                  onClick={handleSettingsUpdate}
+                  className="w-full"
+                  disabled={settingsLoading}
+                >
+                  {settingsLoading ? "저장 중..." : "보안 설정 저장"}
+                </Button>
+              </CardContent>
+            </Card>
+
+
 
             <Card>
               <CardContent className="p-4">

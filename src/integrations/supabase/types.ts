@@ -523,6 +523,8 @@ export type Database = {
           created_at: string | null
           has_completed_tutorial: boolean | null
           id: string
+          new_device_email_notify: boolean
+          new_device_verify_enabled: boolean
           quiz_font_size: string | null
           theme: string | null
           updated_at: string | null
@@ -535,6 +537,8 @@ export type Database = {
           created_at?: string | null
           has_completed_tutorial?: boolean | null
           id?: string
+          new_device_email_notify?: boolean
+          new_device_verify_enabled?: boolean
           quiz_font_size?: string | null
           theme?: string | null
           updated_at?: string | null
@@ -547,6 +551,8 @@ export type Database = {
           created_at?: string | null
           has_completed_tutorial?: boolean | null
           id?: string
+          new_device_email_notify?: boolean
+          new_device_verify_enabled?: boolean
           quiz_font_size?: string | null
           theme?: string | null
           updated_at?: string | null
