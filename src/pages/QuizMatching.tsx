@@ -85,6 +85,8 @@ const QuizMatching = () => {
         .from("words")
         .select("id, word, meaning")
         .in("vocabulary_id", vocabIds)
+        .order("order_index", { ascending: true })
+        .order("created_at", { ascending: true })
         .limit(100);
 
       if (chapterId) {

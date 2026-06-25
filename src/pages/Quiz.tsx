@@ -130,7 +130,9 @@ const Quiz = () => {
         const query = supabase
           .from("words")
           .select("id, word, meaning, part_of_speech")
-          .eq("vocabulary_id", id);
+          .eq("vocabulary_id", id)
+          .order("order_index", { ascending: true })
+          .order("created_at", { ascending: true });
 
         if (chapterId) {
           query.eq("chapter_id", chapterId);
