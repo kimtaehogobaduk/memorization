@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import splashImage from "@/assets/splash-screen.jpg";
 import { NotificationProvider } from "./components/NotificationProvider";
+import { TourProvider } from "./components/tutorial/TourProvider";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import Index from "./pages/Index";
