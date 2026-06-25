@@ -162,6 +162,8 @@ const QuizRandom = () => {
         .from("words")
         .select("id, word, meaning, part_of_speech")
         .in("vocabulary_id", vocabIds)
+        .order("order_index", { ascending: true })
+        .order("created_at", { ascending: true })
         .limit(100);
 
       if (chapterId) query = query.eq("chapter_id", chapterId);
@@ -171,11 +173,8 @@ const QuizRandom = () => {
       if (error) throw error;
 
       let wordsData = data || [];
-      
-      if (!isRandom && !isRetry) {
-        wordsData = await applySmartReview(wordsData);
-      }
-      
+
+      // When random order is off, keep the exact order words were entered (order_index).
       if (isRandom && !isRetry) wordsData = wordsData.sort(() => Math.random() - 0.5);
       if (questionCountParam && !isRetry) {
         const count = parseInt(questionCountParam);
