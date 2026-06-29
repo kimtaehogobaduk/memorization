@@ -62,7 +62,7 @@ const EMPTY_WORD_RESULT = {
 };
 
 async function callCerebrasForWord(word: string): Promise<unknown> {
-  const MODELS = ["llama3.1-8b"];
+  const MODELS = ["gpt-oss-120b"];
   for (const model of MODELS) {
     for (let attempt = 0; attempt < 3; attempt++) {
       const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
@@ -194,7 +194,7 @@ Respond with ONLY: {"valid": true} or {"valid": false}`;
       method: "POST",
       headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama3.1-8b",
+        model: "gpt-oss-120b",
         messages: [
           { role: "system", content: "You are a quiz grading assistant. Respond ONLY with a JSON object. No extra text." },
           { role: "user", content: prompt },

@@ -39,7 +39,7 @@ Respond with ONLY: {"valid": true} or {"valid": false}`;
       method: "POST",
       headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama3.1-8b",
+        model: "gpt-oss-120b",
         messages: [
           { role: "system", content: "You are a quiz grading assistant. Respond ONLY with a JSON object. No extra text." },
           { role: "user", content: prompt },
