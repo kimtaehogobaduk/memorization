@@ -24,7 +24,7 @@ interface MatchPair {
   matched: boolean;
 }
 
-const DYNAMIC_SLOTS = 8;
+const DYNAMIC_SLOTS = 7;
 
 const QuizMatching = () => {
   const { id } = useParams<{ id: string }>();
