@@ -6,8 +6,6 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -26,7 +24,7 @@ interface MatchPair {
   matched: boolean;
 }
 
-const DYNAMIC_SLOTS = 5;
+const DYNAMIC_SLOTS = 8;
 
 const QuizMatching = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,7 +42,7 @@ const QuizMatching = () => {
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
   const [incorrectWords, setIncorrectWords] = useState<Word[]>([]);
-  const [dynamicMode, setDynamicMode] = useState(false);
+  const dynamicMode = searchParams.get("dynamic") === "true";
 
   // ── Dynamic mode state ──
   const [dynLeft, setDynLeft] = useState<Word[]>([]);
@@ -349,16 +347,6 @@ const QuizMatching = () => {
     }
   };
 
-  const toggleDynamic = (checked: boolean) => {
-    setDynamicMode(checked);
-    setSelectedLeft(null);
-    setSelectedRight(null);
-    if (!checked) {
-      setCurrentPage(0);
-      setScore(0);
-      setIncorrectWords([]);
-    }
-  };
 
   // ── Render ──
   if (loading) {
@@ -408,30 +396,16 @@ const QuizMatching = () => {
       <Header title="단어 짝지기" showBack onBack={() => navigate(`/quiz/${id}`)} />
 
       <div className="max-w-screen-xl mx-auto px-4 py-6">
-        {/* Controls */}
         <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Switch
-              id="dynamic-mode"
-              checked={dynamicMode}
-              onCheckedChange={toggleDynamic}
-            />
-            <Label htmlFor="dynamic-mode" className="cursor-pointer">
-              동적 교체 모드 {dynamicMode ? "ON" : "OFF"}
-            </Label>
-          </div>
+          <span className="text-sm text-muted-foreground">
+            {dynamicMode
+              ? "동적 교체 모드 ON"
+              : `페이지 ${currentPage + 1} / ${totalPages}`}
+          </span>
           <span className="text-sm font-medium">
             정답: {score} / {allWords.length}
           </span>
         </div>
-
-        {!dynamicMode && (
-          <div className="mb-2">
-            <span className="text-sm text-muted-foreground">
-              페이지 {currentPage + 1} / {totalPages}
-            </span>
-          </div>
-        )}
 
         <Progress value={staticProgress} className="h-2 mb-6" />
 

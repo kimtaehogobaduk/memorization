@@ -34,6 +34,7 @@ const Quiz = () => {
   const [answerDelay, setAnswerDelay] = useState([2]);
   const [aiDifficulty, setAiDifficulty] = useState<string>("중");
   const [aiCustomRequest, setAiCustomRequest] = useState("");
+  const [dynamicMatching, setDynamicMatching] = useState(false);
 
   const chapterId = searchParams.get("chapter");
 
@@ -738,6 +739,7 @@ const Quiz = () => {
       params.append("type", questionType);
       navigate(`/quiz/${id}/writing?${params.toString()}`);
     } else if (quizType === "matching") {
+      if (dynamicMatching) params.append("dynamic", "true");
       navigate(`/quiz/${id}/matching?${params.toString()}`);
     } else if (quizType === "sentence") {
       navigate(`/quiz/${id}/sentence?${params.toString()}`);
@@ -849,6 +851,28 @@ const Quiz = () => {
             ))}
           </div>
         </div>
+
+        {quizType === "matching" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">단어 짝짓기 설정</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="block mb-1">동적 교체 모드</Label>
+                  <p className="text-xs text-muted-foreground">
+                    맞춘 단어가 사라지고 새 단어가 들어옵니다
+                  </p>
+                </div>
+                <Switch
+                  checked={dynamicMatching}
+                  onCheckedChange={setDynamicMatching}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {quizType === "multiple" && (
           <Card>
