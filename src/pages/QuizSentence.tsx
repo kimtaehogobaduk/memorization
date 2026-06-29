@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isLocalVocab, loadLocalWords } from "@/utils/localVocabHelper";
 import { useQuizSound } from "@/hooks/useQuizSound";
+import { apiGradeSentence } from "@/services/api";
 
 interface Word { id: string; word: string; meaning: string; }
 
@@ -78,11 +79,7 @@ const QuizSentence = () => {
     const cw = words[currentIndex];
     setIsChecking(true);
     try {
-      const { data, error } = await supabase.functions.invoke("grade-sentence", {
-        body: { word: cw.word, meaning: cw.meaning, sentence: sentence.trim() },
-      });
-      if (error) throw error;
-      const res = data as { correct: boolean; reason: string };
+      const res = await apiGradeSentence(cw.word, cw.meaning, sentence.trim()) as { correct: boolean; reason: string; fallback?: boolean };
       setResult({ correct: res.correct, reason: res.reason });
       if (res.correct) { playCorrectSound(); setScore(s => s + 1); }
       else { playIncorrectSound(); setIncorrectWords(prev => [...prev, cw]); }
