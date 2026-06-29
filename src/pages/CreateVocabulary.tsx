@@ -78,6 +78,8 @@ const CreateVocabulary = () => {
   const lastRequestedWordRef = useRef<Record<string, string>>({});
   const wordInputRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const tabLastPressRef = useRef<number>(0);
+  const tabTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (currentPage > 0) {
@@ -87,6 +89,32 @@ const CreateVocabulary = () => {
       }, 100);
     }
   }, [currentPage]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && (e.key === "t" || e.key === "T")) {
+        e.preventDefault();
+        addWord();
+        return;
+      }
+      if (e.key === "Tab" && currentPage > 0) {
+        const now = Date.now();
+        const lastPress = tabLastPressRef.current;
+        if (now - lastPress < 300) {
+          e.preventDefault();
+          tabLastPressRef.current = 0;
+          if (tabTimerRef.current) clearTimeout(tabTimerRef.current);
+          goToNextPage();
+        } else {
+          tabLastPressRef.current = now;
+          if (tabTimerRef.current) clearTimeout(tabTimerRef.current);
+          tabTimerRef.current = setTimeout(() => { tabLastPressRef.current = 0; }, 350);
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [currentPage, words.length]);
 
   const fetchAIMeaning = useCallback(async (wordId: string, word: string, partOfSpeech: string) => {
     const trimmedWord = word.trim();
