@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Edit, FileText, Brain, Play, Volume2, Star, Plus, Trash2, ArrowRightLeft, CheckSquare, X, Pencil, Printer } from "lucide-react";
+import { Edit, FileText, Brain, Play, Volume2, Star, Plus, Trash2, ArrowRightLeft, CheckSquare, X, Pencil, Printer, RotateCw } from "lucide-react";
 import { PrintWordList } from "@/components/PrintWordList";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,6 +74,8 @@ const VocabularyDetail = () => {
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [editingChapterName, setEditingChapterName] = useState("");
   const [printOpen, setPrintOpen] = useState(false);
+  const [flashcardWord, setFlashcardWord] = useState<Word | null>(null);
+  const [flashcardFlipped, setFlashcardFlipped] = useState(false);
 
   useEffect(() => {
     if (id) loadVocabulary();
@@ -396,7 +398,13 @@ const VocabularyDetail = () => {
                       )}
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-lg">{word.word}</h3>
+                          <h3
+                            className="font-semibold text-lg cursor-pointer hover:text-primary transition-colors"
+                            onClick={() => { setFlashcardWord(word); setFlashcardFlipped(false); }}
+                            title="클릭하면 플래시카드 보기"
+                          >
+                            {word.word}
+                          </h3>
                           <button type="button" onClick={() => speak(word.word)} className="text-muted-foreground hover:text-primary"><Volume2 className="w-4 h-4" /></button>
                           <button type="button" onClick={() => toggleFavorite(word)} className={favoriteIds.has(word.id) ? "text-yellow-500" : "text-muted-foreground hover:text-yellow-500"}>
                             <Star className={`w-4 h-4 ${favoriteIds.has(word.id) ? "fill-yellow-500" : ""}`} />
@@ -477,6 +485,67 @@ const VocabularyDetail = () => {
 
       <Dialog open={!!dictionaryWord} onOpenChange={() => setDictionaryWord(null)}>
         <DialogContent><DialogHeader><DialogTitle>{dictionaryWord}</DialogTitle></DialogHeader></DialogContent>
+      </Dialog>
+
+      {/* Flashcard popup */}
+      <Dialog open={!!flashcardWord} onOpenChange={() => { setFlashcardWord(null); setFlashcardFlipped(false); }}>
+        <DialogContent className="max-w-md p-0 overflow-hidden bg-transparent border-0 shadow-none">
+          {flashcardWord && (
+            <motion.div
+              className="w-full"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Card
+                className="p-8 bg-gradient-to-br from-primary/5 to-secondary/5 shadow-xl cursor-pointer select-none relative overflow-hidden"
+                style={{ minHeight: '320px' }}
+                onClick={() => setFlashcardFlipped(prev => !prev)}
+              >
+                <div className="mb-4 flex justify-between items-center text-xs text-muted-foreground">
+                  <span>{flashcardFlipped ? "뒷면" : "앞면"} · 클릭/공간 로 뒤집기</span>
+                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); speak(flashcardWord.word); }} className="text-primary">
+                    <Volume2 className="w-5 h-5" />
+                  </Button>
+                </div>
+
+                {flashcardFlipped ? (
+                  <div className="space-y-4 text-center">
+                    <h2 className="text-2xl font-bold text-primary">{flashcardWord.meaning}</h2>
+                    {flashcardWord.example && (
+                      <p className="text-sm text-muted-foreground italic">{flashcardWord.example}</p>
+                    )}
+                    {flashcardWord.synonyms && (
+                      <div className="text-sm"><span className="font-medium">동의어:</span> {flashcardWord.synonyms}</div>
+                    )}
+                    {flashcardWord.antonyms && (
+                      <div className="text-sm"><span className="font-medium">반의어:</span> {flashcardWord.antonyms}</div>
+                    )}
+                    {Array.isArray(flashcardWord.derivatives) && flashcardWord.derivatives.length > 0 && (
+                      <div className="text-sm">
+                        <span className="font-medium">파생어:</span>{" "}
+                        {flashcardWord.derivatives.map((d: any) => `${d.word}: ${d.meaning}`).join(", ")}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full gap-2">
+                    <h1 className="text-4xl font-bold">{flashcardWord.word}</h1>
+                    {flashcardWord.part_of_speech && (
+                      <span className="text-sm text-muted-foreground">{flashcardWord.part_of_speech}</span>
+                    )}
+                  </div>
+                )}
+
+                <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setFlashcardFlipped(prev => !prev); }}>
+                    <RotateCw className="w-4 h-4 mr-1" />뒤집기
+                  </Button>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+        </DialogContent>
       </Dialog>
     </div>
   );
