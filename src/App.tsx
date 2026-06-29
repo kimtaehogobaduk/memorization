@@ -85,6 +85,10 @@ const App = () => {
                   <Route path="/quiz/multi/writing" element={<QuizWriting />} />
                   <Route path="/quiz/multi/matching" element={<QuizMatching />} />
                   <Route path="/quiz/multi/random" element={<QuizRandom />} />
+                  <Route path="/quiz/multi/ai" element={<QuizAI />} />
+                  <Route path="/quiz/multi/ai-result" element={<QuizAIResult />} />
+                  <Route path="/quiz/multi/sentence" element={<QuizSentence />} />
+                  <Route path="/quiz/multi/result" element={<QuizResult />} />
                   <Route path="/quiz/:id" element={<Quiz />} />
                   <Route path="/quiz/:id/multiple" element={<QuizMultipleChoice />} />
                   <Route path="/quiz/:id/writing" element={<QuizWriting />} />
