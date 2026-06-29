@@ -200,17 +200,20 @@ Respond with ONLY: {"valid": true} or {"valid": false}`;
           { role: "user", content: prompt },
         ],
         temperature: 0.1,
-        max_tokens: 20,
+        max_tokens: 100,
       }),
     });
 
     if (!response.ok) {
-      console.error("Cerebras error:", response.status);
+      const errText = await response.text();
+      console.error("Cerebras error:", response.status, errText);
       return res.json({ valid: false, fallback: true });
     }
 
     const payload = await response.json();
     const content = payload?.choices?.[0]?.message?.content || "";
+    const finishReason = payload?.choices?.[0]?.finish_reason;
+    console.log("Cerebras validate response:", { content, finishReason });
     const match = content.match(/"valid"\s*:\s*(true|false)/);
     const valid = match ? match[1] === "true" : false;
     res.json({ valid });
@@ -255,7 +258,7 @@ ${meaning ? `단어의 뜻: "${meaning}"` : ""}
       method: "POST",
       headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama3.1-8b",
+        model: "gpt-oss-120b",
         messages: [
           { role: "system", content: "당신은 영어 작문 채점 AI입니다. 반드시 JSON 객체로만 응답하세요." },
           { role: "user", content: prompt },
@@ -366,7 +369,7 @@ Return ONLY the JSON array. No markdown fences, no extra text.`;
           method: "POST",
           headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "llama3.1-8b",
+            model: "gpt-oss-120b",
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: userMsg },
@@ -626,7 +629,7 @@ Return ONLY a JSON array in this exact format:
         method: "POST",
         headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "llama3.1-8b",
+          model: "gpt-oss-120b",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },

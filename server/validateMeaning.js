@@ -45,7 +45,7 @@ Respond with ONLY: {"valid": true} or {"valid": false}`;
           { role: "user", content: prompt },
         ],
         temperature: 0.1,
-        max_tokens: 20,
+        max_tokens: 100,
       }),
     });
 
@@ -57,6 +57,8 @@ Respond with ONLY: {"valid": true} or {"valid": false}`;
 
     const payload = await response.json();
     const content = payload?.choices?.[0]?.message?.content || "";
+    const finishReason = payload?.choices?.[0]?.finish_reason;
+    console.log("Cerebras validate response:", { content, finishReason });
     const match = content.match(/"valid"\s*:\s*(true|false)/);
     const valid = match ? match[1] === "true" : false;
 

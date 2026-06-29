@@ -24,7 +24,7 @@ const themes = [
   "Common Mistakes","False Friends","Confusing Words","Synonyms & Antonyms",
 ];
 
-const MODELS = ["llama3.1-8b"];
+const MODELS = ["gpt-oss-120b"];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function repairAndParseJSON(raw) {

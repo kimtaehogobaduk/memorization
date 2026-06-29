@@ -30,7 +30,7 @@ JSON 형식으로만 응답:
       method: "POST",
       headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama3.1-8b",
+        model: "gpt-oss-120b",
         messages: [
           { role: "system", content: "당신은 영어 작문 채점 AI입니다. 반드시 JSON 객체로만 응답하세요." },
           { role: "user", content: prompt },
