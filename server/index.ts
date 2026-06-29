@@ -10,7 +10,6 @@ const PORT = process.env.SERVER_PORT || 3001;
 
 const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY!;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
-const PDF_CO_API_KEY = process.env.PDF_CO_API_KEY!;
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY!;
@@ -407,33 +406,25 @@ Return ONLY the JSON array. No markdown fences, no extra text.`;
 
 // ─── POST /api/extract-vocabulary ────────────────────────────────────────────
 
-async function extractTextViaPdfCo(fileBase64: string, _fileType: string): Promise<string> {
-  const uploadRes = await fetch("https://api.pdf.co/v1/file/upload/base64", {
-    method: "POST",
-    headers: { "x-api-key": PDF_CO_API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ file: fileBase64 }),
+async function extractTextFromPDF(fileBase64: string): Promise<string> {
+  const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const binary = Buffer.from(fileBase64, "base64");
+  const uint8Array = new Uint8Array(binary);
+  const loadingTask = pdfjsLib.getDocument({
+    data: uint8Array,
+    useWorkerFetch: false,
+    isEvalSupported: false,
+    useSystemFonts: true,
   });
-  if (!uploadRes.ok) throw new Error(`PDF.co upload failed (${uploadRes.status}): ${await uploadRes.text()}`);
-  const uploadData = await uploadRes.json();
-  if (uploadData.error) throw new Error(`PDF.co upload error: ${uploadData.message || uploadData.error}`);
-  const fileUrl = uploadData.url;
-  if (!fileUrl) throw new Error("PDF.co did not return a file URL");
-
-  const convertRes = await fetch("https://api.pdf.co/v1/pdf/convert/to/text", {
-    method: "POST",
-    headers: { "x-api-key": PDF_CO_API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ url: fileUrl, inline: true }),
-  });
-  if (!convertRes.ok) throw new Error(`PDF.co conversion failed (${convertRes.status}): ${await convertRes.text()}`);
-  const convertData = await convertRes.json();
-  if (convertData.error) throw new Error(`PDF.co conversion error: ${convertData.message || convertData.error}`);
-
-  let extractedText = convertData.body || convertData.text || "";
-  if (!extractedText && convertData.url) {
-    const textRes = await fetch(convertData.url);
-    extractedText = await textRes.text();
+  const pdf = await loadingTask.promise;
+  const texts: string[] = [];
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const content = await page.getTextContent();
+    const pageText = content.items.map((item: any) => item.str).join(" ").replace(/-\s+\n/g, "").replace(/\s+\n\s+/g, " ");
+    texts.push(pageText);
   }
-  return extractedText;
+  return texts.join("\n\n");
 }
 
 async function callGeminiForVocabulary(text: string, includeDetails: boolean): Promise<unknown> {
@@ -554,9 +545,97 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanat
   throw new Error("모든 AI 모델에서 추출에 실패했습니다.");
 }
 
+async function callGeminiWithImage(base64Data: string, mimeType: string, includeDetails: boolean): Promise<unknown> {
+  const detailsPrompt = includeDetails
+    ? `For each word, also extract or generate:
+- "meaning": Korean meaning/definition (한국어 뜻)
+- "example": example sentence if available
+- "part_of_speech": part of speech (품사, in Korean like 명사, 동사, 형용사)
+- "pronunciation": pronunciation guide
+- "synonyms": comma-separated synonyms if available
+- "antonyms": comma-separated antonyms if available
+- "derivatives": array of {word, meaning} for derivative words if available
+- Normalize OCR noise: fix split syllables, remove stray hyphens, ignore line-break fragments, and merge words broken across lines.`
+    : `Only extract the word itself. Do NOT include meanings, examples, or other details. Normalize OCR noise, fix split lines and hyphens, and keep only real vocabulary words.`;
+
+  const wordShape = includeDetails
+    ? `{"word": "example", "meaning": "예시", "example": "This is an example.", "part_of_speech": "명사", "pronunciation": "ɪɡˈzæmpəl", "synonyms": "instance, sample", "antonyms": "original", "derivatives": [{"word": "exemplary", "meaning": "모범적인"}]}`
+    : `{"word": "example"}`;
+
+  const systemPrompt = `You are a vocabulary extraction expert. Extract structured vocabulary data.
+CRITICAL RULES:
+1. Extract ALL English words.
+2. Group into chapters if sections like "Day 1", "Unit 1", "Chapter 1" exist.
+3. If no sections, use a single chapter called "전체 단어".
+4. Infer vocabulary name from document title if visible, otherwise use "".
+5. Normalize OCR artifacts aggressively: remove mid-word hyphens, fix broken line wraps, ignore page footer/header noise, discard garbage symbols, and prefer canonical word forms.
+6. ${detailsPrompt}
+Return ONLY valid JSON:
+{"vocabulary_name": "","chapters": [{"name": "Day 1","words": [${wordShape}]}]}
+IMPORTANT: Return ONLY the JSON object, no markdown, no code fences, no explanation.`;
+
+  for (const model of ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: systemPrompt + "\n\n이미지에서 모든 영어 단어를 추출해주세요." }, { inline_data: { mime_type: mimeType, data: base64Data } }] }],
+            generationConfig: { temperature: 0.1, maxOutputTokens: includeDetails ? 8192 : 4096 },
+          }),
+        });
+        if (res.status === 429) { await sleep(2000 * (attempt + 1)); continue; }
+        if (!res.ok) { if (res.status >= 500) { await sleep(1000 * (attempt + 1)); continue; } break; }
+        const data = await res.json();
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (!content) continue;
+
+        let jsonStr = content.trim();
+        jsonStr = jsonStr.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+        const jsonStart = jsonStr.indexOf("{");
+        if (jsonStart === -1) throw new Error("No JSON object found");
+        jsonStr = jsonStr.substring(jsonStart);
+        const lastBrace = jsonStr.lastIndexOf("}");
+        if (lastBrace !== -1) jsonStr = jsonStr.substring(0, lastBrace + 1);
+
+        let parsed: any;
+        try { parsed = JSON.parse(jsonStr); } catch {
+          const repaired = jsonStr.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, (ch) => (ch === "\n" || ch === "\r" || ch === "\t" ? ch : ""));
+          parsed = JSON.parse(repaired);
+        }
+
+        if (!parsed.chapters || !Array.isArray(parsed.chapters)) {
+          parsed = { vocabulary_name: "", chapters: [{ name: "전체 단어", words: [] }] };
+        }
+
+        parsed.chapters = parsed.chapters
+          .map((ch: any) => ({
+            name: ch.name || "전체 단어",
+            words: (ch.words || [])
+              .filter((w: any) => w.word && typeof w.word === "string" && w.word.trim().length > 0)
+              .map((w: any) => ({
+                word: w.word.trim(),
+                meaning: w.meaning || "",
+                example: w.example || "",
+                part_of_speech: w.part_of_speech || "",
+                pronunciation: w.pronunciation || "",
+                synonyms: w.synonyms || "",
+                antonyms: w.antonyms || "",
+                derivatives: Array.isArray(w.derivatives) ? w.derivatives : [],
+              })),
+          }))
+          .filter((ch: any) => ch.words.length > 0);
+
+        return { vocabulary_name: parsed.vocabulary_name || "", chapters: parsed.chapters };
+      } catch { await sleep(1000); }
+    }
+  }
+  throw new Error("이미지에서 단어 추출에 실패했습니다.");
+}
+
 app.post("/api/extract-vocabulary", async (req, res) => {
   try {
-    if (!PDF_CO_API_KEY) return res.status(500).json({ error: "PDF_CO_API_KEY가 설정되어 있지 않습니다." });
     if (!GEMINI_API_KEY) return res.status(500).json({ error: "GEMINI_API_KEY가 설정되어 있지 않습니다." });
 
     const { file_base64, file_type, include_details } = req.body;
@@ -564,17 +643,30 @@ app.post("/api/extract-vocabulary", async (req, res) => {
       return res.status(400).json({ error: "file_base64와 file_type이 필요합니다." });
     }
 
-    console.log("Extracting text via PDF.co...");
-    const extractedText = await extractTextViaPdfCo(file_base64, file_type);
+    const isPDF = file_type === "application/pdf";
+    let extractedText = "";
 
-    if (!extractedText || extractedText.trim().length === 0) {
-      return res.status(400).json({ error: "파일에서 텍스트를 추출할 수 없습니다. 다른 파일을 시도해주세요." });
+    if (isPDF) {
+      try {
+        console.log("Extracting text via pdfjs-dist...");
+        extractedText = await extractTextFromPDF(file_base64);
+        console.log(`PDF extracted ${extractedText.length} chars`);
+      } catch (pdfErr) {
+        console.error("PDF text extraction failed:", pdfErr);
+      }
     }
 
-    console.log(`Extracted ${extractedText.length} chars, sending to Gemini...`);
-    const result: any = await callGeminiForVocabulary(extractedText, include_details !== false);
-    const totalWords = result.chapters.reduce((sum: number, ch: any) => sum + ch.words.length, 0);
+    let result: any;
+    if (extractedText && extractedText.trim().length > 30) {
+      console.log(`Sending ${extractedText.length} chars to Gemini as text...`);
+      result = await callGeminiForVocabulary(extractedText, include_details !== false);
+    } else {
+      console.log("Sending to Gemini as image...");
+      const mimeType = isPDF ? "application/pdf" : file_type;
+      result = await callGeminiWithImage(file_base64, mimeType, include_details !== false);
+    }
 
+    const totalWords = result.chapters.reduce((sum: number, ch: any) => sum + ch.words.length, 0);
     res.json({ ...result, total_words: totalWords });
   } catch (error) {
     console.error("extract-vocabulary error:", error);
