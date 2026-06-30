@@ -151,9 +151,8 @@ const QuizMatching = () => {
   const initDynamic = () => {
     const shuffled = [...allWords].sort(() => Math.random() - 0.5);
 
-    // Need at least 2*SLOTS + 1 words for dynamic mode to work well
-    if (shuffled.length < DYNAMIC_SLOTS * 2) {
-      toast.error(`동적 모드는 최소 ${DYNAMIC_SLOTS * 2}개 이상의 단어가 필요합니다.`);
+    if (shuffled.length < DYNAMIC_SLOTS + 3) {
+      toast.error(`동적 모드는 최소 ${DYNAMIC_SLOTS + 3}개 이상의 단어가 필요합니다.`);
       setDynamicMode(false);
       return;
     }
@@ -161,25 +160,29 @@ const QuizMatching = () => {
     const left = shuffled.slice(0, DYNAMIC_SLOTS);
     let pool = shuffled.slice(DYNAMIC_SLOTS);
 
-    // Build right side: ensure at least 1 matchable pair
+    // Build right: 1~3 duplicates from left (creates natural matchable pairs)
+    // + remaining from pool (random, unrelated)
     const right: Word[] = [];
-    const usedIds = new Set<string>();
 
-    // Force one matchable pair with the first left word
-    right.push(left[0]);
-    usedIds.add(left[0].id);
+    const targetMatches = Math.min(
+      Math.max(1, Math.floor(Math.random() * 3) + 1),
+      left.length
+    );
+    const matchIndices = Array.from({ length: left.length }, (_, i) => i)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, targetMatches);
 
-    // Fill remaining slots from pool (avoid duplicates)
-    for (let i = 1; i < DYNAMIC_SLOTS; i++) {
-      const candidates = pool.filter(w => !usedIds.has(w.id));
-      if (candidates.length === 0) break;
-      const pick = candidates[Math.floor(Math.random() * candidates.length)];
-      right.push(pick);
-      usedIds.add(pick.id);
-      pool = pool.filter(w => w.id !== pick.id);
+    for (const idx of matchIndices) {
+      right.push(left[idx]);
     }
 
-    // Shuffle right so matchable pair isn't predictable by position
+    const poolShuffled = [...pool].sort(() => Math.random() - 0.5);
+    const needed = DYNAMIC_SLOTS - right.length;
+    for (let i = 0; i < needed && i < poolShuffled.length; i++) {
+      right.push(poolShuffled[i]);
+      pool = pool.filter(w => w.id !== poolShuffled[i].id);
+    }
+
     const shuffledRight = [...right].sort(() => Math.random() - 0.5);
 
     setDynLeft(left);
