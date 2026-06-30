@@ -143,6 +143,11 @@ const QuizMatching = () => {
     return left.some(w => rightIds.has(w.id));
   }, []);
 
+  const countMatchablePairs = useCallback((left: Word[], right: Word[]) => {
+    const rightIds = new Set(right.map(w => w.id));
+    return left.filter(w => rightIds.has(w.id)).length;
+  }, []);
+
   const initDynamic = () => {
     const shuffled = [...allWords].sort(() => Math.random() - 0.5);
 
@@ -192,7 +197,8 @@ const QuizMatching = () => {
     let newRight = dynRight.filter(w => w.id !== matchedRightId);
     let remainingPool = [...dynPool];
 
-    const stillHasMatch = hasMatchablePair(newLeft, newRight);
+    // After match, how many matchable pairs remain among the survivors?
+    const existingMatches = countMatchablePairs(newLeft, newRight);
 
     // If no pool left, just remove and finish when empty
     if (remainingPool.length === 0) {
@@ -205,7 +211,7 @@ const QuizMatching = () => {
       return;
     }
 
-    // Pick new word for left
+    // Pick new word for left (random from pool)
     const leftIdx = Math.floor(Math.random() * remainingPool.length);
     const newWord = remainingPool[leftIdx];
     remainingPool = remainingPool.filter((_, i) => i !== leftIdx);
@@ -213,28 +219,29 @@ const QuizMatching = () => {
     // Pick new meaning for right
     let newMeaning: Word;
 
-    if (!stillHasMatch && newLeft.length > 0) {
-      // MUST create a matchable pair with an existing left word
-      const targetLeft = newLeft[Math.floor(Math.random() * newLeft.length)];
-      const targetInPool = remainingPool.find(w => w.id === targetLeft.id);
-      if (targetInPool) {
-        newMeaning = targetInPool;
-        remainingPool = remainingPool.filter(w => w.id !== targetInPool.id);
+    // After adding newWord + newMeaning, we MUST have >=1 matchable pair
+    const needToCreateMatch = existingMatches === 0;
+
+    if (needToCreateMatch) {
+      // Strategy: use newMeaning to match one of the remaining left words (or newWord)
+      // Prefer matching an existing left word, but can also match newWord itself
+      const matchCandidates = remainingPool.filter(w =>
+        newLeft.some(lw => lw.id === w.id) || w.id === newWord.id
+      );
+      if (matchCandidates.length > 0) {
+        const pick = matchCandidates[Math.floor(Math.random() * matchCandidates.length)];
+        newMeaning = pick;
+        remainingPool = remainingPool.filter(w => w.id !== pick.id);
       } else {
-        // target already used elsewhere; pick any that matches some existing left
-        const anyMatchable = remainingPool.find(w => newLeft.some(lw => lw.id === w.id));
-        if (anyMatchable) {
-          newMeaning = anyMatchable;
-          remainingPool = remainingPool.filter(w => w.id !== anyMatchable.id);
-        } else {
-          // No way to create matchable pair; just pick non-matching for the new word
-          const nonMatch = remainingPool.find(w => w.id !== newWord.id);
-          newMeaning = nonMatch || remainingPool[0]!;
-          remainingPool = remainingPool.filter(w => w.id !== newMeaning.id);
-        }
+        // No candidate can create a match. Just pick any and accept that the screen
+        // will be temporarily stale until the next replacement cycle fixes it.
+        // (This edge case only happens with very small vocabularies.)
+        newMeaning = remainingPool[0]!;
+        remainingPool = remainingPool.slice(1);
       }
     } else {
-      // Prefer: new meaning does NOT match the new word (newWord.id !== newMeaning.id)
+      // We already have >=1 match. Prefer newMeaning does NOT match newWord
+      // to keep the match count from exploding, but it's OK if it does.
       const nonMatching = remainingPool.find(w => w.id !== newWord.id);
       if (nonMatching) {
         newMeaning = nonMatching;
@@ -248,6 +255,31 @@ const QuizMatching = () => {
 
     newLeft = [...newLeft, newWord];
     newRight = [...newRight, newMeaning];
+
+    // Safety assertion: after replacement, there must be >=1 matchable pair
+    // (unless the pool is empty and we are at end of game)
+    if (remainingPool.length > 0 || newLeft.length > 1) {
+      const finalMatches = countMatchablePairs(newLeft, newRight);
+      if (finalMatches === 0) {
+        console.warn("[QuizMatching] Dynamic replacement produced 0 matchable pairs - forcing fix");
+        // Emergency: swap one meaning to create a match with a left word
+        const leftWord = newLeft[0];
+        const matchIdx = newRight.findIndex(w => w.id === leftWord.id);
+        if (matchIdx === -1) {
+          // Left word isn't on right side. Find which meaning we can swap
+          const rightToSwap = newRight.find(w => !newLeft.some(lw => lw.id === w.id));
+          if (rightToSwap) {
+            const swapIdx = newRight.findIndex(w => w.id === rightToSwap.id);
+            const leftMatchInPool = remainingPool.find(w => w.id === leftWord.id);
+            if (leftMatchInPool) {
+              newRight[swapIdx] = leftMatchInPool;
+              remainingPool = remainingPool.filter(w => w.id !== leftMatchInPool.id);
+              remainingPool.push(rightToSwap);
+            }
+          }
+        }
+      }
+    }
 
     setDynLeft(newLeft);
     setDynRight(newRight);
