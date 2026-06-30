@@ -197,16 +197,8 @@ const QuizMatching = () => {
     const survivedLeft = dynLeft.filter(w => w.id !== matchedLeftId);
     const survivedRight = dynRight.filter(w => w.id !== matchedRightId);
 
-    // 2. Put both matched items back into the unused pool so they can cycle later
-    const matchedWord = allWords.find(w => w.id === matchedLeftId)!;
-    const matchedMeaning = allWords.find(w => w.id === matchedRightId)!;
-    let unusedPool = [...dynPool];
-
-    // Avoid adding duplicate IDs to the pool
-    if (!unusedPool.some(w => w.id === matchedWord.id)) unusedPool.push(matchedWord);
-    if (matchedMeaning.id !== matchedWord.id && !unusedPool.some(w => w.id === matchedMeaning.id)) {
-      unusedPool.push(matchedMeaning);
-    }
+    // 2. Matched items are GONE forever; use the existing pool only
+    const unusedPool = [...dynPool];
 
     // 3. Candidates = pool items NOT currently shown on screen
     const screenIds = new Set([...survivedLeft.map(w => w.id), ...survivedRight.map(w => w.id)]);
