@@ -50,6 +50,10 @@ const QuizMatching = () => {
   const [dynUsedIds, setDynUsedIds] = useState<Set<string>>(new Set());
   const [dynFinished, setDynFinished] = useState(false);
 
+  // ── Timer ──
+  const [timer, setTimer] = useState(0);
+  const [timerActive, setTimerActive] = useState(false);
+
   const isRandom = searchParams.get("random") === "true";
   const chapterId = searchParams.get("chapter");
   const wordsPerPage = 6;
@@ -75,6 +79,28 @@ const QuizMatching = () => {
       initDynamic();
     }
   }, [dynamicMode, allWords]);
+
+  // Timer: start when words are loaded, stop when finished
+  useEffect(() => {
+    if (allWords.length > 0 && !loading) {
+      setTimer(0);
+      setTimerActive(true);
+    }
+  }, [allWords.length, loading]);
+
+  useEffect(() => {
+    if (!timerActive) return;
+    const interval = setInterval(() => {
+      setTimer(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timerActive]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
   const loadWords = async () => {
     try {
@@ -354,12 +380,14 @@ const QuizMatching = () => {
   };
 
   const goToResult = (finalScore: number) => {
+    setTimerActive(false);
     const params = new URLSearchParams({
       score: finalScore.toString(),
       total: allWords.length.toString(),
       incorrect: encodeURIComponent(JSON.stringify(incorrectWords)),
       quizType: "matching",
       delay: "2",
+      time: timer.toString(),
     });
     if (chapterId) params.append("chapter", chapterId);
     if (vocabIds.length > 1 || !id) {
@@ -425,9 +453,14 @@ const QuizMatching = () => {
               ? "동적 교체 모드 ON"
               : `페이지 ${currentPage + 1} / ${totalPages}`}
           </span>
-          <span className="text-sm font-medium">
-            정답: {score} / {allWords.length}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium px-3 py-1 rounded-full bg-primary/10 text-primary">
+              ⏱ {formatTime(timer)}
+            </span>
+            <span className="text-sm font-medium">
+              정답: {score} / {allWords.length}
+            </span>
+          </div>
         </div>
 
         <Progress value={staticProgress} className="h-2 mb-6" />
@@ -444,7 +477,7 @@ const QuizMatching = () => {
             <div className="space-y-3">
               {displayLeft.map((pair, index) => (
                 <motion.div
-                  key={pair.id}
+                  key={`left-${pair.id}-${index}`}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
@@ -468,7 +501,7 @@ const QuizMatching = () => {
             <div className="space-y-3">
               {displayRight.map((pair, index) => (
                 <motion.div
-                  key={pair.id}
+                  key={`right-${pair.id}-${index}`}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}

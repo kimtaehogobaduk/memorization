@@ -26,13 +26,16 @@ const QuizResult = () => {
   const [score, setScore] = useState(0);
   const [total, setTotal] = useState(0);
   const [incorrectWords, setIncorrectWords] = useState<IncorrectWord[]>([]);
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   useEffect(() => {
     const scoreParam = parseInt(searchParams.get("score") || "0");
     const totalParam = parseInt(searchParams.get("total") || "0");
     const incorrectParam = searchParams.get("incorrect");
+    const timeParam = parseInt(searchParams.get("time") || "0");
     setScore(scoreParam);
     setTotal(totalParam);
+    setElapsedTime(timeParam);
     if (incorrectParam) {
       try {
         const parsed = JSON.parse(decodeURIComponent(incorrectParam));
@@ -46,6 +49,14 @@ const QuizResult = () => {
   const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
   const correctCount = score;
   const incorrectCount = total - score;
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const avgTimePerWord = total > 0 ? Math.round((elapsedTime / total) * 10) / 10 : 0;
 
   const getJunsukImage = () => {
     if (percentage === 100) return junsuk15;
@@ -116,7 +127,7 @@ const QuizResult = () => {
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.4, type: "spring", stiffness: 200 }} className="text-7xl font-extrabold text-junsuk-blue mb-2">{percentage}%</motion.div>
                 <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="text-2xl font-bold text-foreground">{getJunsukMessage()}</motion.p>
               </div>
-              <div className="flex justify-center gap-8 text-base">
+              <div className="flex flex-wrap justify-center gap-3 text-base">
                 <div className="flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-md">
                   <CheckCircle2 className="w-5 h-5 text-success" />
                   <span>학습수: <span className="font-bold">{correctCount}/{total}</span></span>
@@ -124,6 +135,14 @@ const QuizResult = () => {
                 <div className="flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-md">
                   <XCircle className="w-5 h-5 text-destructive" />
                   <span>복습수: <span className="font-bold">{incorrectCount}/{total}</span></span>
+                </div>
+                <div className="flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-md">
+                  <span className="text-lg">⏱</span>
+                  <span>총 시간: <span className="font-bold">{formatTime(elapsedTime)}</span></span>
+                </div>
+                <div className="flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-md">
+                  <span className="text-lg">⏱</span>
+                  <span>단어당 평균: <span className="font-bold">{avgTimePerWord}초</span></span>
                 </div>
               </div>
             </div>
