@@ -193,17 +193,22 @@ const QuizMatching = () => {
   };
 
   const replaceDynamicSlots = (matchedLeftId: string, matchedRightId: string) => {
+    // 1. Move the matched word back to the pool so it can cycle back in later
+    const matchedWord = dynLeft.find(w => w.id === matchedLeftId)!;
+    let newPool = [...dynPool, matchedWord];
+
     let newLeft = dynLeft.filter(w => w.id !== matchedLeftId);
     let newRight = dynRight.filter(w => w.id !== matchedRightId);
-    let remainingPool = [...dynPool];
 
-    // After match, how many matchable pairs remain among the survivors?
-    const existingMatches = countMatchablePairs(newLeft, newRight);
+    // 2. Exclude words already on screen from candidate pool
+    const screenIds = new Set([...newLeft.map(w => w.id), ...newRight.map(w => w.id)]);
+    const available = newPool.filter(w => !screenIds.has(w.id));
 
-    // If no pool left, just remove and finish when empty
-    if (remainingPool.length === 0) {
+    // 3. Not enough words to refill both slots → remove only and finish if empty
+    if (available.length < 2) {
       setDynLeft(newLeft);
       setDynRight(newRight);
+      setDynPool(newPool.filter(w => !screenIds.has(w.id)));
       setScore(prev => prev + 1);
       if (newLeft.length === 0) {
         setTimeout(() => setDynFinished(true), 600);
@@ -211,82 +216,50 @@ const QuizMatching = () => {
       return;
     }
 
-    // Pick new word for left (random from pool)
-    const leftIdx = Math.floor(Math.random() * remainingPool.length);
-    const newWord = remainingPool[leftIdx];
-    remainingPool = remainingPool.filter((_, i) => i !== leftIdx);
+    // 4. Pick a NEW word for the left side
+    const leftIdx = Math.floor(Math.random() * available.length);
+    const newWord = available[leftIdx];
 
-    // Pick new meaning for right
+    // Remaining candidates after taking left word
+    const candidatesAfterLeft = available.filter((_, i) => i !== leftIdx);
+
+    // 5. Pick a NEW meaning for the right side
+    //    Priority: match an existing left word (fun) > non-self-match > any
+    const leftIds = new Set(newLeft.map(w => w.id));
+    const matchable = candidatesAfterLeft.filter(w => leftIds.has(w.id));
+
     let newMeaning: Word;
-
-    // After adding newWord + newMeaning, we MUST have >=1 matchable pair
-    const needToCreateMatch = existingMatches === 0;
-
-    if (needToCreateMatch) {
-      // Check if any existing left word has its matching meaning still in the pool
-      const leftWithPoolMatch = newLeft.filter(lw => remainingPool.some(pw => pw.id === lw.id));
-
-      if (leftWithPoolMatch.length > 0) {
-        // Use pool match: pick one left word and pull its meaning from pool
-        const targetLeft = leftWithPoolMatch[Math.floor(Math.random() * leftWithPoolMatch.length)];
-        const targetInPool = remainingPool.find(pw => pw.id === targetLeft.id)!;
-        newMeaning = targetInPool;
-        remainingPool = remainingPool.filter(pw => pw.id !== targetInPool.id);
-      } else {
-        // No existing left word has a match in the pool.
-        // Force newWord to match itself: put newWord on BOTH left and right.
-        // To keep right side at exactly SLOTS items, move one non-matching
-        // meaning from newRight back to the pool.
-        newMeaning = newWord;
-        const removable = newRight.find(w => !newLeft.some(lw => lw.id === w.id));
-        if (removable) {
-          remainingPool.push(removable);
-          newRight = newRight.filter(w => w.id !== removable.id);
-        }
-      }
+    if (matchable.length > 0) {
+      // Great: there are meanings that match existing left words
+      newMeaning = matchable[Math.floor(Math.random() * matchable.length)];
     } else {
-      // We already have >=1 match. Prefer newMeaning does NOT match newWord
-      // to keep the match count from exploding, but it's OK if it does.
-      const nonMatching = remainingPool.find(w => w.id !== newWord.id);
-      if (nonMatching) {
-        newMeaning = nonMatching;
-        remainingPool = remainingPool.filter(w => w.id !== nonMatching.id);
+      // No meanings match existing left words
+      // Prefer picking a meaning that is NOT the same as newWord (avoid self-match)
+      const nonSelf = candidatesAfterLeft.find(w => w.id !== newWord.id);
+      if (nonSelf) {
+        newMeaning = nonSelf;
       } else {
-        // Everything left matches newWord; pick any
-        newMeaning = remainingPool[0]!;
-        remainingPool = remainingPool.slice(1);
+        // Only newWord itself is left → unavoidable self-match
+        newMeaning = candidatesAfterLeft[0] || newWord;
       }
     }
 
     newLeft = [...newLeft, newWord];
     newRight = [...newRight, newMeaning];
 
-    // Safety assertion: after replacement, there must be >=1 matchable pair
-    // (unless the pool is empty and we are at end of game)
-    if (remainingPool.length > 0 || newLeft.length > 1) {
-      const finalMatches = countMatchablePairs(newLeft, newRight);
-      if (finalMatches === 0) {
-        console.warn("[QuizMatching] Dynamic replacement produced 0 matchable pairs - forcing fix");
-        // Try to pull a matching meaning from pool for an existing left word
-        const fixableLeft = newLeft.find(lw => remainingPool.some(pw => pw.id === lw.id));
-        if (fixableLeft) {
-          const poolMatch = remainingPool.find(pw => pw.id === fixableLeft.id)!;
-          const nonMatch = newRight.find(w => !newLeft.some(lw => lw.id === w.id));
-          if (nonMatch) {
-            remainingPool.push(nonMatch);
-            newRight = newRight.filter(w => w.id !== nonMatch.id);
-            newRight.push(poolMatch);
-            remainingPool = remainingPool.filter(pw => pw.id !== poolMatch.id);
-          }
-        } else {
-          // Last resort: force self-match by duplicating a left word on the right
-          const nonMatch = newRight.find(w => !newLeft.some(lw => lw.id === w.id));
-          if (nonMatch) {
-            remainingPool.push(nonMatch);
-            newRight = newRight.filter(w => w.id !== nonMatch.id);
-            newRight.push(newLeft[0]);
-          }
-        }
+    // 6. Update pool: remove the two words we just placed on screen
+    const pickedIds = new Set([newWord.id, newMeaning.id]);
+    const remainingPool = newPool.filter(w => !pickedIds.has(w.id));
+
+    // 7. Final safety: ensure >=1 matchable pair (self-match as last resort)
+    const finalMatches = countMatchablePairs(newLeft, newRight);
+    if (finalMatches === 0 && newLeft.length > 0) {
+      // Force newWord onto the right as well (self-match)
+      const orphanRight = newRight.find(w => !newLeft.some(lw => lw.id === w.id));
+      if (orphanRight) {
+        newRight = newRight.filter(w => w.id !== orphanRight.id);
+        newRight.push(newWord);
+        remainingPool.push(orphanRight);
       }
     }
 
