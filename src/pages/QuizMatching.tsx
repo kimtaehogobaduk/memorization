@@ -211,17 +211,23 @@ const QuizMatching = () => {
     used.add(matchedLeftId);
     used.add(matchedRightId);
 
-    // 3. Build candidate list: allWords minus used minus what's currently on screen
+    // 3. Build separate candidate lists:
+    //    - leftWordCandidates: must NOT be on screen already (new word must be fresh)
+    //    - meaningCandidates: can include duplicates of words ALREADY on screen!
+    //      (using a word's meaning while that word is on the left is totally fine)
     const screenIds = new Set([
       ...survivedLeft.map(w => w.id),
       ...survivedRight.map(w => w.id),
     ]);
-    const candidates = allWords.filter(
+    const leftWordCandidates = allWords.filter(
       w => !used.has(w.id) && !screenIds.has(w.id)
     );
+    const meaningCandidates = allWords.filter(
+      w => !used.has(w.id) // right side can reuse screen words as meanings!
+    );
 
-    // 4. Not enough candidates → shrink gracefully toward end
-    if (candidates.length < 2) {
+    // 4. Not enough fresh words to put on left → shrink gracefully toward end
+    if (leftWordCandidates.length < 1 || meaningCandidates.length < 1) {
       setDynLeft(survivedLeft);
       setDynRight(survivedRight);
       setDynUsedIds(used);
@@ -232,46 +238,44 @@ const QuizMatching = () => {
       return;
     }
 
-    // 5. Pick a NEW word for the left side
-    const leftIdx = Math.floor(Math.random() * candidates.length);
-    const newWord = candidates[leftIdx];
+    // 5. Pick a NEW word for the left side (must be fresh: not on screen, not used)
+    const leftIdx = Math.floor(Math.random() * leftWordCandidates.length);
+    const newWord = leftWordCandidates[leftIdx];
 
     // 6. Pick a NEW meaning for the right side
-    // Right side can freely reference ANY word in allWords (including left duplicates!)
-    // This is the KEY: we pick a meaning that creates a natural match with an existing left word.
-    const remaining = candidates.filter((_, i) => i !== leftIdx);
+    //    Meaning CAN duplicate an existing left word → creates natural matchable pair!
+    const remainingMeanings = meaningCandidates.filter(w => w.id !== newWord.id);
     const leftIds = new Set(survivedLeft.map(w => w.id));
 
-    // A: pick a meaning that matches an existing left word (fun, natural)
-    const matchableMeanings = remaining.filter(w => leftIds.has(w.id));
+    // A: prefer a meaning that matches an existing left word (creates natural match)
+    const matchableMeanings = remainingMeanings.filter(w => leftIds.has(w.id));
 
     let newMeaning: Word;
     if (matchableMeanings.length > 0) {
       newMeaning = matchableMeanings[Math.floor(Math.random() * matchableMeanings.length)];
+    } else if (remainingMeanings.length > 0) {
+      // B: no match with existing left → pick any remaining (avoid self-match)
+      newMeaning = remainingMeanings[Math.floor(Math.random() * remainingMeanings.length)];
     } else {
-      // B: no match with existing left → avoid self-match with newWord if possible
-      const nonSelf = remaining.find(w => w.id !== newWord.id);
-      if (nonSelf) {
-        newMeaning = nonSelf;
-      } else {
-        newMeaning = remaining[0] || newWord;
-      }
+      // C: only newWord itself is available → unavoidable self-match
+      newMeaning = newWord;
     }
 
     const finalLeft = [...survivedLeft, newWord];
     const finalRight = [...survivedRight, newMeaning];
 
-    // 7. Final safety: ensure at least 1 matchable pair remains
+    // 7. Final safety: if somehow 0 matchable pairs, swap a right item to create one
     const finalMatches = countMatchablePairs(finalLeft, finalRight);
     if (finalMatches === 0 && finalLeft.length > 0) {
-      // Force: replace a non-matching right item with newWord (self-match)
       const nonMatchIdx = finalRight.findIndex(
         w => !finalLeft.some(lw => lw.id === w.id)
       );
       if (nonMatchIdx >= 0) {
         const replaced = finalRight[nonMatchIdx];
-        finalRight[nonMatchIdx] = newWord;
-        used.add(replaced.id); // the replaced item becomes used too
+        // Pick a random left word to duplicate on the right
+        const targetLeft = finalLeft[Math.floor(Math.random() * finalLeft.length)];
+        finalRight[nonMatchIdx] = targetLeft;
+        used.add(replaced.id);
       }
     }
 
