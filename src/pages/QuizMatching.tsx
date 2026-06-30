@@ -222,8 +222,10 @@ const QuizMatching = () => {
     const leftWordCandidates = allWords.filter(
       w => !used.has(w.id) && !screenIds.has(w.id)
     );
+    // right side: can reuse LEFT-side screen words as meanings, but NOT right-side duplicates
+    const rightScreenIds = new Set(survivedRight.map(w => w.id));
     const meaningCandidates = allWords.filter(
-      w => !used.has(w.id) // right side can reuse screen words as meanings!
+      w => !used.has(w.id) && !rightScreenIds.has(w.id)
     );
 
     // 4. Not enough fresh words to put on left → shrink gracefully toward end
