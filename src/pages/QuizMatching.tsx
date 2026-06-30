@@ -193,82 +193,89 @@ const QuizMatching = () => {
   };
 
   const replaceDynamicSlots = (matchedLeftId: string, matchedRightId: string) => {
-    // 1. Move the matched word back to the pool so it can cycle back in later
-    const matchedWord = dynLeft.find(w => w.id === matchedLeftId)!;
-    let newPool = [...dynPool, matchedWord];
+    // 1. Remove ONLY the matched pair from the screen
+    const survivedLeft = dynLeft.filter(w => w.id !== matchedLeftId);
+    const survivedRight = dynRight.filter(w => w.id !== matchedRightId);
 
-    let newLeft = dynLeft.filter(w => w.id !== matchedLeftId);
-    let newRight = dynRight.filter(w => w.id !== matchedRightId);
+    // 2. Put both matched items back into the unused pool so they can cycle later
+    const matchedWord = allWords.find(w => w.id === matchedLeftId)!;
+    const matchedMeaning = allWords.find(w => w.id === matchedRightId)!;
+    let unusedPool = [...dynPool];
 
-    // 2. Exclude words already on screen from candidate pool
-    const screenIds = new Set([...newLeft.map(w => w.id), ...newRight.map(w => w.id)]);
-    const available = newPool.filter(w => !screenIds.has(w.id));
+    // Avoid adding duplicate IDs to the pool
+    if (!unusedPool.some(w => w.id === matchedWord.id)) unusedPool.push(matchedWord);
+    if (matchedMeaning.id !== matchedWord.id && !unusedPool.some(w => w.id === matchedMeaning.id)) {
+      unusedPool.push(matchedMeaning);
+    }
 
-    // 3. Not enough words to refill both slots → remove only and finish if empty
-    if (available.length < 2) {
-      setDynLeft(newLeft);
-      setDynRight(newRight);
-      setDynPool(newPool.filter(w => !screenIds.has(w.id)));
+    // 3. Candidates = pool items NOT currently shown on screen
+    const screenIds = new Set([...survivedLeft.map(w => w.id), ...survivedRight.map(w => w.id)]);
+    const candidates = unusedPool.filter(w => !screenIds.has(w.id));
+
+    // 4. Not enough candidates to refill both slots with distinct words → shrink gracefully
+    if (candidates.length < 2) {
+      setDynLeft(survivedLeft);
+      setDynRight(survivedRight);
+      setDynPool(candidates);
       setScore(prev => prev + 1);
-      if (newLeft.length === 0) {
+      if (survivedLeft.length === 0) {
         setTimeout(() => setDynFinished(true), 600);
       }
       return;
     }
 
-    // 4. Pick a NEW word for the left side
-    const leftIdx = Math.floor(Math.random() * available.length);
-    const newWord = available[leftIdx];
+    // 5. Pick a NEW word for the left side (random from candidates)
+    const leftIdx = Math.floor(Math.random() * candidates.length);
+    const newWord = candidates[leftIdx];
 
     // Remaining candidates after taking left word
-    const candidatesAfterLeft = available.filter((_, i) => i !== leftIdx);
+    const remaining = candidates.filter((_, i) => i !== leftIdx);
 
-    // 5. Pick a NEW meaning for the right side
-    //    Priority: match an existing left word (fun) > non-self-match > any
-    const leftIds = new Set(newLeft.map(w => w.id));
-    const matchable = candidatesAfterLeft.filter(w => leftIds.has(w.id));
+    // 6. Pick a NEW meaning for the right side
+    // Priority A: meaning matches an existing left word (interactivity!)
+    const leftIds = new Set(survivedLeft.map(w => w.id));
+    const matchableMeanings = remaining.filter(w => leftIds.has(w.id));
 
     let newMeaning: Word;
-    if (matchable.length > 0) {
-      // Great: there are meanings that match existing left words
-      newMeaning = matchable[Math.floor(Math.random() * matchable.length)];
+    if (matchableMeanings.length > 0) {
+      newMeaning = matchableMeanings[Math.floor(Math.random() * matchableMeanings.length)];
     } else {
-      // No meanings match existing left words
-      // Prefer picking a meaning that is NOT the same as newWord (avoid self-match)
-      const nonSelf = candidatesAfterLeft.find(w => w.id !== newWord.id);
+      // Priority B: no meaning matches existing left → avoid self-match with newWord
+      const nonSelf = remaining.find(w => w.id !== newWord.id);
       if (nonSelf) {
         newMeaning = nonSelf;
       } else {
-        // Only newWord itself is left → unavoidable self-match
-        newMeaning = candidatesAfterLeft[0] || newWord;
+        // Only option left is self-match (extremely rare with reasonable vocab size)
+        newMeaning = remaining[0] || newWord;
       }
     }
 
-    newLeft = [...newLeft, newWord];
-    newRight = [...newRight, newMeaning];
+    // 7. Assemble final screen state
+    const finalLeft = [...survivedLeft, newWord];
+    const finalRight = [...survivedRight, newMeaning];
 
-    // 6. Update pool: remove the two words we just placed on screen
-    const pickedIds = new Set([newWord.id, newMeaning.id]);
-    const remainingPool = newPool.filter(w => !pickedIds.has(w.id));
-
-    // 7. Final safety: ensure >=1 matchable pair (self-match as last resort)
-    const finalMatches = countMatchablePairs(newLeft, newRight);
-    if (finalMatches === 0 && newLeft.length > 0) {
-      // Force newWord onto the right as well (self-match)
-      const orphanRight = newRight.find(w => !newLeft.some(lw => lw.id === w.id));
-      if (orphanRight) {
-        newRight = newRight.filter(w => w.id !== orphanRight.id);
-        newRight.push(newWord);
-        remainingPool.push(orphanRight);
+    // 8. Safety: ensure at least 1 matchable pair remains on screen
+    const finalMatches = countMatchablePairs(finalLeft, finalRight);
+    if (finalMatches === 0 && finalLeft.length > 0) {
+      // Replace a non-matching right item with newWord (forced self-match)
+      const nonMatchIdx = finalRight.findIndex(w => !finalLeft.some(lw => lw.id === w.id));
+      if (nonMatchIdx >= 0) {
+        const replaced = finalRight[nonMatchIdx];
+        finalRight[nonMatchIdx] = newWord;
+        unusedPool.push(replaced);
       }
     }
 
-    setDynLeft(newLeft);
-    setDynRight(newRight);
+    // 9. Update pool: remove the two words we placed on screen
+    const placedIds = new Set([newWord.id, newMeaning.id]);
+    const remainingPool = unusedPool.filter(w => !placedIds.has(w.id));
+
+    setDynLeft(finalLeft);
+    setDynRight(finalRight);
     setDynPool(remainingPool);
     setScore(prev => prev + 1);
 
-    if (remainingPool.length === 0 && newLeft.length === 0) {
+    if (remainingPool.length === 0 && finalLeft.length === 0) {
       setTimeout(() => setDynFinished(true), 600);
     }
   };
