@@ -242,29 +242,20 @@ const QuizMatching = () => {
     const leftIdx = Math.floor(Math.random() * leftWordCandidates.length);
     const newWord = leftWordCandidates[leftIdx];
 
-    // 6. Pick a NEW meaning for the right side
-    //    Meaning CAN duplicate an existing left word → creates natural matchable pair!
+    // 6. Pick a NEW meaning for the right side — COMPLETELY RANDOM
     const remainingMeanings = meaningCandidates.filter(w => w.id !== newWord.id);
-    const leftIds = new Set(survivedLeft.map(w => w.id));
-
-    // A: prefer a meaning that matches an existing left word (creates natural match)
-    const matchableMeanings = remainingMeanings.filter(w => leftIds.has(w.id));
 
     let newMeaning: Word;
-    if (matchableMeanings.length > 0) {
-      newMeaning = matchableMeanings[Math.floor(Math.random() * matchableMeanings.length)];
-    } else if (remainingMeanings.length > 0) {
-      // B: no match with existing left → pick any remaining (avoid self-match)
+    if (remainingMeanings.length > 0) {
       newMeaning = remainingMeanings[Math.floor(Math.random() * remainingMeanings.length)];
     } else {
-      // C: only newWord itself is available → unavoidable self-match
-      newMeaning = newWord;
+      newMeaning = newWord; // unavoidable self-match
     }
 
     const finalLeft = [...survivedLeft, newWord];
     const finalRight = [...survivedRight, newMeaning];
 
-    // 7. Final safety: if somehow 0 matchable pairs, swap a right item to create one
+    // 7. Safety: ensure at least 1 matchable pair remains on screen
     const finalMatches = countMatchablePairs(finalLeft, finalRight);
     if (finalMatches === 0 && finalLeft.length > 0) {
       const nonMatchIdx = finalRight.findIndex(
@@ -272,7 +263,6 @@ const QuizMatching = () => {
       );
       if (nonMatchIdx >= 0) {
         const replaced = finalRight[nonMatchIdx];
-        // Pick a random left word to duplicate on the right
         const targetLeft = finalLeft[Math.floor(Math.random() * finalLeft.length)];
         finalRight[nonMatchIdx] = targetLeft;
         used.add(replaced.id);
