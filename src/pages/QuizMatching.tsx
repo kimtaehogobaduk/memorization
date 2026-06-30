@@ -223,21 +223,26 @@ const QuizMatching = () => {
     const needToCreateMatch = existingMatches === 0;
 
     if (needToCreateMatch) {
-      // Strategy: use newMeaning to match one of the remaining left words (or newWord)
-      // Prefer matching an existing left word, but can also match newWord itself
-      const matchCandidates = remainingPool.filter(w =>
-        newLeft.some(lw => lw.id === w.id) || w.id === newWord.id
-      );
-      if (matchCandidates.length > 0) {
-        const pick = matchCandidates[Math.floor(Math.random() * matchCandidates.length)];
-        newMeaning = pick;
-        remainingPool = remainingPool.filter(w => w.id !== pick.id);
+      // Check if any existing left word has its matching meaning still in the pool
+      const leftWithPoolMatch = newLeft.filter(lw => remainingPool.some(pw => pw.id === lw.id));
+
+      if (leftWithPoolMatch.length > 0) {
+        // Use pool match: pick one left word and pull its meaning from pool
+        const targetLeft = leftWithPoolMatch[Math.floor(Math.random() * leftWithPoolMatch.length)];
+        const targetInPool = remainingPool.find(pw => pw.id === targetLeft.id)!;
+        newMeaning = targetInPool;
+        remainingPool = remainingPool.filter(pw => pw.id !== targetInPool.id);
       } else {
-        // No candidate can create a match. Just pick any and accept that the screen
-        // will be temporarily stale until the next replacement cycle fixes it.
-        // (This edge case only happens with very small vocabularies.)
-        newMeaning = remainingPool[0]!;
-        remainingPool = remainingPool.slice(1);
+        // No existing left word has a match in the pool.
+        // Force newWord to match itself: put newWord on BOTH left and right.
+        // To keep right side at exactly SLOTS items, move one non-matching
+        // meaning from newRight back to the pool.
+        newMeaning = newWord;
+        const removable = newRight.find(w => !newLeft.some(lw => lw.id === w.id));
+        if (removable) {
+          remainingPool.push(removable);
+          newRight = newRight.filter(w => w.id !== removable.id);
+        }
       }
     } else {
       // We already have >=1 match. Prefer newMeaning does NOT match newWord
@@ -262,20 +267,24 @@ const QuizMatching = () => {
       const finalMatches = countMatchablePairs(newLeft, newRight);
       if (finalMatches === 0) {
         console.warn("[QuizMatching] Dynamic replacement produced 0 matchable pairs - forcing fix");
-        // Emergency: swap one meaning to create a match with a left word
-        const leftWord = newLeft[0];
-        const matchIdx = newRight.findIndex(w => w.id === leftWord.id);
-        if (matchIdx === -1) {
-          // Left word isn't on right side. Find which meaning we can swap
-          const rightToSwap = newRight.find(w => !newLeft.some(lw => lw.id === w.id));
-          if (rightToSwap) {
-            const swapIdx = newRight.findIndex(w => w.id === rightToSwap.id);
-            const leftMatchInPool = remainingPool.find(w => w.id === leftWord.id);
-            if (leftMatchInPool) {
-              newRight[swapIdx] = leftMatchInPool;
-              remainingPool = remainingPool.filter(w => w.id !== leftMatchInPool.id);
-              remainingPool.push(rightToSwap);
-            }
+        // Try to pull a matching meaning from pool for an existing left word
+        const fixableLeft = newLeft.find(lw => remainingPool.some(pw => pw.id === lw.id));
+        if (fixableLeft) {
+          const poolMatch = remainingPool.find(pw => pw.id === fixableLeft.id)!;
+          const nonMatch = newRight.find(w => !newLeft.some(lw => lw.id === w.id));
+          if (nonMatch) {
+            remainingPool.push(nonMatch);
+            newRight = newRight.filter(w => w.id !== nonMatch.id);
+            newRight.push(poolMatch);
+            remainingPool = remainingPool.filter(pw => pw.id !== poolMatch.id);
+          }
+        } else {
+          // Last resort: force self-match by duplicating a left word on the right
+          const nonMatch = newRight.find(w => !newLeft.some(lw => lw.id === w.id));
+          if (nonMatch) {
+            remainingPool.push(nonMatch);
+            newRight = newRight.filter(w => w.id !== nonMatch.id);
+            newRight.push(newLeft[0]);
           }
         }
       }
