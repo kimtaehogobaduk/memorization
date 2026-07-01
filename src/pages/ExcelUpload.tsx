@@ -217,13 +217,13 @@ const ExcelUpload = () => {
           <CardHeader>
             <CardTitle>템플릿 다운로드</CardTitle>
             <CardDescription>
-              먼저 템플릿을 다운로드하여 단어를 입력하세요
+              먼저 Excel 템플릿을 다운로드하여 단어를 입력하세요
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button onClick={downloadTemplate} variant="outline" className="w-full">
               <Download className="w-4 h-4 mr-2" />
-              템플릿 다운로드
+              Excel 템플릿 다운로드 (.xlsx)
             </Button>
           </CardContent>
         </Card>
@@ -232,15 +232,15 @@ const ExcelUpload = () => {
           <CardHeader>
             <CardTitle>파일 형식</CardTitle>
             <CardDescription>
-              CSV 파일 형식: 단어, 뜻, 예문, 품사, 메모
+              열 순서: 단어, 뜻, 예문, 품사, 메모
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
             <ul className="space-y-2">
-              <li>• 첫 번째 줄: 헤더 (단어,뜻,예문,품사,메모)</li>
-              <li>• 두 번째 줄부터: 데이터</li>
+              <li>• 첫 번째 행: 헤더 (단어, 뜻, 예문, 품사, 메모)</li>
+              <li>• 두 번째 행부터: 데이터</li>
               <li>• 단어와 뜻은 필수, 나머지는 선택</li>
-              <li>• 쉼표(,)로 구분</li>
+              <li>• Excel(.xlsx, .xls) 또는 CSV(.csv) 모두 지원</li>
             </ul>
           </CardContent>
         </Card>
