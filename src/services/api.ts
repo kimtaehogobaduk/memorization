@@ -63,8 +63,8 @@ export const apiGenerateAIQuiz = (words: unknown[], difficulty: string, customRe
 export const apiExtractVocabulary = (file_base64: string, file_type: string, include_details: boolean) =>
   apiPost("/extract-vocabulary", { file_base64, file_type, include_details });
 
-export const apiGenerateVocabularies = (count: number, startIndex: number) =>
-  apiPost<{ success: boolean; processed?: number; error?: string }>("/generate-vocabularies", { count, startIndex });
+export const apiGenerateVocabularies = (count: number, startIndex: number, authToken: string) =>
+  apiPostAuth<{ success: boolean; processed?: number; error?: string }>("/generate-vocabularies", { count, startIndex }, authToken);
 
 export const apiDeleteUser = (userId: string, authToken: string) =>
   apiPostAuth("/delete-user", { userId }, authToken);

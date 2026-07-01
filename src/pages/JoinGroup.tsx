@@ -25,11 +25,20 @@ const JoinGroup = () => {
 
     setLoading(true);
     try {
-      // Find group by join code
+      // Find group by join code via secure RPC (join_code is not directly readable).
+      const { data: groupId, error: rpcError } = await supabase
+        .rpc("find_group_by_join_code", { _code: joinCode.trim().toUpperCase() });
+
+      if (rpcError || !groupId) {
+        toast.error("유효하지 않은 가입 코드입니다.");
+        setLoading(false);
+        return;
+      }
+
       const { data: group, error: groupError } = await supabase
         .from("groups")
-        .select("*")
-        .eq("join_code", joinCode.toUpperCase())
+        .select("id, name")
+        .eq("id", groupId)
         .single();
 
       if (groupError || !group) {

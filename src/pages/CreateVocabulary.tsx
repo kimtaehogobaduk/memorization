@@ -256,8 +256,10 @@ const CreateVocabulary = () => {
     if (!validateImageFile(file, 5)) return;
     try {
       setUploadingImage(true);
-      const fileName = `${Math.random()}.jpg`;
-      const filePath = `temp/${fileName}`;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { toast.error("로그인이 필요합니다."); setUploadingImage(false); return; }
+      const fileName = `${Date.now()}-${Math.random()}.jpg`;
+      const filePath = `${user.id}/${fileName}`;
       const publicUrl = await uploadImageWithRetry('word-images', filePath, file, {
         compress: true,
         maxSize: 600,

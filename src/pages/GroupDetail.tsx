@@ -64,6 +64,7 @@ const GroupDetail = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [vocabulary, setVocabulary] = useState<VocabularyInfo | null>(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [joinCode, setJoinCode] = useState<string>("");
   const [isMember, setIsMember] = useState(false);
   const [sharedVocabularies, setSharedVocabularies] = useState<any[]>([]);
   const [showShareDialog, setShowShareDialog] = useState(false);
@@ -91,7 +92,13 @@ const GroupDetail = () => {
       if (groupError) throw groupError;
 
       setGroup(groupData);
-      setIsOwner(user ? groupData.owner_id === user.id : false);
+      const owner = user ? groupData.owner_id === user.id : false;
+      setIsOwner(owner);
+      if (owner || user) {
+        const { data: codeData } = await supabase.rpc("get_group_join_code", { _group_id: id! });
+        if (codeData) setJoinCode(codeData as string);
+      }
+
 
       // Check if user is a member (only if logged in)
       if (user) {
@@ -179,8 +186,8 @@ const GroupDetail = () => {
   };
 
   const copyJoinCode = () => {
-    if (group) {
-      navigator.clipboard.writeText(group.join_code);
+    if (joinCode) {
+      navigator.clipboard.writeText(joinCode);
       toast.success("가입 코드가 복사되었습니다!");
     }
   };
@@ -482,7 +489,7 @@ const GroupDetail = () => {
                 <CardContent>
                   <div className="flex items-center gap-2">
                     <Input
-                      value={group.join_code}
+                      value={joinCode}
                       readOnly
                       className="text-center text-2xl tracking-wider font-mono"
                     />

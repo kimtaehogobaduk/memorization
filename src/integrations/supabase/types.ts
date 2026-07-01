@@ -676,7 +676,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      find_group_by_join_code: { Args: { _code: string }; Returns: string }
       generate_join_code: { Args: never; Returns: string }
+      get_group_join_code: { Args: { _group_id: string }; Returns: string }
       has_group_access: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
