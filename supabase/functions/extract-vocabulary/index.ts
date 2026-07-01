@@ -155,7 +155,75 @@ function parseAIResponse(content: string): ExtractionResult {
   };
 }
 
-// ── Call Gemini with file (multimodal) using key rotation ────────────
+// ── Call Groq vision (for images) ────────────────────────────────────
+async function callGroqWithImage(
+  fileBase64: string,
+  mimeType: string,
+  includeDetails: boolean,
+  apiKey: string
+): Promise<ExtractionResult> {
+  const systemPrompt = buildSystemPrompt(includeDetails);
+  const MODELS = [
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "meta-llama/llama-4-maverick-17b-128e-instruct",
+  ];
+  const dataUrl = `data:${mimeType};base64,${fileBase64}`;
+
+  let lastErr: Error | null = null;
+  for (const model of MODELS) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: `${systemPrompt}\n\n이 이미지에서 모든 영어 단어를 추출해주세요.` },
+                  { type: "image_url", image_url: { url: dataUrl } },
+                ],
+              },
+            ],
+            temperature: 0.1,
+            max_tokens: 8192,
+            response_format: { type: "json_object" },
+          }),
+        });
+
+        if (res.status === 429) {
+          console.warn(`Groq ${model} rate limited, attempt ${attempt + 1}`);
+          await sleep(2000 * (attempt + 1));
+          continue;
+        }
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error(`Groq ${model} attempt ${attempt + 1} failed:`, res.status, errText);
+          lastErr = new Error(`Groq ${res.status}`);
+          if (res.status >= 500) { await sleep(1000 * (attempt + 1)); continue; }
+          break;
+        }
+        const data = await res.json();
+        const content = data.choices?.[0]?.message?.content || "";
+        if (!content) { lastErr = new Error("empty content"); continue; }
+        console.log(`Groq success with model ${model}`);
+        return parseAIResponse(content);
+      } catch (err) {
+        lastErr = err instanceof Error ? err : new Error(String(err));
+        console.error(`Groq ${model} attempt ${attempt + 1} error:`, err);
+        await sleep(1000);
+      }
+    }
+  }
+  throw lastErr ?? new Error("Groq extraction failed");
+}
+
+// ── Call Gemini with file (multimodal) using key rotation — used for PDFs ─
 async function callGeminiWithFile(
   fileBase64: string,
   mimeType: string,
@@ -196,13 +264,13 @@ async function callGeminiWithFile(
           if (res.status === 429) {
             console.warn(`Key ${apiKey.slice(0, 8)}... rate limited on ${model}, attempt ${attempt + 1}`);
             await sleep(2000 * (attempt + 1));
-            if (attempt === 2) break; // move to next model or key
+            if (attempt === 2) break;
             continue;
           }
 
           if (res.status === 403 || res.status === 401) {
             console.warn(`Key ${apiKey.slice(0, 8)}... auth error (${res.status}), skipping key`);
-            break; // skip this key entirely
+            break;
           }
 
           if (!res.ok) {
@@ -222,7 +290,7 @@ async function callGeminiWithFile(
             continue;
           }
 
-          console.log(`Success with model ${model}, key ${apiKey.slice(0, 8)}...`);
+          console.log(`Gemini success with model ${model}, key ${apiKey.slice(0, 8)}...`);
           return parseAIResponse(content);
         } catch (err) {
           console.error(`Gemini ${model} attempt ${attempt + 1} error:`, err);
