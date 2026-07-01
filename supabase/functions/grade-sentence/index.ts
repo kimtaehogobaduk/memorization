@@ -77,7 +77,8 @@ ${meaning ? `단어의 뜻: "${meaning}"` : ""}
     }
 
     if (!response) {
-      return new Response(JSON.stringify({ correct: false, reason: `AI 채점에 실패했습니다. 잠시 후 다시 시도해주세요. (${lastErrText.slice(0, 120)})`, error: true }), {
+      console.error("grade-sentence Cerebras error:", lastErrText);
+      return new Response(JSON.stringify({ correct: false, reason: "AI 채점에 실패했습니다. 잠시 후 다시 시도해주세요.", error: true }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
