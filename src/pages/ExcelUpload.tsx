@@ -19,18 +19,17 @@ const ExcelUpload = () => {
   const [loading, setLoading] = useState(false);
 
   const downloadTemplate = () => {
-    // CSV template content
-    const template = "단어,뜻,예문,품사,메모\nword,meaning,example,part of speech,note\nhello,안녕,Hello world!,noun,인사말";
-    const blob = new Blob([template], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "단어장_템플릿.csv");
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("템플릿이 다운로드되었습니다!");
+    const rows = [
+      ["단어", "뜻", "예문", "품사", "메모"],
+      ["hello", "안녕", "Hello world!", "noun", "인사말"],
+      ["apple", "사과", "I ate an apple.", "noun", ""],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [{ wch: 14 }, { wch: 18 }, { wch: 28 }, { wch: 10 }, { wch: 16 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "단어장");
+    XLSX.writeFile(wb, "단어장_템플릿.xlsx");
+    toast.success("Excel 템플릿이 다운로드되었습니다!");
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
