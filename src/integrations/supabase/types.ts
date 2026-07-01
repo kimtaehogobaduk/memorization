@@ -677,6 +677,7 @@ export type Database = {
     }
     Functions: {
       generate_join_code: { Args: never; Returns: string }
+      get_group_join_code: { Args: { _group_id: string }; Returns: string }
       has_group_access: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean

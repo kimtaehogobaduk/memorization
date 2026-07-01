@@ -201,11 +201,12 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({ raw }),
     });
-    const body = await r.text();
     if (!r.ok) {
+      const body = await r.text();
       console.error("gmail error", r.status, body);
-      return new Response(JSON.stringify({ error: "이메일 발송 실패", detail: body }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "이메일 발송 실패" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    await r.text().catch(() => "");
 
     return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
