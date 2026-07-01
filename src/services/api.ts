@@ -57,11 +57,23 @@ export const apiGradeSentence = (word: string, meaning: string, sentence: string
     { word, meaning, sentence }
   );
 
-export const apiGenerateAIQuiz = (words: unknown[], difficulty: string, customRequest: string) =>
-  apiPost("/generate-ai-quiz", { words, difficulty, customRequest });
+export const apiGenerateAIQuiz = async (words: unknown[], difficulty: string, customRequest: string) => {
+  const { data, error } = await supabase.functions.invoke("generate-ai-quiz", {
+    body: { words, difficulty, customRequest },
+  });
+  if (error) throw new Error(error.message || "AI 퀴즈 생성 실패");
+  if ((data as any)?.error) throw new Error((data as any).error);
+  return data;
+};
 
-export const apiExtractVocabulary = (file_base64: string, file_type: string, include_details: boolean) =>
-  apiPost("/extract-vocabulary", { file_base64, file_type, include_details });
+export const apiExtractVocabulary = async (file_base64: string, file_type: string, include_details: boolean) => {
+  const { data, error } = await supabase.functions.invoke("extract-vocabulary", {
+    body: { file_base64, file_type, include_details },
+  });
+  if (error) throw new Error(error.message || "파일 추출 실패");
+  if ((data as any)?.error) throw new Error((data as any).error);
+  return data;
+};
 
 export const apiGenerateVocabularies = (count: number, startIndex: number, authToken: string) =>
   apiPostAuth<{ success: boolean; processed?: number; error?: string }>("/generate-vocabularies", { count, startIndex }, authToken);

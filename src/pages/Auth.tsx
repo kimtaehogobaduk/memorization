@@ -152,6 +152,7 @@ const Auth = () => {
     try {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
+      const uid = sess.session?.user.id;
       const { data, error } = await supabase.functions.invoke("verify-otp", {
         body: {
           email: email.trim().toLowerCase(), purpose: "device_verify", code: otp,
@@ -160,6 +161,22 @@ const Auth = () => {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message);
+      // Fire-and-forget: send new-device notification email if the user opted in
+      if (uid) {
+        try {
+          const { data: settings } = await supabase
+            .from("user_settings")
+            .select("new_device_email_notify")
+            .eq("user_id", uid)
+            .maybeSingle();
+          if (settings?.new_device_email_notify) {
+            supabase.functions.invoke("send-otp", {
+              body: { email: email.trim().toLowerCase(), purpose: "device_notify", metadata: { device_name: getDeviceName() } },
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            }).catch(() => {});
+          }
+        } catch { /* ignore */ }
+      }
       toast.success("기기 인증 완료!");
       navigate("/");
     } catch (err: any) {
