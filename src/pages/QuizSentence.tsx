@@ -52,7 +52,7 @@ const QuizSentence = () => {
           }
         }
       } else {
-        let q = supabase.from("words").select("id, word, meaning").in("vocabulary_id", vocabIds).order("order_index", { ascending: true }).order("created_at", { ascending: true }).limit(100);
+        let q = supabase.from("words").select("id, word, meaning").in("vocabulary_id", vocabIds).order("order_index", { ascending: true }).order("created_at", { ascending: true }).limit(10000);
         if (chapterId) q = q.eq("chapter_id", chapterId);
         if (isRetry && incorrectIds.length > 0) q = q.in("id", incorrectIds);
         const { data, error } = await q;

@@ -141,7 +141,7 @@ const QuizWriting = () => {
         .in("vocabulary_id", vocabIds)
         .order("order_index", { ascending: true })
         .order("created_at", { ascending: true })
-        .limit(100);
+        .limit(10000);
 
       if (chapterId) {
         query = query.eq("chapter_id", chapterId);
