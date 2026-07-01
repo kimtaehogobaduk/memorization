@@ -310,15 +310,8 @@ serve(async (req) => {
   }
 
   try {
-    const apiKeys = getGeminiApiKeys();
-    if (apiKeys.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "GEMINI_API_KEY가 설정되어 있지 않습니다." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log(`Using ${apiKeys.length} Gemini API key(s)`);
+    const groqKey = Deno.env.get("GROQ_API_KEY");
+    const geminiKeys = getGeminiApiKeys();
 
     const { file_base64, file_type, include_details } = await req.json();
 
@@ -331,12 +324,27 @@ serve(async (req) => {
 
     console.log(`Processing file type: ${file_type}, base64 length: ${file_base64.length}`);
 
-    const result = await callGeminiWithFile(
-      file_base64,
-      file_type,
-      include_details !== false,
-      apiKeys
-    );
+    const isImage = file_type.startsWith("image/");
+    let result: ExtractionResult;
+
+    if (isImage && groqKey) {
+      try {
+        result = await callGroqWithImage(file_base64, file_type, include_details !== false, groqKey);
+      } catch (groqErr) {
+        console.warn("Groq failed, falling back to Gemini:", groqErr);
+        if (geminiKeys.length === 0) throw groqErr;
+        result = await callGeminiWithFile(file_base64, file_type, include_details !== false, geminiKeys);
+      }
+    } else {
+      // PDFs (and images when Groq key missing) → Gemini
+      if (geminiKeys.length === 0) {
+        return new Response(
+          JSON.stringify({ error: "AI 키가 설정되어 있지 않습니다." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      result = await callGeminiWithFile(file_base64, file_type, include_details !== false, geminiKeys);
+    }
 
     const totalWords = result.chapters.reduce((sum, ch) => sum + ch.words.length, 0);
     console.log(`Extraction complete: ${totalWords} words in ${result.chapters.length} chapters`);
