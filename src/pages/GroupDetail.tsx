@@ -489,7 +489,7 @@ const GroupDetail = () => {
                 <CardContent>
                   <div className="flex items-center gap-2">
                     <Input
-                      value={group.join_code}
+                      value={joinCode}
                       readOnly
                       className="text-center text-2xl tracking-wider font-mono"
                     />
