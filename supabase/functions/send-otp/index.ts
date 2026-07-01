@@ -99,7 +99,18 @@ const purposeMap: Record<string, { label: string; subject: string }> = {
   device_notify: { label: "새 기기에서 로그인 알림", subject: "[암기준섹] 새 기기에서 로그인했어요" },
 };
 
+function escapeHtml(s: string) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function notifyHtml(deviceName: string, when: string) {
+  const safeDevice = escapeHtml(deviceName).slice(0, 200);
+  const safeWhen = escapeHtml(when);
   return `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8"><title>새 기기 로그인 알림</title></head>
 <body style="margin:0;padding:0;background:#f4f6fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif;">
@@ -113,8 +124,8 @@ function notifyHtml(deviceName: string, when: string) {
         <tr><td style="padding:32px;">
           <p style="margin:0 0 12px;color:#0f172a;font-size:15px;line-height:1.6;">새로운 기기에서 회원님의 계정에 로그인했어요.</p>
           <div style="background:#f8fafc;border-radius:12px;padding:16px;margin:16px 0;">
-            <p style="margin:0 0 6px;color:#475569;font-size:13px;"><strong>기기:</strong> ${deviceName}</p>
-            <p style="margin:0;color:#475569;font-size:13px;"><strong>시간:</strong> ${when}</p>
+            <p style="margin:0 0 6px;color:#475569;font-size:13px;"><strong>기기:</strong> ${safeDevice}</p>
+            <p style="margin:0;color:#475569;font-size:13px;"><strong>시간:</strong> ${safeWhen}</p>
           </div>
           <p style="margin:0;color:#64748b;font-size:13px;line-height:1.6;">본인이 아니라면 즉시 비밀번호를 변경해주세요.</p>
           <p style="margin:14px 0 0;color:#94a3b8;font-size:12px;">— 준섹이 드림 🐥</p>
@@ -137,6 +148,23 @@ Deno.serve(async (req) => {
     }
     const normalizedEmail = email.trim().toLowerCase();
 
+    // device_notify must be authenticated and can only target the caller's own email.
+    if (purpose === "device_notify") {
+      const authHeader = req.headers.get("Authorization") ?? "";
+      const jwt = authHeader.replace(/^Bearer\s+/i, "");
+      if (!jwt) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
+      if (userErr || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const callerEmail = (userData.user.email || "").toLowerCase();
+      if (callerEmail !== normalizedEmail) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     // For recovery / device_verify: ensure user exists. (For signup, we want to allow new emails; also block if already exists.)
     const { data: usersList } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
     const existing = usersList?.users?.find((u: any) => (u.email || "").toLowerCase() === normalizedEmail);
@@ -152,7 +180,8 @@ Deno.serve(async (req) => {
     let subject: string;
 
     if (purpose === "device_notify") {
-      const deviceName = (metadata && (metadata as any).device_name) || "알 수 없는 기기";
+      const rawDevice = (metadata && (metadata as any).device_name);
+      const deviceName = (typeof rawDevice === "string" && rawDevice.trim()) ? rawDevice.trim() : "알 수 없는 기기";
       const when = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
       subject = purposeMap[purpose].subject;
       html = notifyHtml(deviceName, when);
