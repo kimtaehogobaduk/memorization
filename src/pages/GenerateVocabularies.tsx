@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { apiGenerateVocabularies } from "@/services/api";
 import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 const GenerateVocabularies = () => {
   const navigate = useNavigate();
@@ -15,20 +16,36 @@ const GenerateVocabularies = () => {
   const [progress, setProgress] = useState(0);
   const [currentBatch, setCurrentBatch] = useState(0);
   const [logs, setLogs] = useState<string[]>([]);
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
 
   const totalVocabularies = 100;
   const batchSize = 5; // Generate 5 at a time to avoid timeouts
   const totalBatches = Math.ceil(totalVocabularies / batchSize);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setAuthorized(false); navigate("/auth"); return; }
+      const { data } = await supabase
+        .from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+      if (!data) { setAuthorized(false); toast.error("관리자만 접근할 수 있습니다."); navigate("/dashboard"); return; }
+      setAuthorized(true);
+    })();
+  }, [navigate]);
 
   const addLog = (message: string) => {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
   };
 
   const generateBatch = async (startIndex: number) => {
-    return await apiGenerateVocabularies(batchSize, startIndex);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error("Not authenticated");
+    return await apiGenerateVocabularies(batchSize, startIndex, token);
   };
 
   const handleGenerate = async () => {
+    if (!authorized) { toast.error("권한이 없습니다."); return; }
     setIsGenerating(true);
     setProgress(0);
     setCurrentBatch(0);
