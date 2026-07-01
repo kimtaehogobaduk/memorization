@@ -128,7 +128,7 @@ const QuizMatching = () => {
         .in("vocabulary_id", vocabIds)
         .order("order_index", { ascending: true })
         .order("created_at", { ascending: true })
-        .limit(100);
+        .limit(10000);
 
       if (chapterId) query = query.eq("chapter_id", chapterId);
       if (isRetry && incorrectIds.length > 0) query = query.in("id", incorrectIds);
@@ -179,7 +179,7 @@ const QuizMatching = () => {
 
     if (shuffled.length < DYNAMIC_SLOTS + 3) {
       toast.error(`동적 모드는 최소 ${DYNAMIC_SLOTS + 3}개 이상의 단어가 필요합니다.`);
-      setDynamicMode(false);
+      return;
       return;
     }
 
