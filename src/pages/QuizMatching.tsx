@@ -310,7 +310,7 @@ const QuizMatching = () => {
       if (selectedLeft && selectedLeft === clickedId) {
         // Correct match
         playMatchSound();
-        replaceDynamicSlots(selectedLeft, clickedId);
+        replaceDynamicSlots(selectedLeft);
         setSelectedLeft(null);
         setSelectedRight(null);
       } else if (selectedLeft && selectedLeft !== clickedId) {
