@@ -174,52 +174,37 @@ const QuizMatching = () => {
     return left.filter(w => rightIds.has(w.id)).length;
   }, []);
 
+  // Board has ≥1 clickable matchable pair
+  const boardHasMatch = (left: Word[], right: Word[]) => {
+    const rSet = new Set(right.map(w => w.id));
+    return left.some(w => rSet.has(w.id));
+  };
+
   const initDynamic = () => {
+    if (allWords.length < 2) {
+      toast.error("동적 모드는 최소 2개 이상의 단어가 필요합니다.");
+      return;
+    }
+
+    const slots = Math.min(DYNAMIC_SLOTS, allWords.length);
     const shuffled = [...allWords].sort(() => Math.random() - 0.5);
+    const left = shuffled.slice(0, slots);
 
-    if (shuffled.length < DYNAMIC_SLOTS + 3) {
-      toast.error(`동적 모드는 최소 ${DYNAMIC_SLOTS + 3}개 이상의 단어가 필요합니다.`);
-      return;
-      return;
+    // Shuffle right until: no positional alignment (L[i].id != R[i].id) AND ≥1 matchable pair
+    let right: Word[] = [];
+    for (let attempt = 0; attempt < 200; attempt++) {
+      right = [...left].sort(() => Math.random() - 0.5);
+      const noAlign = right.every((r, i) => r.id !== left[i].id);
+      if (noAlign && boardHasMatch(left, right)) break;
     }
-
-    const left = shuffled.slice(0, DYNAMIC_SLOTS);
-    const used = new Set(left.map(w => w.id));
-
-    // Build right: pick from ALL words, can reuse left duplicates!
-    // This is the key: right side freely references any word in allWords,
-    // creating natural 1~3 matchable pairs randomly.
-    const right: Word[] = [];
-
-    // First: place 1~3 duplicates of left words (matchable pairs)
-    const targetMatches = Math.min(
-      Math.max(1, Math.floor(Math.random() * 3) + 1),
-      left.length
-    );
-    const matchIndices = Array.from({ length: left.length }, (_, i) => i)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, targetMatches);
-
-    for (const idx of matchIndices) {
-      right.push(left[idx]);
+    // Fallback: rotate to guarantee no alignment
+    if (right.some((r, i) => r.id === left[i].id) && left.length > 1) {
+      right = left.map((_, i) => left[(i + 1) % left.length]);
     }
-
-    // Fill rest from allWords excluding what's already on right (avoid exact duplicates on right)
-    const rightIds = new Set(right.map(w => w.id));
-    const remainingWords = [...allWords]
-      .filter(w => !rightIds.has(w.id))
-      .sort(() => Math.random() - 0.5);
-
-    const needed = DYNAMIC_SLOTS - right.length;
-    for (let i = 0; i < needed && i < remainingWords.length; i++) {
-      right.push(remainingWords[i]);
-    }
-
-    const shuffledRight = [...right].sort(() => Math.random() - 0.5);
 
     setDynLeft(left);
-    setDynRight(shuffledRight);
-    setDynUsedIds(used);
+    setDynRight(right);
+    setDynUsedIds(new Set());
     setDynFinished(false);
     setScore(0);
     setIncorrectWords([]);
@@ -227,85 +212,83 @@ const QuizMatching = () => {
     setSelectedRight(null);
   };
 
-  const replaceDynamicSlots = (matchedLeftId: string, matchedRightId: string) => {
-    // 1. Remove ONLY the matched pair from the screen
-    const survivedLeft = dynLeft.filter(w => w.id !== matchedLeftId);
-    const survivedRight = dynRight.filter(w => w.id !== matchedRightId);
-
-    // 2. Mark both matched IDs as permanently used (never come back)
+  const replaceDynamicSlots = (matchedId: string) => {
+    // 1. Consume the matched pair permanently
     const used = new Set(dynUsedIds);
-    used.add(matchedLeftId);
-    used.add(matchedRightId);
+    used.add(matchedId);
 
-    // 3. Build separate candidate lists:
-    //    - leftWordCandidates: must NOT be on screen already (new word must be fresh)
-    //    - meaningCandidates: can include duplicates of words ALREADY on screen!
-    //      (using a word's meaning while that word is on the left is totally fine)
-    const screenIds = new Set([
-      ...survivedLeft.map(w => w.id),
-      ...survivedRight.map(w => w.id),
-    ]);
-    const leftWordCandidates = allWords.filter(
-      w => !used.has(w.id) && !screenIds.has(w.id)
-    );
-    // right side: can reuse LEFT-side screen words as meanings, but NOT right-side duplicates
-    const rightScreenIds = new Set(survivedRight.map(w => w.id));
-    const meaningCandidates = allWords.filter(
-      w => !used.has(w.id) && !rightScreenIds.has(w.id)
-    );
+    const leftIdx = dynLeft.findIndex(w => w.id === matchedId);
+    const rightIdx = dynRight.findIndex(w => w.id === matchedId);
+    const survivedLeft = dynLeft.filter(w => w.id !== matchedId);
+    const survivedRight = dynRight.filter(w => w.id !== matchedId);
 
-    // 4. Not enough fresh words to put on left → shrink gracefully toward end
-    if (leftWordCandidates.length < 1 || meaningCandidates.length < 1) {
+    setScore(prev => prev + 1);
+
+    // 2. All pool consumed → game clear
+    if (used.size >= allWords.length) {
       setDynLeft(survivedLeft);
       setDynRight(survivedRight);
       setDynUsedIds(used);
-      setScore(prev => prev + 1);
-      if (survivedLeft.length === 0) {
+      if (survivedLeft.length === 0 && survivedRight.length === 0) {
         setTimeout(() => setDynFinished(true), 600);
       }
       return;
     }
 
-    // 5. Pick a NEW word for the left side (must be fresh: not on screen, not used)
-    const leftIdx = Math.floor(Math.random() * leftWordCandidates.length);
-    const newWord = leftWordCandidates[leftIdx];
+    // 3. Candidate pool for refill (unused, not currently on same side)
+    const leftScreenIds = new Set(survivedLeft.map(w => w.id));
+    const rightScreenIds = new Set(survivedRight.map(w => w.id));
+    const leftCands = allWords.filter(w => !used.has(w.id) && !leftScreenIds.has(w.id));
+    const rightCands = allWords.filter(w => !used.has(w.id) && !rightScreenIds.has(w.id));
 
-    // 6. Pick a NEW meaning for the right side — COMPLETELY RANDOM
-    const remainingMeanings = meaningCandidates.filter(w => w.id !== newWord.id);
+    // Late-game exception: pool nearly depleted → relax and shrink
+    const remainingPool = allWords.length - used.size;
+    const relaxed = remainingPool <= 3;
 
-    let newMeaning: Word;
-    if (remainingMeanings.length > 0) {
-      newMeaning = remainingMeanings[Math.floor(Math.random() * remainingMeanings.length)];
-    } else {
-      newMeaning = newWord; // unavoidable self-match
+    if (leftCands.length === 0 || rightCands.length === 0) {
+      // Cannot refill → shrink board
+      setDynLeft(survivedLeft);
+      setDynRight(survivedRight);
+      setDynUsedIds(used);
+      if (survivedLeft.length === 0 && survivedRight.length === 0) {
+        setTimeout(() => setDynFinished(true), 600);
+      }
+      return;
     }
 
-    const finalLeft = [...survivedLeft, newWord];
-    const finalRight = [...survivedRight, newMeaning];
+    // 4. Search for a (newWord, newMeaning) pair satisfying all constraints
+    let picked: { newWord: Word; newMeaning: Word } | null = null;
+    const shufL = [...leftCands].sort(() => Math.random() - 0.5);
+    const shufR = [...rightCands].sort(() => Math.random() - 0.5);
 
-    // 7. Safety: ensure at least 1 matchable pair remains on screen
-    const finalMatches = countMatchablePairs(finalLeft, finalRight);
-    if (finalMatches === 0 && finalLeft.length > 0) {
-      const nonMatchIdx = finalRight.findIndex(
-        w => !finalLeft.some(lw => lw.id === w.id)
-      );
-      if (nonMatchIdx >= 0) {
-        const replaced = finalRight[nonMatchIdx];
-        const targetLeft = finalLeft[Math.floor(Math.random() * finalLeft.length)];
-        finalRight[nonMatchIdx] = targetLeft;
-        used.add(replaced.id);
+    outer: for (const nw of shufL) {
+      for (const nm of shufR) {
+        // Constraint 1: no direct cross-refill match
+        if (!relaxed && nw.id === nm.id) continue;
+        // Constraint 2: board after refill has ≥1 matchable pair
+        const trialLeft = [...survivedLeft];
+        const trialRight = [...survivedRight];
+        trialLeft.splice(leftIdx, 0, nw);
+        trialRight.splice(rightIdx, 0, nm);
+        if (!relaxed && !boardHasMatch(trialLeft, trialRight)) continue;
+        picked = { newWord: nw, newMeaning: nm };
+        break outer;
       }
     }
+
+    // Relaxed fallback: pick anything
+    if (!picked) {
+      picked = { newWord: shufL[0], newMeaning: shufR[0] };
+    }
+
+    const finalLeft = [...survivedLeft];
+    const finalRight = [...survivedRight];
+    finalLeft.splice(leftIdx, 0, picked.newWord);
+    finalRight.splice(rightIdx, 0, picked.newMeaning);
 
     setDynLeft(finalLeft);
     setDynRight(finalRight);
     setDynUsedIds(used);
-    setScore(prev => prev + 1);
-
-    // End game: all words have been matched
-    if (used.size >= allWords.length) {
-      setTimeout(() => setDynFinished(true), 600);
-    }
   };
 
   // ── Click handlers ──
@@ -327,7 +310,7 @@ const QuizMatching = () => {
       if (selectedLeft && selectedLeft === clickedId) {
         // Correct match
         playMatchSound();
-        replaceDynamicSlots(selectedLeft, clickedId);
+        replaceDynamicSlots(selectedLeft);
         setSelectedLeft(null);
         setSelectedRight(null);
       } else if (selectedLeft && selectedLeft !== clickedId) {
