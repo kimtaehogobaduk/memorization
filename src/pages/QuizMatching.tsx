@@ -475,51 +475,59 @@ const QuizMatching = () => {
           >
             {/* Left side - Words */}
             <div className="space-y-3">
-              {displayLeft.map((pair, index) => (
-                <motion.div
-                  key={`left-${pair.id}-${index}`}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  layout
-                >
-                  <Card
-                    className={cn(
-                      "p-4 cursor-pointer transition-all",
-                      pair.matched && "opacity-50 bg-success/20 border-success",
-                      selectedLeft === pair.id && !pair.matched && "border-primary bg-primary/10"
-                    )}
-                    onClick={() => handleLeftClick(pair.id)}
+              <AnimatePresence initial={false}>
+                {displayLeft.map((pair) => (
+                  <motion.div
+                    key={`left-${pair.id}`}
+                    layout
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
                   >
-                    <p className="font-semibold text-center">{pair.word.word}</p>
-                  </Card>
-                </motion.div>
-              ))}
+                    <Card
+                      className={cn(
+                        "p-4 cursor-pointer transition-all",
+                        pair.matched && "opacity-50 bg-success/20 border-success",
+                        selectedLeft === pair.id && !pair.matched && "border-primary bg-primary/10"
+                      )}
+                      onClick={() => handleLeftClick(pair.id)}
+                    >
+                      <p className="font-semibold text-center">{pair.word.word}</p>
+                    </Card>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
+
 
             {/* Right side - Meanings */}
             <div className="space-y-3">
-              {displayRight.map((pair, index) => (
-                <motion.div
-                  key={`right-${pair.id}-${index}`}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  layout
-                >
-                  <Card
-                    className={cn(
-                      "p-4 cursor-pointer transition-all",
-                      pair.matched && "opacity-50 bg-success/20 border-success",
-                      selectedRight === pair.id && !pair.matched && "border-primary bg-primary/10"
-                    )}
-                    onClick={() => handleRightClick(pair.id)}
+              <AnimatePresence initial={false}>
+                {displayRight.map((pair) => (
+                  <motion.div
+                    key={`right-${pair.id}`}
+                    layout
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
                   >
-                    <p className="text-sm text-center">{pair.word.meaning}</p>
-                  </Card>
-                </motion.div>
-              ))}
+                    <Card
+                      className={cn(
+                        "p-4 cursor-pointer transition-all",
+                        pair.matched && "opacity-50 bg-success/20 border-success",
+                        selectedRight === pair.id && !pair.matched && "border-primary bg-primary/10"
+                      )}
+                      onClick={() => handleRightClick(pair.id)}
+                    >
+                      <p className="text-sm text-center">{pair.word.meaning}</p>
+                    </Card>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
+
           </motion.div>
         </AnimatePresence>
 
