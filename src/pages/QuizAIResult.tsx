@@ -40,7 +40,10 @@ const QuizAIResult = () => {
   const score = parseInt(searchParams.get("score") || "0");
   const total = parseInt(searchParams.get("total") || "0");
   const difficulty = searchParams.get("difficulty") || "중";
+  const elapsedTime = parseInt(searchParams.get("time") || "0");
   const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+  const avgTimePerQuestion = total > 0 ? Math.round((elapsedTime / total) * 10) / 10 : 0;
+  const formatTime = (s: number) => `${Math.floor(s/60).toString().padStart(2,"0")}:${(s%60).toString().padStart(2,"0")}`;
 
   useEffect(() => {
     const stored = sessionStorage.getItem("aiQuizResults");
