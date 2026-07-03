@@ -55,6 +55,7 @@ const QuizRandom = () => {
   const [timer, setTimer] = useState(0);
   const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium');
   const inputRef = useRef<HTMLInputElement>(null);
+  const startTimeRef = useRef<number | null>(null);
 
   const isRandom = searchParams.get("random") === "true";
   const answerDelay = parseFloat(searchParams.get("delay") || "2");
@@ -211,6 +212,7 @@ const QuizRandom = () => {
       setIsSubmitted(false);
       setIsCorrect(null);
       setTimer(0);
+      if (startTimeRef.current === null) startTimeRef.current = Date.now();
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [currentIndex, plan]);
@@ -240,6 +242,7 @@ const QuizRandom = () => {
       } else {
         const finalScore = score + (correct ? 1 : 0);
         const finalIncorrect = correct ? incorrectWords : [...incorrectWords, currentWord];
+        const elapsedTime = startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : 0;
         const params = new URLSearchParams({
           score: finalScore.toString(),
           total: plan.length.toString(),
@@ -247,6 +250,7 @@ const QuizRandom = () => {
           quizType: "random",
           choices: choiceCount.toString(),
           delay: answerDelay.toString(),
+          time: elapsedTime.toString(),
         });
         if (chapterId) params.append("chapter", chapterId);
         if (vocabIds.length > 1 || !id) {

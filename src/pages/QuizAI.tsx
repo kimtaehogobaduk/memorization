@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuizSound } from "@/hooks/useQuizSound";
@@ -45,6 +45,7 @@ const QuizAI = () => {
   const [loading, setLoading] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState("AI가 문제를 만들고 있어요...");
   const [timer, setTimer] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
   const [results, setResults] = useState<Array<{
     question: AIQuestion;
     selectedIndex: number;
@@ -62,6 +63,7 @@ const QuizAI = () => {
 
   useEffect(() => {
     if (selectedAnswer === null && questions.length > 0) {
+      if (startTimeRef.current === null) startTimeRef.current = Date.now();
       const interval = setInterval(() => setTimer(prev => prev + 1), 1000);
       return () => clearInterval(interval);
     }
@@ -131,10 +133,12 @@ const QuizAI = () => {
         // Store results in sessionStorage since URL would be too long
         sessionStorage.setItem("aiQuizResults", JSON.stringify(finalResults));
 
+        const elapsedTime = startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : 0;
         const params = new URLSearchParams({
           score: finalScore.toString(),
           total: questions.length.toString(),
           difficulty,
+          time: elapsedTime.toString(),
         });
         if (chapterId) params.append("chapter", chapterId);
         navigate(`/quiz/${id}/ai-result?${params.toString()}`);

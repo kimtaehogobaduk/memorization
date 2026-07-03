@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,11 @@ const QuizSentence = () => {
   const [score, setScore] = useState(0);
   const [incorrectWords, setIncorrectWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
+  const startTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (words.length > 0 && startTimeRef.current === null) startTimeRef.current = Date.now();
+  }, [words]);
 
   const isRandom = searchParams.get("random") === "true";
   const chapterId = searchParams.get("chapter");
@@ -98,11 +103,13 @@ const QuizSentence = () => {
       setSentence("");
       setResult(null);
     } else {
+      const elapsedTime = startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : 0;
       const params = new URLSearchParams({
         score: score.toString(),
         total: words.length.toString(),
         incorrect: encodeURIComponent(JSON.stringify(incorrectWords)),
         quizType: "sentence",
+        time: elapsedTime.toString(),
       });
       if (chapterId) params.append("chapter", chapterId);
       if (vocabIds.length > 1 || !id) {
