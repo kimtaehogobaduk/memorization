@@ -103,11 +103,13 @@ const QuizSentence = () => {
       setSentence("");
       setResult(null);
     } else {
+      const elapsedTime = startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : 0;
       const params = new URLSearchParams({
         score: score.toString(),
         total: words.length.toString(),
         incorrect: encodeURIComponent(JSON.stringify(incorrectWords)),
         quizType: "sentence",
+        time: elapsedTime.toString(),
       });
       if (chapterId) params.append("chapter", chapterId);
       if (vocabIds.length > 1 || !id) {
