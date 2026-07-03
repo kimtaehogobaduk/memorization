@@ -29,6 +29,11 @@ const QuizSentence = () => {
   const [score, setScore] = useState(0);
   const [incorrectWords, setIncorrectWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
+  const startTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (words.length > 0 && startTimeRef.current === null) startTimeRef.current = Date.now();
+  }, [words]);
 
   const isRandom = searchParams.get("random") === "true";
   const chapterId = searchParams.get("chapter");
