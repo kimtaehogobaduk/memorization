@@ -55,6 +55,7 @@ const QuizRandom = () => {
   const [timer, setTimer] = useState(0);
   const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium');
   const inputRef = useRef<HTMLInputElement>(null);
+  const startTimeRef = useRef<number | null>(null);
 
   const isRandom = searchParams.get("random") === "true";
   const answerDelay = parseFloat(searchParams.get("delay") || "2");
