@@ -198,7 +198,7 @@ const QuizAIResult = () => {
                 <p className="text-2xl font-bold">{getJunsukMessage()}</p>
               </div>
 
-              <div className="flex justify-center gap-8 text-base">
+              <div className="flex flex-wrap justify-center gap-3 text-base">
                 <div className="flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-md">
                   <CheckCircle2 className="w-5 h-5 text-success" />
                   <span>정답: <span className="font-bold">{score}/{total}</span></span>
@@ -206,6 +206,14 @@ const QuizAIResult = () => {
                 <div className="flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-md">
                   <XCircle className="w-5 h-5 text-destructive" />
                   <span>오답: <span className="font-bold">{total - score}/{total}</span></span>
+                </div>
+                <div className="flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-md">
+                  <span className="text-lg">⏱</span>
+                  <span>총 시간: <span className="font-bold">{formatTime(elapsedTime)}</span></span>
+                </div>
+                <div className="flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-md">
+                  <span className="text-lg">⏱</span>
+                  <span>문제당 평균: <span className="font-bold">{avgTimePerQuestion}초</span></span>
                 </div>
               </div>
             </div>
