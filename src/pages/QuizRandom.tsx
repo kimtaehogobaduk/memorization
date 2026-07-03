@@ -212,6 +212,7 @@ const QuizRandom = () => {
       setIsSubmitted(false);
       setIsCorrect(null);
       setTimer(0);
+      if (startTimeRef.current === null) startTimeRef.current = Date.now();
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [currentIndex, plan]);
