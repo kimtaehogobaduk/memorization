@@ -258,6 +258,7 @@ const QuizWriting = () => {
         const finalScore = score + (correct ? 1 : 0);
         const finalIncorrect = correct ? incorrectWords : [...incorrectWords, currentWord];
         
+        const elapsedTime = startTime ? Math.round((Date.now() - startTime) / 1000) : 0;
         const params = new URLSearchParams({
           score: finalScore.toString(),
           total: words.length.toString(),
@@ -265,6 +266,7 @@ const QuizWriting = () => {
           quizType: "writing",
           questionType: questionType,
           delay: answerDelay.toString(),
+          time: elapsedTime.toString(),
         });
         
         if (chapterId) {
