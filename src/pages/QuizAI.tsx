@@ -63,6 +63,7 @@ const QuizAI = () => {
 
   useEffect(() => {
     if (selectedAnswer === null && questions.length > 0) {
+      if (startTimeRef.current === null) startTimeRef.current = Date.now();
       const interval = setInterval(() => setTimer(prev => prev + 1), 1000);
       return () => clearInterval(interval);
     }
