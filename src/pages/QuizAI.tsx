@@ -133,10 +133,12 @@ const QuizAI = () => {
         // Store results in sessionStorage since URL would be too long
         sessionStorage.setItem("aiQuizResults", JSON.stringify(finalResults));
 
+        const elapsedTime = startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : 0;
         const params = new URLSearchParams({
           score: finalScore.toString(),
           total: questions.length.toString(),
           difficulty,
+          time: elapsedTime.toString(),
         });
         if (chapterId) params.append("chapter", chapterId);
         navigate(`/quiz/${id}/ai-result?${params.toString()}`);
