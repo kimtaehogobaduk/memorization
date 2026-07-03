@@ -242,6 +242,7 @@ const QuizRandom = () => {
       } else {
         const finalScore = score + (correct ? 1 : 0);
         const finalIncorrect = correct ? incorrectWords : [...incorrectWords, currentWord];
+        const elapsedTime = startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : 0;
         const params = new URLSearchParams({
           score: finalScore.toString(),
           total: plan.length.toString(),
@@ -249,6 +250,7 @@ const QuizRandom = () => {
           quizType: "random",
           choices: choiceCount.toString(),
           delay: answerDelay.toString(),
+          time: elapsedTime.toString(),
         });
         if (chapterId) params.append("chapter", chapterId);
         if (vocabIds.length > 1 || !id) {
