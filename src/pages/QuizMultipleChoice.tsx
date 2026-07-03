@@ -35,6 +35,7 @@ const QuizMultipleChoice = () => {
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
   const [timer, setTimer] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
   const [incorrectWords, setIncorrectWords] = useState<Word[]>([]);
   const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium');
 
@@ -81,8 +82,10 @@ const QuizMultipleChoice = () => {
     if (words.length > 0 && currentIndex < words.length) {
       generateChoices();
       setTimer(0);
+      if (startTime === null) setStartTime(Date.now());
     }
   }, [currentIndex, words]);
+
 
   useEffect(() => {
     if (selectedAnswer === null && words.length > 0) {
@@ -234,6 +237,7 @@ const QuizMultipleChoice = () => {
         const finalScore = score + (correct ? 1 : 0);
         const finalIncorrect = correct ? incorrectWords : [...incorrectWords, currentWord];
         
+        const elapsedTime = startTime ? Math.round((Date.now() - startTime) / 1000) : 0;
         const params = new URLSearchParams({
           score: finalScore.toString(),
           total: words.length.toString(),
@@ -242,6 +246,7 @@ const QuizMultipleChoice = () => {
           questionType,
           choices: choiceCount.toString(),
           delay: answerDelay.toString(),
+          time: elapsedTime.toString(),
         });
          
         if (chapterId) {

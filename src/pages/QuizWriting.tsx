@@ -37,6 +37,12 @@ const QuizWriting = () => {
   const [loading, setLoading] = useState(true);
   const [incorrectWords, setIncorrectWords] = useState<Word[]>([]);
   const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [startTime, setStartTime] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (words.length > 0 && startTime === null) setStartTime(Date.now());
+  }, [words, startTime]);
+
 
   const isRandom = searchParams.get("random") === "true";
   const answerDelay = parseFloat(searchParams.get("delay") || "2");
