@@ -45,6 +45,7 @@ const QuizAI = () => {
   const [loading, setLoading] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState("AI가 문제를 만들고 있어요...");
   const [timer, setTimer] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
   const [results, setResults] = useState<Array<{
     question: AIQuestion;
     selectedIndex: number;
