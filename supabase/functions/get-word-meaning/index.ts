@@ -217,7 +217,7 @@ serve(async (req) => {
     const requestPromise = (async () => {
       try {
         const r = await callCerebras(trimmedWord.toLowerCase(), CEREBRAS_API_KEY, partOfSpeech);
-        if (partOfSpeech && r.part_of_speech && r.part_of_speech.trim() !== partOfSpeech) {
+        if (partOfSpeech && r.part_of_speech && !r.part_of_speech.includes(partOfSpeech) && !partOfSpeech.includes(r.part_of_speech)) {
           throw new Error(`POS mismatch: got "${r.part_of_speech}", expected "${partOfSpeech}"`);
         }
         return { result: r, autoFallback: false };

@@ -51,26 +51,30 @@ Be moderately strict: accept valid synonyms and natural Korean expressions, but 
 
 Respond with ONLY: {"valid": true} or {"valid": false}`;
 
-    const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${CEREBRAS_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama3.1-8b",
-        messages: [
-          { role: "system", content: "You are a quiz grading assistant. Respond ONLY with a JSON object. No extra text." },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.1,
-        max_tokens: 20,
-      }),
-    });
+    const MODELS = ["gpt-oss-120b", "llama3.1-8b", "qwen-3-235b-a22b-instruct-2507"];
+    let response: Response | null = null;
+    let lastErr = "";
+    for (const model of MODELS) {
+      const r = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: "You are a quiz grading assistant. Respond ONLY with a JSON object. No extra text." },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.1,
+          max_tokens: 30,
+          response_format: { type: "json_object" },
+        }),
+      });
+      if (r.ok) { response = r; break; }
+      lastErr = await r.text();
+      console.error(`validate-meaning ${model} failed:`, r.status, lastErr);
+    }
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Cerebras error:", response.status, errText);
+    if (!response) {
       return new Response(JSON.stringify({ valid: false, fallback: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
