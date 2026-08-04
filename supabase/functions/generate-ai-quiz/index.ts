@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const MODELS = ["llama3.1-8b"];
+const MODELS = ["gpt-oss-120b", "llama3.1-8b", "qwen-3-235b-a22b-instruct-2507"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface WordInput {
