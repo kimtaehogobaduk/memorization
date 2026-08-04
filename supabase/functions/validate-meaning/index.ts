@@ -51,37 +51,55 @@ Be moderately strict: accept valid synonyms and natural Korean expressions, but 
 
 Respond with ONLY: {"valid": true} or {"valid": false}`;
 
-    const MODELS = ["gpt-oss-120b", "llama3.1-8b", "qwen-3-235b-a22b-instruct-2507"];
-    let response: Response | null = null;
-    let lastErr = "";
-    for (const model of MODELS) {
-      const r = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: "You are a quiz grading assistant. Respond ONLY with a JSON object. No extra text." },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.1,
-          max_tokens: 30,
-          response_format: { type: "json_object" },
-        }),
-      });
-      if (r.ok) { response = r; break; }
-      lastErr = await r.text();
-      console.error(`validate-meaning ${model} failed:`, r.status, lastErr);
+    // 로컬 1차 채점: 정규화 후 완전 일치/포함이면 AI 호출 없이 정답 처리
+    const norm = (s: string) => String(s).replace(/[\s.,~!?()[\]{}'"·/]/g, "").trim();
+    const ua = norm(userAnswer);
+    const cm = norm(correctMeaning || "");
+    if (ua.length > 0 && cm.length > 0) {
+      const parts = cm.split(/[,;]/).map(norm).filter(Boolean);
+      if (ua === cm || parts.includes(ua)) {
+        return new Response(JSON.stringify({ valid: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
-    if (!response) {
+    const MODELS = ["gpt-oss-120b", "llama3.1-8b", "qwen-3-235b-a22b-instruct-2507"];
+    let content = "";
+    for (const model of MODELS) {
+      try {
+        const r = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: "You are a quiz grading assistant. Respond ONLY with a JSON object. No extra text." },
+              { role: "user", content: prompt },
+            ],
+            temperature: 0.1,
+            max_tokens: 300,
+            response_format: { type: "json_object" },
+          }),
+        });
+        if (!r.ok) {
+          console.error(`validate-meaning ${model} failed:`, r.status, await r.text());
+          continue;
+        }
+        const payload = await r.json();
+        const c = payload?.choices?.[0]?.message?.content || "";
+        if (/"valid"\s*:\s*(true|false)/.test(c)) { content = c; break; }
+        console.error(`validate-meaning ${model} unparsable content`);
+      } catch (e) {
+        console.error(`validate-meaning ${model} threw:`, e);
+      }
+    }
+
+    if (!content) {
       return new Response(JSON.stringify({ valid: false, fallback: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const payload = await response.json();
-    const content = payload?.choices?.[0]?.message?.content || "";
 
     const match = content.match(/"valid"\s*:\s*(true|false)/);
     const valid = match ? match[1] === "true" : false;
