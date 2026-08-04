@@ -88,14 +88,26 @@ export const apiExtractVocabulary = async (file_base64: string, file_type: strin
   return data;
 };
 
-export const apiGenerateVocabularies = (count: number, startIndex: number, authToken: string) =>
-  apiPostAuth<{ success: boolean; processed?: number; error?: string }>("/generate-vocabularies", { count, startIndex }, authToken);
+export const apiGenerateVocabularies = async (count: number, startIndex: number, _authToken?: string) => {
+  const { data, error } = await supabase.functions.invoke("generate-vocabularies", {
+    body: { count, startIndex },
+  });
+  if (error) throw new Error(error.message || "단어장 생성 실패");
+  if ((data as any)?.error) throw new Error((data as any).error);
+  return data as { success: boolean; processed?: number; error?: string };
+};
 
-export const apiDeleteUser = (userId: string, authToken: string) =>
-  apiPostAuth("/delete-user", { userId }, authToken);
+export const apiDeleteUser = async (userId: string, _authToken?: string) => {
+  const { data, error } = await supabase.functions.invoke("delete-user", { body: { userId } });
+  if (error) throw new Error(error.message || "사용자 삭제 실패");
+  return data;
+};
 
-export const apiGetAdminUsers = (authToken: string) =>
-  apiGetAuth<{ users: AdminUser[] }>("/admin/users", authToken);
+export const apiGetAdminUsers = async (_authToken?: string) => {
+  const { data, error } = await supabase.functions.invoke("admin-users", { body: {} });
+  if (error) throw new Error(error.message || "사용자 목록 조회 실패");
+  return data as { users: AdminUser[] };
+};
 
 export interface AdminUser {
   id: string;
