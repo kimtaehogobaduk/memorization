@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { KaistNoticePopup } from "@/components/KaistNoticePopup";
 import { motion, AnimatePresence } from "framer-motion";
 import splashImage from "@/assets/splash-screen.jpg";
 import { NotificationProvider } from "./components/NotificationProvider";
@@ -66,6 +67,7 @@ const App = () => {
             <motion.div key="main" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
               <BrowserRouter>
                 <NotificationProvider />
+                <KaistNoticePopup />
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/dashboard" element={<Dashboard />} />
