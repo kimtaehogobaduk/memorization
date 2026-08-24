@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, Users, Sparkles, Heart, Trophy } from "lucide-react";
 import { motion } from "framer-motion";
 import junsuk01 from "@/assets/junsuk-01.png";
+import { KaistNoticePopup } from "@/components/KaistNoticePopup";
 
 const Index = () => {
   const { user, loading } = useAuth();
