@@ -27,6 +27,7 @@ const Index = () => {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
       <div className="max-w-4xl w-full">
         {/* Hero Section with Junsuk */}
