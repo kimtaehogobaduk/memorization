@@ -3,40 +3,32 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Sparkles, Calendar, MapPin, Phone, Globe } from "lucide-react";
 import kaistPoster from "@/assets/kaist-poster.jpg.asset.json";
 
-const STORAGE_KEY = "kaist-notice-dismissed-v1";
+const AUTO_CLOSE_SECONDS = 5;
 
 /**
- * 첫 진입 시 KAIST IP영재기업인교육원 18기 신입생 모집 홍보 팝업.
- * localStorage로 한 번 닫으면 다시 띄우지 않으며, 5초 후 자동 닫힘.
+ * KAIST IP영재기업인교육원 18기 신입생 모집 홍보 팝업.
+ * 방문할 때마다 표시되며, 5초 뒤에 닫기 버튼이 활성화됩니다.
  */
 export const KaistNoticePopup = () => {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const dismissed = window.localStorage.getItem(STORAGE_KEY);
-    if (!dismissed) {
-      setOpen(true);
-    }
-  }, []);
+  const [open, setOpen] = useState(true);
+  const [remaining, setRemaining] = useState(AUTO_CLOSE_SECONDS);
 
   useEffect(() => {
     if (!open) return;
-    const timer = setTimeout(() => setOpen(false), 5000);
-    return () => clearTimeout(timer);
+    const timer = setInterval(() => {
+      setRemaining((r) => (r <= 1 ? 0 : r - 1));
+    }, 1000);
+    return () => clearInterval(timer);
   }, [open]);
 
+  const canClose = remaining <= 0;
   const handleClose = () => {
+    if (!canClose) return;
     setOpen(false);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, "1");
-    } catch {
-      /* ignore */
-    }
   };
 
   return (
-    <AnimatePresence onExitComplete={handleClose}>
+    <AnimatePresence>
       {open && (
         <motion.div
           key="kaist-notice"
@@ -56,13 +48,19 @@ export const KaistNoticePopup = () => {
             onClick={(e) => e.stopPropagation()}
           >
             {/* 닫기 버튼 */}
-            <button
-              onClick={handleClose}
-              aria-label="닫기"
-              className="absolute top-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur transition hover:bg-black/60"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            {canClose ? (
+              <button
+                onClick={handleClose}
+                aria-label="닫기"
+                className="absolute top-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            ) : (
+              <div className="absolute top-3 right-3 z-10 flex h-9 min-w-9 items-center justify-center rounded-full bg-black/40 px-3 text-sm font-bold text-white backdrop-blur">
+                {remaining}
+              </div>
+            )}
 
             {/* 상단 배너 */}
             <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 px-5 py-3 text-center">
@@ -123,8 +121,16 @@ export const KaistNoticePopup = () => {
                 </ul>
 
                 <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
-                  ※ 이 안내는 5초 후 자동으로 닫힙니다.
+                  ※ 5초 후 닫기 버튼이 나타납니다.
                 </p>
+
+                <button
+                  onClick={handleClose}
+                  disabled={!canClose}
+                  className="mt-3 w-full rounded-xl bg-blue-700 px-4 py-3 text-sm font-extrabold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {canClose ? "닫기" : `${remaining}초 후 닫기 가능`}
+                </button>
               </div>
             </div>
           </motion.div>
