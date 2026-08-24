@@ -171,6 +171,8 @@ const Index = () => {
         </motion.div>
       </div>
     </div>
+      <KaistNoticePopup />
+    </>
   );
 };
 
