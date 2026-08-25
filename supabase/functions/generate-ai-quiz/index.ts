@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const MODELS = ["gpt-oss-120b", "llama3.1-8b", "qwen-3-235b-a22b-instruct-2507"];
+const MODELS = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "moonshotai/kimi-k2-instruct-0905"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface WordInput {
@@ -128,7 +128,7 @@ function extractQuestions(parsed: unknown): QuizQuestion[] {
   }));
 }
 
-async function callCerebras(
+async function callGroq(
   words: WordInput[],
   difficulty: string,
   customRequest: string,
@@ -169,7 +169,7 @@ Return ONLY the JSON array. No markdown fences, no extra text.`;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         console.log(`[${model}] attempt ${attempt + 1}, ${batchSize} words`);
-        const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -241,13 +241,13 @@ serve(async (req) => {
       });
     }
 
-    const CEREBRAS_API_KEY = Deno.env.get("CEREBRAS_API_KEY");
-    if (!CEREBRAS_API_KEY) {
-      throw new Error("CEREBRAS_API_KEY is not configured");
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (!GROQ_API_KEY) {
+      throw new Error("GROQ_API_KEY is not configured");
     }
 
     const limitedWords = words.slice(0, 20);
-    const questions = await callCerebras(limitedWords, difficulty || "중", customRequest || "", CEREBRAS_API_KEY);
+    const questions = await callGroq(limitedWords, difficulty || "중", customRequest || "", GROQ_API_KEY);
 
     return new Response(JSON.stringify({ questions }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
