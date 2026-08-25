@@ -1,20 +1,40 @@
-원인 분석 결과, `grade-sentence` 백엔드 함수가 Cerebras에 존재하지 않거나 권한이 없는 모델 ID `llama-3.3-70b`를 호출하고 있습니다. 실제 함수 로그에도 `Model llama-3.3-70b does not exist or you do not have access to it` 404가 반복 기록되어 있고, 프로젝트의 다른 Cerebras 기능들은 정상 모델 ID인 `llama3.1-8b`를 사용하고 있습니다. 그래서 AI가 채점에 실패하고, 현재 코드는 실패를 숨긴 채 `AI 채점 실패. 정답 처리합니다.`로 fallback 처리하고 있습니다.
+# Firebase 데이터 이전 + AI는 Lovable AI 유지
 
-구현 계획:
+## 목표
+- **AI**: 모든 AI 기능을 Lovable AI(Gemini/GPT 게이트웨이)로 전환 — 별도 API 키 불필요
+- **데이터**: 인증/DB/스토리지를 Firebase(`memorization-d5785`)로 이전
 
-1. `supabase/functions/grade-sentence/index.ts` 수정
-   - 모델 ID를 현재 프로젝트에서 쓰는 Cerebras 지원 모델 `llama3.1-8b`로 변경합니다.
-   - 404/429/5xx 같은 Cerebras 오류를 더 명확히 처리하고, 일시적 오류는 재시도하도록 보강합니다.
-   - JSON 파싱 실패 시에도 응답 원문에서 JSON을 복구하는 로직을 유지/강화합니다.
-   - AI 호출 실패를 무조건 정답 처리하는 fallback은 제거하거나 최소화해서, 실제 채점 결과가 아닌 경우 사용자가 오해하지 않게 합니다.
+## 먼저 알아두실 점
+- 기존 사용자의 **비밀번호는 이전이 불가능**합니다. 계정(이메일)과 데이터는 옮길 수 있지만, 사용자들은 최초 1회 비밀번호 재설정이 필요합니다.
+- 데이터 실제 이전(현재 DB → Firestore)에는 Firebase **서비스 계정 JSON 키**가 필요합니다.
+- 현재 앱의 36개 파일이 기존 백엔드를 직접 호출합니다. 전면 재작업이라 단계별로 진행합니다.
 
-2. `server/gradeSentence.js`와 필요 시 `server/index.ts`의 동일한 구형 모델 설정도 함께 정리
-   - 현재 앱은 Cloud 함수(`supabase.functions.invoke`)를 쓰지만, 남아 있는 서버 코드에도 같은 잘못된 모델 ID가 있어 이후 혼선을 막기 위해 동일하게 수정합니다.
+## 1단계 — AI를 Lovable AI로
+대상 함수: get-word-meaning, validate-meaning, grade-sentence, generate-ai-quiz, generate-vocabularies, extract-vocabulary
+- Groq/Cerebras 호출을 Lovable AI 게이트웨이(`google/gemini-2.5-flash`, 폴백 `google/gemini-2.5-flash-lite`)로 교체
+- 이미지/PDF 단어 추출도 Gemini 멀티모달로 통일
+- 429/402 에러 처리 및 JSON 스키마 강제 유지
 
-3. 검증
-   - 수정 후 `grade-sentence` 함수를 직접 호출 테스트해서 `AI 채점 실패` fallback이 아니라 실제 `{ correct, reason }` 형태의 채점 결과가 돌아오는지 확인합니다.
-   - 예시로 `aim / What's your aim?` 같은 정상 문장과, 단어를 쓰지 않은 문장 하나를 테스트해 성공/오답 모두 확인합니다.
+## 2단계 — Firebase 연결 계층
+- `firebase` 패키지 추가, `src/integrations/firebase/client.ts`에 제공해주신 설정으로 초기화(Auth, Firestore, Storage, Analytics)
+- 기존 `supabase.from(...)` 사용부를 대체할 `src/integrations/firebase/db.ts` 헬퍼 작성(컬렉션별 CRUD, 쿼리, 실시간 구독)
 
-기대 결과:
-- 사용자가 제출하면 더 이상 반복적으로 `AI 채점 실패. 정답 처리합니다.`가 뜨지 않고, 실제 AI 채점 이유가 표시됩니다.
-- 단어 뜻은 기존처럼 퀴즈 화면에 노출하지 않습니다.
+## 3단계 — 데이터 모델 이전
+컬렉션: `profiles`, `vocabularies`, `words`, `chapters`, `bookshelves`, `groups`, `group_members`, `group_messages`, `user_settings`, `user_roles`, `otp_codes`
+- Firestore 보안 규칙 작성: 본인 데이터만 읽기/쓰기, 공개 단어장은 읽기 허용, 역할은 `user_roles` 문서 기반 검증
+- Storage 규칙: `avatars/`, `group-images/`, `word-images/` — 본인 경로만 쓰기, 읽기 공개
+
+## 4단계 — 화면 전환
+36개 파일을 순서대로 교체: 인증(Auth, useAuth) → 단어장/단어 → 그룹/채팅 → 퀴즈/통계 → 관리자
+- 게스트 localStorage 로직과 로그인 시 동기화는 그대로 유지, 저장 대상만 Firestore로 변경
+
+## 5단계 — 기존 데이터 이관
+- 서비스 계정 키를 주시면 현재 DB 전체를 읽어 Firestore에 1:1 적재하는 일회성 스크립트 실행
+- 계정은 이메일 기준으로 Firebase Auth에 생성, 사용자에게 비밀번호 재설정 안내
+
+## 필요한 것
+1. Firebase **서비스 계정 JSON**(데이터 이관용)
+2. Firebase 콘솔에서 **이메일/비밀번호 로그인 활성화**(및 Google 로그인 사용 시 함께 활성화)
+
+## 진행 방식 제안
+1단계(AI)부터 바로 진행하고, 이후 2~4단계를 순차적으로 작업합니다. 5단계는 서비스 계정 키를 받은 뒤 실행합니다.
