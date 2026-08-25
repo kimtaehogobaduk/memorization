@@ -17,8 +17,8 @@ serve(async (req) => {
       });
     }
 
-    const CEREBRAS_API_KEY = Deno.env.get("CEREBRAS_API_KEY");
-    if (!CEREBRAS_API_KEY) {
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (!GROQ_API_KEY) {
       return new Response(JSON.stringify({ correct: true, reason: "AI 채점을 사용할 수 없어 정답으로 처리합니다.", fallback: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -43,14 +43,14 @@ ${meaning ? `단어의 뜻: "${meaning}"` : ""}
 또는
 {"correct": false, "reason": "왜 틀렸는지 한국어로 명확히 설명 (1-3문장)"}`;
 
-    const MODELS = ["gpt-oss-120b", "llama3.1-8b"];
+    const MODELS = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"];
     let response: Response | null = null;
     let lastErrText = "";
     for (const model of MODELS) {
       for (let attempt = 0; attempt < 2; attempt++) {
-        const r = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+        const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
-          headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
+          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model,
             messages: [
@@ -65,7 +65,7 @@ ${meaning ? `단어의 뜻: "${meaning}"` : ""}
         });
         if (r.ok) { response = r; break; }
         lastErrText = await r.text();
-        console.error(`Cerebras ${model} attempt ${attempt + 1} failed:`, r.status, lastErrText);
+        console.error(`Groq ${model} attempt ${attempt + 1} failed:`, r.status, lastErrText);
         if (r.status === 404) break; // try next model
         if (r.status === 429 || r.status >= 500) {
           await new Promise((res) => setTimeout(res, 800 * (attempt + 1)));
@@ -77,7 +77,7 @@ ${meaning ? `단어의 뜻: "${meaning}"` : ""}
     }
 
     if (!response) {
-      console.error("grade-sentence Cerebras error:", lastErrText);
+      console.error("grade-sentence Groq error:", lastErrText);
       return new Response(JSON.stringify({ correct: false, reason: "AI 채점에 실패했습니다. 잠시 후 다시 시도해주세요.", error: true }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

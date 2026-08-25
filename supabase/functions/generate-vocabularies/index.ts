@@ -110,7 +110,7 @@ const themes = [
   "Synonyms & Antonyms",
 ];
 
-const MODELS = ["llama3.1-8b"];
+const MODELS = ["llama-3.3-70b-versatile"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function repairAndParseJSON(raw: string): unknown {
@@ -145,7 +145,7 @@ function repairAndParseJSON(raw: string): unknown {
   return JSON.parse(cleaned);
 }
 
-async function generateWordsWithCerebras(theme: string, apiKey: string): Promise<any[]> {
+async function generateWordsWithGroq(theme: string, apiKey: string): Promise<any[]> {
   const systemPrompt = `You are an expert English teacher creating vocabulary lists. Generate EXACTLY 100 words with Korean meanings, examples, and parts of speech. Return ONLY valid JSON array without any markdown formatting or code blocks.`;
   const userPrompt = `Create a vocabulary list for "${theme}" with exactly 100 words. Each word should include:
 - word (English word)
@@ -162,7 +162,7 @@ Return ONLY a JSON array in this exact format:
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         console.log(`[${model}] generating words for "${theme}", attempt ${attempt + 1}`);
-        const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -221,12 +221,12 @@ serve(async (req) => {
   }
 
   try {
-    const CEREBRAS_API_KEY = Deno.env.get("CEREBRAS_API_KEY");
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 
-    if (!CEREBRAS_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
+    if (!GROQ_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
       throw new Error("Missing required environment variables");
     }
 
@@ -268,7 +268,7 @@ serve(async (req) => {
     for (const theme of themesToGenerate) {
       try {
         console.log(`Generating vocabulary for: ${theme}`);
-        const words = await generateWordsWithCerebras(theme, CEREBRAS_API_KEY);
+        const words = await generateWordsWithGroq(theme, GROQ_API_KEY);
 
         const { data: vocab, error: vocabError } = await supabase
           .from('vocabularies')

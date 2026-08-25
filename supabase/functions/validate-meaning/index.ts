@@ -20,8 +20,8 @@ serve(async (req) => {
       });
     }
 
-    const CEREBRAS_API_KEY = Deno.env.get("CEREBRAS_API_KEY");
-    if (!CEREBRAS_API_KEY) {
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (!GROQ_API_KEY) {
       return new Response(JSON.stringify({ valid: false, fallback: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -64,13 +64,13 @@ Respond with ONLY: {"valid": true} or {"valid": false}`;
       }
     }
 
-    const MODELS = ["gpt-oss-120b", "llama3.1-8b", "qwen-3-235b-a22b-instruct-2507"];
+    const MODELS = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "moonshotai/kimi-k2-instruct-0905"];
     let content = "";
     for (const model of MODELS) {
       try {
-        const r = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+        const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
-          headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
+          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model,
             messages: [

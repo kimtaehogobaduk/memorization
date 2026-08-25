@@ -34,7 +34,7 @@ const cache = new Map<string, { data: WordInfo; expiresAt: number }>();
 const inFlight = new Map<string, Promise<WordInfo>>();
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 
-const MODELS = ["llama3.1-8b", "gpt-oss-120b", "qwen-3-235b-a22b-instruct-2507"];
+const MODELS = ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "moonshotai/kimi-k2-instruct-0905"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function extractJSON(raw: string): Record<string, unknown> {
@@ -73,7 +73,7 @@ function extractJSON(raw: string): Record<string, unknown> {
 function parseWordInfo(payload: any): WordInfo {
   const content = payload?.choices?.[0]?.message?.content;
   if (!content || typeof content !== "string") {
-    throw new Error("Empty response from Cerebras");
+    throw new Error("Empty response from Groq");
   }
   const parsed = extractJSON(content);
 
@@ -102,9 +102,9 @@ function parseWordInfo(payload: any): WordInfo {
   return result;
 }
 
-async function requestCerebrasModel(model: string, word: string, apiKey: string, partOfSpeech: string): Promise<WordInfo> {
+async function requestGroqModel(model: string, word: string, apiKey: string, partOfSpeech: string): Promise<WordInfo> {
   for (let attempt = 0; attempt < 3; attempt++) {
-    const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -167,11 +167,11 @@ CRITICAL: 한자만 있는 단어는 기본적으로 중국어로 해석하되, 
   throw new Error(`[${model}] failed after retries`);
 }
 
-async function callCerebras(word: string, apiKey: string, partOfSpeech: string): Promise<WordInfo> {
+async function callGroq(word: string, apiKey: string, partOfSpeech: string): Promise<WordInfo> {
   let lastError: Error | null = null;
   for (const model of MODELS) {
     try {
-      const result = await requestCerebrasModel(model, word, apiKey, partOfSpeech);
+      const result = await requestGroqModel(model, word, apiKey, partOfSpeech);
       console.log(`Success with model: ${model}`);
       return result;
     } catch (err) {
@@ -180,7 +180,7 @@ async function callCerebras(word: string, apiKey: string, partOfSpeech: string):
       lastError = err instanceof Error ? err : new Error(message);
     }
   }
-  throw lastError ?? new Error("Cerebras fallback failed");
+  throw lastError ?? new Error("Groq fallback failed");
 }
 
 serve(async (req) => {
@@ -211,12 +211,12 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const CEREBRAS_API_KEY = Deno.env.get("CEREBRAS_API_KEY");
-    if (!CEREBRAS_API_KEY) throw new Error("CEREBRAS_API_KEY is not configured");
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY is not configured");
 
     const requestPromise = (async () => {
       try {
-        const r = await callCerebras(trimmedWord.toLowerCase(), CEREBRAS_API_KEY, partOfSpeech);
+        const r = await callGroq(trimmedWord.toLowerCase(), GROQ_API_KEY, partOfSpeech);
         if (partOfSpeech && r.part_of_speech && !r.part_of_speech.includes(partOfSpeech) && !partOfSpeech.includes(r.part_of_speech)) {
           throw new Error(`POS mismatch: got "${r.part_of_speech}", expected "${partOfSpeech}"`);
         }
@@ -224,7 +224,7 @@ serve(async (req) => {
       } catch (err) {
         if (!partOfSpeech) throw err;
         console.warn(`POS "${partOfSpeech}" failed for "${trimmedWord}", falling back to general:`, err instanceof Error ? err.message : err);
-        const r = await callCerebras(trimmedWord.toLowerCase(), CEREBRAS_API_KEY, "");
+        const r = await callGroq(trimmedWord.toLowerCase(), GROQ_API_KEY, "");
         return { result: r, autoFallback: true };
       }
     })();
