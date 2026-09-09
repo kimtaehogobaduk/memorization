@@ -38,10 +38,7 @@ const GenerateVocabularies = () => {
   };
 
   const generateBatch = async (startIndex: number) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    if (!token) throw new Error("Not authenticated");
-    return await apiGenerateVocabularies(batchSize, startIndex, token);
+    return apiGenerateVocabularies(batchSize, startIndex);
   };
 
   const handleGenerate = async () => {

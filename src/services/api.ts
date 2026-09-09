@@ -1,50 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const API_BASE = "/api";
-
-async function apiPost<T = unknown>(endpoint: string, body: unknown): Promise<T> {
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
-
-async function apiPostAuth<T = unknown>(endpoint: string, body: unknown, authToken: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${authToken}`,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
-
-async function apiGetAuth<T = unknown>(endpoint: string, authToken: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
-
 export const apiGetWordMeaning = async (word: string, partOfSpeech?: string) => {
   const { data, error } = await supabase.functions.invoke("get-word-meaning", {
     body: { word, part_of_speech: partOfSpeech || "" },
@@ -54,7 +9,11 @@ export const apiGetWordMeaning = async (word: string, partOfSpeech?: string) => 
   return data;
 };
 
-export const apiValidateMeaning = async (word: string, userAnswer: string, correctMeaning: string) => {
+export const apiValidateMeaning = async (
+  word: string,
+  userAnswer: string,
+  correctMeaning: string,
+) => {
   const { data, error } = await supabase.functions.invoke("validate-meaning", {
     body: { word, userAnswer, correctMeaning },
   });
@@ -70,7 +29,11 @@ export const apiGradeSentence = async (word: string, meaning: string, sentence: 
   return data as { correct: boolean; reason: string; fallback?: boolean; error?: boolean };
 };
 
-export const apiGenerateAIQuiz = async (words: unknown[], difficulty: string, customRequest: string) => {
+export const apiGenerateAIQuiz = async (
+  words: unknown[],
+  difficulty: string,
+  customRequest: string,
+) => {
   const { data, error } = await supabase.functions.invoke("generate-ai-quiz", {
     body: { words, difficulty, customRequest },
   });
@@ -79,7 +42,11 @@ export const apiGenerateAIQuiz = async (words: unknown[], difficulty: string, cu
   return data;
 };
 
-export const apiExtractVocabulary = async (file_base64: string, file_type: string, include_details: boolean) => {
+export const apiExtractVocabulary = async (
+  file_base64: string,
+  file_type: string,
+  include_details: boolean,
+) => {
   const { data, error } = await supabase.functions.invoke("extract-vocabulary", {
     body: { file_base64, file_type, include_details },
   });
@@ -88,25 +55,13 @@ export const apiExtractVocabulary = async (file_base64: string, file_type: strin
   return data;
 };
 
-export const apiGenerateVocabularies = async (count: number, startIndex: number, _authToken?: string) => {
+export const apiGenerateVocabularies = async (count: number, startIndex: number) => {
   const { data, error } = await supabase.functions.invoke("generate-vocabularies", {
     body: { count, startIndex },
   });
   if (error) throw new Error(error.message || "단어장 생성 실패");
   if ((data as any)?.error) throw new Error((data as any).error);
   return data as { success: boolean; processed?: number; error?: string };
-};
-
-export const apiDeleteUser = async (userId: string, _authToken?: string) => {
-  const { data, error } = await supabase.functions.invoke("delete-user", { body: { userId } });
-  if (error) throw new Error(error.message || "사용자 삭제 실패");
-  return data;
-};
-
-export const apiGetAdminUsers = async (_authToken?: string) => {
-  const { data, error } = await supabase.functions.invoke("admin-users", { body: {} });
-  if (error) throw new Error(error.message || "사용자 목록 조회 실패");
-  return data as { users: AdminUser[] };
 };
 
 export interface AdminUser {
