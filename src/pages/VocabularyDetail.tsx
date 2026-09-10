@@ -294,7 +294,7 @@ const VocabularyDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-6">
-      <Header title={vocabulary.name} showBack onBack={() => navigate("/vocabularies")} action={isOwner ? <Button variant="ghost" size="icon" onClick={() => navigate(`/vocabularies/${id}/edit`)}><Edit className="w-5 h-5" /></Button> : undefined} />
+      <Header title={vocabulary.name} showBack={!isSharedView} onBack={() => navigate("/vocabularies")} action={isOwner ? <Button variant="ghost" size="icon" onClick={() => navigate(`/vocabularies/${id}/edit`)}><Edit className="w-5 h-5" /></Button> : undefined} />
       <div className="max-w-screen-xl mx-auto px-4 py-6">
         {vocabulary.description && <Card className="mb-6"><CardContent className="p-4"><p className="text-muted-foreground">{vocabulary.description}</p></CardContent></Card>}
         <div className="flex gap-3 mb-4">
@@ -351,11 +351,16 @@ const VocabularyDetail = () => {
           </div>
         )}
 
-        {/* Print button - available to all viewers */}
+        {/* Print & share buttons - available to all viewers */}
         <div className="flex gap-2 mb-4 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
             <Printer className="w-4 h-4 mr-1" />단어 리스트 프린트
           </Button>
+          {vocabulary.is_public && (
+            <Button variant="outline" size="sm" onClick={copyShareLink}>
+              <Link2 className="w-4 h-4 mr-1" />공유 링크 복사
+            </Button>
+          )}
         </div>
 
         {/* Owner actions */}
