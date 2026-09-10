@@ -11,6 +11,10 @@ const AUTO_CLOSE_SECONDS = 5;
  * 방문할 때마다 표시되며, 5초 뒤에 닫기 버튼이 활성화됩니다.
  */
 export const KaistNoticePopup = () => {
+  const location = useLocation();
+  const isSharedLink =
+    location.pathname.startsWith("/share/") ||
+    (typeof window !== "undefined" && !!sessionStorage.getItem("share_mode_vocab"));
   const [open, setOpen] = useState(true);
   const [remaining, setRemaining] = useState(AUTO_CLOSE_SECONDS);
 
