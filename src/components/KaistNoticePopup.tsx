@@ -32,6 +32,8 @@ export const KaistNoticePopup = () => {
     setOpen(false);
   };
 
+  if (isSharedLink) return null;
+
   return (
     <AnimatePresence>
       {open && (
