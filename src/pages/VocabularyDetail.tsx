@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Edit, FileText, Brain, Play, Volume2, Star, Plus, Trash2, ArrowRightLeft, CheckSquare, X, Pencil, Printer, RotateCw } from "lucide-react";
+import { Edit, FileText, Brain, Play, Volume2, Star, Plus, Trash2, ArrowRightLeft, CheckSquare, X, Pencil, Printer, RotateCw, Link2 } from "lucide-react";
 import { PrintWordList } from "@/components/PrintWordList";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +46,7 @@ interface Vocabulary {
   description: string | null;
   language: string;
   user_id: string;
+  is_public?: boolean | null;
 }
 
 const VocabularyDetail = () => {
@@ -86,6 +87,17 @@ const VocabularyDetail = () => {
   }, []);
 
   const isOwner = isLocalVocab(id) || vocabulary?.user_id === user?.id;
+  const isSharedView = !user && sessionStorage.getItem("share_mode_vocab") === id;
+
+  const copyShareLink = async () => {
+    const url = `${window.location.origin}/share/${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("공유 링크를 복사했습니다");
+    } catch {
+      window.prompt("아래 링크를 복사하세요", url);
+    }
+  };
   const filteredWords = useMemo(() => selectedChapter ? words.filter(w => w.chapter_id === selectedChapter) : words, [selectedChapter, words]);
 
   const loadVocabulary = async () => {
@@ -282,7 +294,7 @@ const VocabularyDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-6">
-      <Header title={vocabulary.name} showBack onBack={() => navigate("/vocabularies")} action={isOwner ? <Button variant="ghost" size="icon" onClick={() => navigate(`/vocabularies/${id}/edit`)}><Edit className="w-5 h-5" /></Button> : undefined} />
+      <Header title={vocabulary.name} showBack={!isSharedView} onBack={() => navigate("/vocabularies")} action={isOwner ? <Button variant="ghost" size="icon" onClick={() => navigate(`/vocabularies/${id}/edit`)}><Edit className="w-5 h-5" /></Button> : undefined} />
       <div className="max-w-screen-xl mx-auto px-4 py-6">
         {vocabulary.description && <Card className="mb-6"><CardContent className="p-4"><p className="text-muted-foreground">{vocabulary.description}</p></CardContent></Card>}
         <div className="flex gap-3 mb-4">
@@ -339,11 +351,16 @@ const VocabularyDetail = () => {
           </div>
         )}
 
-        {/* Print button - available to all viewers */}
+        {/* Print & share buttons - available to all viewers */}
         <div className="flex gap-2 mb-4 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
             <Printer className="w-4 h-4 mr-1" />단어 리스트 프린트
           </Button>
+          {vocabulary.is_public && (
+            <Button variant="outline" size="sm" onClick={copyShareLink}>
+              <Link2 className="w-4 h-4 mr-1" />공유 링크 복사
+            </Button>
+          )}
         </div>
 
         {/* Owner actions */}

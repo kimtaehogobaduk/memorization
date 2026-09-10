@@ -41,6 +41,7 @@ import Settings from "./pages/Settings";
 import Statistics from "./pages/Statistics";
 import Admin from "./pages/Admin";
 import PhoneticGuide from "./pages/PhoneticGuide";
+import ShareVocabulary from "./pages/ShareVocabulary";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -81,6 +82,7 @@ const App = () => {
                   <Route path="/vocabularies/file-upload" element={<FileVocabularyUpload />} />
                   <Route path="/vocabularies/:id/edit" element={<EditVocabulary />} />
                   <Route path="/vocabularies/:id" element={<VocabularyDetail />} />
+                  <Route path="/share/:id" element={<ShareVocabulary />} />
                   <Route path="/study/:id" element={<Study />} />
                   <Route path="/quiz/multi" element={<QuizMultiVocab />} />
                   <Route path="/quiz/multi/multiple" element={<QuizMultipleChoice />} />
