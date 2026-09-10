@@ -87,6 +87,17 @@ const VocabularyDetail = () => {
   }, []);
 
   const isOwner = isLocalVocab(id) || vocabulary?.user_id === user?.id;
+  const isSharedView = !user && sessionStorage.getItem("share_mode_vocab") === id;
+
+  const copyShareLink = async () => {
+    const url = `${window.location.origin}/share/${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("공유 링크를 복사했습니다");
+    } catch {
+      window.prompt("아래 링크를 복사하세요", url);
+    }
+  };
   const filteredWords = useMemo(() => selectedChapter ? words.filter(w => w.chapter_id === selectedChapter) : words, [selectedChapter, words]);
 
   const loadVocabulary = async () => {
