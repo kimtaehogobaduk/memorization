@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Sparkles, Calendar, MapPin, Phone, Globe } from "lucide-react";
 import kaistPoster from "@/assets/kaist-poster.jpg.asset.json";
