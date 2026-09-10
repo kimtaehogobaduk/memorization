@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Edit, FileText, Brain, Play, Volume2, Star, Plus, Trash2, ArrowRightLeft, CheckSquare, X, Pencil, Printer, RotateCw } from "lucide-react";
+import { Edit, FileText, Brain, Play, Volume2, Star, Plus, Trash2, ArrowRightLeft, CheckSquare, X, Pencil, Printer, RotateCw, Link2 } from "lucide-react";
 import { PrintWordList } from "@/components/PrintWordList";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +46,7 @@ interface Vocabulary {
   description: string | null;
   language: string;
   user_id: string;
+  is_public?: boolean | null;
 }
 
 const VocabularyDetail = () => {
