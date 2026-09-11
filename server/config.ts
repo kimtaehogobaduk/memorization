@@ -1,6 +1,6 @@
 const readEnv = (name: string): string => process.env[name] ?? "";
 
-export const PORT = Number(process.env.SERVER_PORT || process.env.PORT || 3001);
+export const PORT = 3000;
 export const CEREBRAS_API_KEY = readEnv("CEREBRAS_API_KEY");
 export const GEMINI_API_KEY = readEnv("GEMINI_API_KEY");
 export const SUPABASE_URL = readEnv("VITE_SUPABASE_URL");

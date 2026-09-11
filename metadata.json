@@ -1,6 +1,6 @@
 {
   "name": "암기준섹",
-  "description": "영어 단어를 단어장으로 관리하고, 플래시카드와 여러 유형의 퀴즈로 학습하는 안드로이드 앱",
+  "description": "한국어 사용자를 위한 영어 단어 학습 및 퀴즈 애플리케이션",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

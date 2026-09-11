@@ -8,7 +8,6 @@ import { KaistNoticePopup } from "@/components/KaistNoticePopup";
 import { motion, AnimatePresence } from "framer-motion";
 import splashImage from "@/assets/splash-screen.jpg";
 import { NotificationProvider } from "./components/NotificationProvider";
-import { InstallAppBanner } from "./components/InstallAppBanner";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import Index from "./pages/Index";
@@ -67,7 +66,6 @@ const App = () => {
           ) : (
             <motion.div key="main" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
               <BrowserRouter>
-                <InstallAppBanner />
                 <NotificationProvider />
                 <KaistNoticePopup />
                 <Routes>

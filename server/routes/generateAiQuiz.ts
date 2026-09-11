@@ -1,6 +1,6 @@
 // AI-generated quiz question endpoint.
 import type { Request, Response } from "express";
-import { CEREBRAS_API_KEY } from "../config";
+import { CEREBRAS_API_KEY, GEMINI_API_KEY } from "../config";
 import { repairAndParseJSON, sleep } from "../utils/json";
 
 function getDifficultyPrompt(difficulty: string): string {
@@ -44,7 +44,7 @@ export async function handleGenerateAiQuiz(req: Request, res: Response) {
     if (!Array.isArray(words) || words.length === 0) {
       return res.status(400).json({ error: "단어가 없습니다." });
     }
-    if (!CEREBRAS_API_KEY) throw new Error("CEREBRAS_API_KEY is not configured");
+    if (!CEREBRAS_API_KEY && !GEMINI_API_KEY) throw new Error("API key is not configured (CEREBRAS_API_KEY or GEMINI_API_KEY)");
 
     const limitedWords = words.slice(0, 20);
     const batchSize = Math.min(limitedWords.length, 10);
@@ -68,43 +68,72 @@ Return ONLY the JSON array. No markdown fences, no extra text.`;
 
     const userMsg = `Words:\n${batch.map((w: any, i: number) => `${i + 1}. id="${w.id}" word="${w.word}" meaning="${w.meaning}"`).join("\n")}`;
 
-    let lastError: Error | null = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "gpt-oss-120b",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userMsg },
-            ],
-            temperature: 0.3,
-            max_tokens: 4096,
-          }),
-        });
+    if (CEREBRAS_API_KEY) {
+      let lastError: Error | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "gpt-oss-120b",
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userMsg },
+              ],
+              temperature: 0.3,
+              max_tokens: 4096,
+            }),
+          });
 
-        if (response.status === 429) { await sleep(2000 * (attempt + 1)); continue; }
-        if (response.status >= 500) { await sleep(1500 * (attempt + 1)); continue; }
-        if (!response.ok) {
-          const t = await response.text();
-          throw new Error(`Cerebras ${response.status}: ${t}`);
+          if (response.status === 429) { await sleep(2000 * (attempt + 1)); continue; }
+          if (response.status >= 500) { await sleep(1500 * (attempt + 1)); continue; }
+          if (!response.ok) {
+            const t = await response.text();
+            throw new Error(`Cerebras ${response.status}: ${t}`);
+          }
+
+          const payload = await response.json();
+          const content = payload?.choices?.[0]?.message?.content;
+          if (!content) throw new Error("Empty response content");
+
+          const parsed = repairAndParseJSON(content);
+          const questions = extractQuestions(parsed);
+          return res.json({ questions });
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          console.error(`generate-ai-quiz attempt ${attempt + 1}:`, lastError.message);
         }
-
-        const payload = await response.json();
-        const content = payload?.choices?.[0]?.message?.content;
-        if (!content) throw new Error("Empty response content");
-
-        const parsed = repairAndParseJSON(content);
-        const questions = extractQuestions(parsed);
-        return res.json({ questions });
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-        console.error(`generate-ai-quiz attempt ${attempt + 1}:`, lastError.message);
+      }
+      if (!GEMINI_API_KEY) {
+        throw lastError ?? new Error("All Cerebras attempts failed");
       }
     }
-    throw lastError ?? new Error("All attempts failed");
+
+    if (GEMINI_API_KEY) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${systemPrompt}\n\n${userMsg}` }] }],
+          generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini generate-ai-quiz failed: ${errText}`);
+      }
+
+      const payload = await response.json();
+      const content = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!content) throw new Error("Empty response from Gemini");
+
+      const parsed = repairAndParseJSON(content);
+      const questions = extractQuestions(parsed);
+      return res.json({ questions });
+    }
   } catch (error) {
     console.error("generate-ai-quiz error:", error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });

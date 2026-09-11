@@ -1,6 +1,6 @@
 // AI-assisted sentence grading for writing quizzes.
 import type { Request, Response } from "express";
-import { CEREBRAS_API_KEY } from "../config";
+import { CEREBRAS_API_KEY, GEMINI_API_KEY } from "../config";
 
 export async function handleGradeSentence(req: Request, res: Response) {
   try {
@@ -8,7 +8,7 @@ export async function handleGradeSentence(req: Request, res: Response) {
     if (!word || !sentence) {
       return res.json({ correct: false, reason: "단어와 문장이 필요합니다." });
     }
-    if (!CEREBRAS_API_KEY) {
+    if (!CEREBRAS_API_KEY && !GEMINI_API_KEY) {
       return res.json({ correct: true, reason: "AI 채점을 사용할 수 없어 정답으로 처리합니다.", fallback: true });
     }
 
@@ -31,41 +31,72 @@ ${meaning ? `단어의 뜻: "${meaning}"` : ""}
 또는
 {"correct": false, "reason": "왜 틀렸는지 한국어로 명확히 설명 (1-3문장)"}`;
 
-    const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "gpt-oss-120b",
-        messages: [
-          { role: "system", content: "당신은 영어 작문 채점 AI입니다. 반드시 JSON 객체로만 응답하세요." },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.2,
-        max_tokens: 300,
-        response_format: { type: "json_object" },
-      }),
-    });
+    if (CEREBRAS_API_KEY) {
+      const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${CEREBRAS_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "gpt-oss-120b",
+          messages: [
+            { role: "system", content: "당신은 영어 작문 채점 AI입니다. 반드시 JSON 객체로만 응답하세요." },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.2,
+          max_tokens: 300,
+          response_format: { type: "json_object" },
+        }),
+      });
 
-    if (!response.ok) {
-      console.error("Cerebras grade-sentence error:", response.status);
-      return res.json({ correct: true, reason: "AI 채점 실패. 정답 처리합니다.", fallback: true });
-    }
-
-    const payload = await response.json();
-    const content = payload?.choices?.[0]?.message?.content || "";
-    let parsed: { correct?: boolean; reason?: string } = {};
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      const m = content.match(/\{[\s\S]*\}/);
-      if (m) {
-        try { parsed = JSON.parse(m[0]); } catch {}
+      if (response.ok) {
+        const payload = await response.json();
+        const content = payload?.choices?.[0]?.message?.content || "";
+        let parsed: { correct?: boolean; reason?: string } = {};
+        try {
+          parsed = JSON.parse(content);
+        } catch {
+          const m = content.match(/\{[\s\S]*\}/);
+          if (m) {
+            try { parsed = JSON.parse(m[0]); } catch {}
+          }
+        }
+        return res.json({
+          correct: !!parsed.correct,
+          reason: parsed.reason || (parsed.correct ? "잘 작성했습니다!" : "문장에 문제가 있습니다."),
+        });
       }
     }
-    res.json({
-      correct: !!parsed.correct,
-      reason: parsed.reason || (parsed.correct ? "잘 작성했습니다!" : "문장에 문제가 있습니다."),
-    });
+
+    if (GEMINI_API_KEY) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.1, responseMimeType: "application/json" },
+        }),
+      });
+
+      if (response.ok) {
+        const payload = await response.json();
+        const content = payload?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        let parsed: { correct?: boolean; reason?: string } = {};
+        try {
+          parsed = JSON.parse(content);
+        } catch {
+          const m = content.match(/\{[\s\S]*\}/);
+          if (m) {
+            try { parsed = JSON.parse(m[0]); } catch {}
+          }
+        }
+        return res.json({
+          correct: !!parsed.correct,
+          reason: parsed.reason || (parsed.correct ? "잘 작성했습니다!" : "문장에 문제가 있습니다."),
+        });
+      }
+    }
+
+    return res.json({ correct: true, reason: "AI 채점 실패. 정답 처리합니다.", fallback: true });
   } catch (error) {
     console.error("grade-sentence error:", error);
     res.json({ correct: true, reason: "오류 발생. 정답 처리합니다.", error: true });

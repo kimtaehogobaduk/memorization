@@ -1,12 +1,32 @@
 import { supabase } from "@/integrations/supabase/client";
 
+async function postApi<T = unknown>(endpoint: string, body: unknown, supabaseFn?: string): Promise<T> {
+  try {
+    const res = await fetch(`/api/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (!data?.error) return data as T;
+    }
+  } catch (e) {
+    console.warn(`Local /api/${endpoint} failed, checking fallback:`, e);
+  }
+
+  if (supabaseFn) {
+    const { data, error } = await supabase.functions.invoke(supabaseFn, { body });
+    if (error) throw new Error(error.message || `${supabaseFn} 실패`);
+    const record = data as Record<string, unknown> | null;
+    if (record?.error) throw new Error(String(record.error));
+    return data as T;
+  }
+  throw new Error(`${endpoint} 실패`);
+}
+
 export const apiGetWordMeaning = async (word: string, partOfSpeech?: string) => {
-  const { data, error } = await supabase.functions.invoke("get-word-meaning", {
-    body: { word, part_of_speech: partOfSpeech || "" },
-  });
-  if (error) throw new Error(error.message || "AI 뜻 가져오기 실패");
-  if ((data as any)?.error) throw new Error((data as any).error);
-  return data;
+  return postApi("get-word-meaning", { word, part_of_speech: partOfSpeech || "" }, "get-word-meaning");
 };
 
 export const apiValidateMeaning = async (
@@ -14,19 +34,15 @@ export const apiValidateMeaning = async (
   userAnswer: string,
   correctMeaning: string,
 ) => {
-  const { data, error } = await supabase.functions.invoke("validate-meaning", {
-    body: { word, userAnswer, correctMeaning },
-  });
-  if (error) throw new Error(error.message || "채점 실패");
-  return data;
+  return postApi("validate-meaning", { word, userAnswer, correctMeaning }, "validate-meaning");
 };
 
 export const apiGradeSentence = async (word: string, meaning: string, sentence: string) => {
-  const { data, error } = await supabase.functions.invoke("grade-sentence", {
-    body: { word, meaning, sentence },
-  });
-  if (error) throw new Error(error.message || "채점 실패");
-  return data as { correct: boolean; reason: string; fallback?: boolean; error?: boolean };
+  return postApi<{ correct: boolean; reason: string; fallback?: boolean; error?: boolean }>(
+    "grade-sentence",
+    { word, meaning, sentence },
+    "grade-sentence",
+  );
 };
 
 export const apiGenerateAIQuiz = async (
@@ -34,12 +50,7 @@ export const apiGenerateAIQuiz = async (
   difficulty: string,
   customRequest: string,
 ) => {
-  const { data, error } = await supabase.functions.invoke("generate-ai-quiz", {
-    body: { words, difficulty, customRequest },
-  });
-  if (error) throw new Error(error.message || "AI 퀴즈 생성 실패");
-  if ((data as any)?.error) throw new Error((data as any).error);
-  return data;
+  return postApi("generate-ai-quiz", { words, difficulty, customRequest }, "generate-ai-quiz");
 };
 
 export const apiExtractVocabulary = async (
@@ -47,21 +58,15 @@ export const apiExtractVocabulary = async (
   file_type: string,
   include_details: boolean,
 ) => {
-  const { data, error } = await supabase.functions.invoke("extract-vocabulary", {
-    body: { file_base64, file_type, include_details },
-  });
-  if (error) throw new Error(error.message || "파일 추출 실패");
-  if ((data as any)?.error) throw new Error((data as any).error);
-  return data;
+  return postApi("extract-vocabulary", { file_base64, file_type, include_details }, "extract-vocabulary");
 };
 
 export const apiGenerateVocabularies = async (count: number, startIndex: number) => {
-  const { data, error } = await supabase.functions.invoke("generate-vocabularies", {
-    body: { count, startIndex },
-  });
-  if (error) throw new Error(error.message || "단어장 생성 실패");
-  if ((data as any)?.error) throw new Error((data as any).error);
-  return data as { success: boolean; processed?: number; error?: string };
+  return postApi<{ success: boolean; processed?: number; error?: string }>(
+    "generate-vocabularies",
+    { count, startIndex },
+    "generate-vocabularies",
+  );
 };
 
 export interface AdminUser {
