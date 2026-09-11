@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Sparkles, Calendar, MapPin, Phone, Globe } from "lucide-react";
 import kaistPoster from "@/assets/kaist-poster.jpg.asset.json";
@@ -11,10 +10,6 @@ const AUTO_CLOSE_SECONDS = 5;
  * 방문할 때마다 표시되며, 5초 뒤에 닫기 버튼이 활성화됩니다.
  */
 export const KaistNoticePopup = () => {
-  const location = useLocation();
-  const isSharedLink =
-    location.pathname.startsWith("/share/") ||
-    (typeof window !== "undefined" && !!sessionStorage.getItem("share_mode_vocab"));
   const [open, setOpen] = useState(true);
   const [remaining, setRemaining] = useState(AUTO_CLOSE_SECONDS);
 
@@ -31,8 +26,6 @@ export const KaistNoticePopup = () => {
     if (!canClose) return;
     setOpen(false);
   };
-
-  if (isSharedLink) return null;
 
   return (
     <AnimatePresence>

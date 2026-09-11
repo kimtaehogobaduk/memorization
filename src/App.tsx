@@ -8,6 +8,7 @@ import { KaistNoticePopup } from "@/components/KaistNoticePopup";
 import { motion, AnimatePresence } from "framer-motion";
 import splashImage from "@/assets/splash-screen.jpg";
 import { NotificationProvider } from "./components/NotificationProvider";
+import { InstallAppBanner } from "./components/InstallAppBanner";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import Index from "./pages/Index";
@@ -41,7 +42,6 @@ import Settings from "./pages/Settings";
 import Statistics from "./pages/Statistics";
 import Admin from "./pages/Admin";
 import PhoneticGuide from "./pages/PhoneticGuide";
-import ShareVocabulary from "./pages/ShareVocabulary";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -67,6 +67,7 @@ const App = () => {
           ) : (
             <motion.div key="main" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
               <BrowserRouter>
+                <InstallAppBanner />
                 <NotificationProvider />
                 <KaistNoticePopup />
                 <Routes>
@@ -82,7 +83,6 @@ const App = () => {
                   <Route path="/vocabularies/file-upload" element={<FileVocabularyUpload />} />
                   <Route path="/vocabularies/:id/edit" element={<EditVocabulary />} />
                   <Route path="/vocabularies/:id" element={<VocabularyDetail />} />
-                  <Route path="/share/:id" element={<ShareVocabulary />} />
                   <Route path="/study/:id" element={<Study />} />
                   <Route path="/quiz/multi" element={<QuizMultiVocab />} />
                   <Route path="/quiz/multi/multiple" element={<QuizMultipleChoice />} />
