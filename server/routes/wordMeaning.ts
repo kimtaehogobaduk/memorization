@@ -1,6 +1,6 @@
 // Word meaning lookup with a small in-memory cache.
 import type { Request, Response } from "express";
-import { CEREBRAS_API_KEY, GEMINI_API_KEY } from "../config";
+import { CEREBRAS_API_KEY } from "../config";
 import { repairAndParseJSON, sleep } from "../utils/json";
 
 const wordCache = new Map<string, { data: unknown; expiresAt: number }>();
@@ -88,49 +88,6 @@ meaning은 반드시 한국어로 작성하세요.`,
   throw new Error("All models failed");
 }
 
-async function callGeminiForWord(word: string): Promise<unknown> {
-  const prompt = `You are a Korean-English dictionary. Given an English word: "${word}", return ONLY a JSON object (no markdown) with these keys:
-- meaning (한국어 뜻, 쉼표로 구분)
-- example (짧은 영어 예문)
-- part_of_speech (한국어 품사: 명사/동사/형용사/부사/전치사/접속사/감탄사/대명사)
-- pronunciation (IPA 발음기호 /.../ 형식)
-- frequency (1~5 정수)
-- difficulty (1~5 정수)
-- synonyms (영어 유의어 2~3개, 쉼표 구분)
-- antonyms (영어 반의어 1~2개, 쉼표 구분. 없으면 빈 문자열)
-- derivatives (파생어 배열, 각 항목은 {"word":"파생어","meaning":"한국어 뜻"} 형식, 최대 5개)
-meaning은 반드시 한국어로 작성하세요.`;
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, responseMimeType: "application/json" },
-    }),
-  });
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini request failed (${response.status}): ${errText}`);
-  }
-  const payload = await response.json();
-  const content = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!content) throw new Error("Empty response from Gemini");
-  const parsed: any = repairAndParseJSON(content);
-  return {
-    meaning: String(parsed?.meaning || ""),
-    example: String(parsed?.example || ""),
-    part_of_speech: String(parsed?.part_of_speech || ""),
-    pronunciation: String(parsed?.pronunciation || ""),
-    frequency: Math.min(5, Math.max(0, Number(parsed?.frequency) || 0)),
-    difficulty: Math.min(5, Math.max(0, Number(parsed?.difficulty) || 0)),
-    synonyms: String(parsed?.synonyms || ""),
-    antonyms: String(parsed?.antonyms || ""),
-    derivatives: Array.isArray(parsed?.derivatives) ? parsed.derivatives : [],
-  };
-}
-
 export async function handleGetWordMeaning(req: Request, res: Response) {
   try {
     const { word } = req.body;
@@ -144,15 +101,8 @@ export async function handleGetWordMeaning(req: Request, res: Response) {
       return res.json(cached.data);
     }
 
-    let result: unknown;
-    if (CEREBRAS_API_KEY) {
-      result = await callCerebrasForWord(normalizedWord);
-    } else if (GEMINI_API_KEY) {
-      result = await callGeminiForWord(normalizedWord);
-    } else {
-      throw new Error("API key is not configured (CEREBRAS_API_KEY or GEMINI_API_KEY)");
-    }
-
+    if (!CEREBRAS_API_KEY) throw new Error("CEREBRAS_API_KEY is not configured");
+    const result = await callCerebrasForWord(normalizedWord);
     wordCache.set(normalizedWord, { data: result, expiresAt: now + CACHE_TTL_MS });
     res.json(result);
   } catch (error) {
