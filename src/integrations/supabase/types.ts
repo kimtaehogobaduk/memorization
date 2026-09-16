@@ -581,7 +581,7 @@ export type Database = {
           is_public?: boolean | null
           language?: string
           name: string
-          share_code: string
+          share_code?: string
           updated_at?: string | null
           user_id: string
         }
