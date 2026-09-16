@@ -90,7 +90,8 @@ const VocabularyDetail = () => {
   const isSharedView = !user && sessionStorage.getItem("share_mode_vocab") === id;
 
   const copyShareLink = async () => {
-    const url = `${window.location.origin}/share/${id}`;
+    const code = (vocabulary as any)?.share_code || id;
+    const url = `${window.location.origin}/share/${code}`;
     try {
       await navigator.clipboard.writeText(url);
       toast.success("공유 링크를 복사했습니다");
