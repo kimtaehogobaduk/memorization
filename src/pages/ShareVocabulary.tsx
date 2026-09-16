@@ -18,9 +18,16 @@ const ShareVocabulary = () => {
       const query = supabase
         .from("vocabularies")
         .select("id, is_public");
-      const { data } = UUID_RE.test(id)
-        ? await query.eq("id", id).maybeSingle()
-        : await query.eq("share_code", id).maybeSingle();
+      let data: { id: string; is_public: boolean | null } | null = null;
+      if (UUID_RE.test(id)) {
+        data = (await query.eq("id", id).maybeSingle()).data;
+      } else {
+        data = (await query.eq("share_code", id).maybeSingle()).data;
+        // "-1" suffix should resolve to the first (unsuffixed) vocabulary
+        if (!data && id.endsWith("-1")) {
+          data = (await query.eq("share_code", id.slice(0, -2)).maybeSingle()).data;
+        }
+      }
       if (!active) return;
       if (data?.is_public) {
         sessionStorage.setItem("share_mode_vocab", data.id);
