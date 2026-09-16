@@ -569,6 +569,7 @@ export type Database = {
           is_public: boolean | null
           language: string
           name: string
+          share_code: string
           updated_at: string | null
           user_id: string
         }
@@ -580,6 +581,7 @@ export type Database = {
           is_public?: boolean | null
           language?: string
           name: string
+          share_code?: string
           updated_at?: string | null
           user_id: string
         }
@@ -591,6 +593,7 @@ export type Database = {
           is_public?: boolean | null
           language?: string
           name?: string
+          share_code?: string
           updated_at?: string | null
           user_id?: string
         }
@@ -678,6 +681,7 @@ export type Database = {
     Functions: {
       find_group_by_join_code: { Args: { _code: string }; Returns: string }
       generate_join_code: { Args: never; Returns: string }
+      generate_share_code: { Args: { p_name: string }; Returns: string }
       get_group_join_code: { Args: { _group_id: string }; Returns: string }
       has_group_access: {
         Args: { _group_id: string; _user_id: string }

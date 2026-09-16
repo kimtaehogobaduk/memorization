@@ -3,22 +3,28 @@ import { useParams, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const ShareVocabulary = () => {
   const { id } = useParams<{ id: string }>();
   const [status, setStatus] = useState<"loading" | "ok" | "denied">("loading");
+  const [vocabId, setVocabId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     (async () => {
       if (!id) { setStatus("denied"); return; }
-      const { data } = await supabase
+      // Accept both legacy UUID links and friendly share codes
+      const query = supabase
         .from("vocabularies")
-        .select("id, is_public")
-        .eq("id", id)
-        .maybeSingle();
+        .select("id, is_public");
+      const { data } = UUID_RE.test(id)
+        ? await query.eq("id", id).maybeSingle()
+        : await query.eq("share_code", id).maybeSingle();
       if (!active) return;
       if (data?.is_public) {
-        sessionStorage.setItem("share_mode_vocab", id);
+        sessionStorage.setItem("share_mode_vocab", data.id);
+        setVocabId(data.id);
         setStatus("ok");
       } else {
         setStatus("denied");
@@ -35,7 +41,7 @@ const ShareVocabulary = () => {
     );
   }
 
-  if (status === "denied") {
+  if (status === "denied" || !vocabId) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-sm w-full">
@@ -50,7 +56,7 @@ const ShareVocabulary = () => {
     );
   }
 
-  return <Navigate to={`/vocabularies/${id}`} replace />;
+  return <Navigate to={`/vocabularies/${vocabId}`} replace />;
 };
 
 export default ShareVocabulary;
