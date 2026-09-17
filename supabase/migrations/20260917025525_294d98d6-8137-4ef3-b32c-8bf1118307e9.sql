@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.generate_share_code(text) FROM anon, public;
