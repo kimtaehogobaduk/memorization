@@ -1,0 +1,17 @@
+{
+  "name": "암기준섹 - 준섹이와 단어 학습",
+  "short_name": "암기준섹",
+  "description": "플래시카드와 퀴즈로 즐겁게 단어를 암기하는 학습 앱",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fff9ed",
+  "theme_color": "#ffb703",
+  "icons": [
+    { "src": "/icons/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/app-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
