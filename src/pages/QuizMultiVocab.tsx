@@ -14,11 +14,14 @@ import { Brain, CheckSquare, Edit3, Grid3x3, Sparkles, PenLine } from "lucide-re
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isLocalVocab, loadLocalWords, loadLocalVocabulary, getLocalSettings } from "@/utils/localVocabHelper";
+import { getOfflineVocabularies, getOfflineWords } from "@/services/offlineVocabularyService";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 const QuizMultiVocab = () => {
   const [searchParams] = useSearchParams();
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const online = useOnlineStatus();
   const [vocabularyNames, setVocabularyNames] = useState<string[]>([]);
   const [wordCount, setWordCount] = useState(0);
   const [quizLoading, setQuizLoading] = useState(true);
@@ -62,9 +65,23 @@ const QuizMultiVocab = () => {
     }
   };
 
+  const loadOfflineQuizData = async () => {
+    if (!user) return false;
+    const [cachedVocabs, cachedWords] = await Promise.all([
+      getOfflineVocabularies(user.id),
+      getOfflineWords(user.id, vocabIds),
+    ]);
+    const selected = cachedVocabs.filter(vocab => vocabIds.includes(vocab.id));
+    if (!selected.length) return false;
+    setVocabularyNames(selected.map(vocab => vocab.name));
+    setWordCount(cachedWords.length);
+    return true;
+  };
+
   const loadQuizData = async () => {
     try {
       setQuizLoading(true);
+      if (!navigator.onLine && await loadOfflineQuizData()) return;
       const hasLocal = vocabIds.some(vid => isLocalVocab(vid));
       if (hasLocal) {
         let localNames: string[] = [];
@@ -86,6 +103,7 @@ const QuizMultiVocab = () => {
       setWordCount(count || 0);
     } catch (error) {
       console.error("Error loading quiz data:", error);
+      if (await loadOfflineQuizData()) return;
       toast.error("퀴즈 데이터를 불러오는데 실패했습니다.");
     } finally {
       setQuizLoading(false);
@@ -93,6 +111,10 @@ const QuizMultiVocab = () => {
   };
 
   const startQuiz = () => {
+    if (!online && (quizType === "ai" || quizType === "sentence")) {
+      toast.error("AI 퀴즈는 인터넷 연결 후 사용할 수 있어요.");
+      return;
+    }
     const params = new URLSearchParams({
       ids: vocabIds.join(","),
       random: isRandomOrder.toString(),

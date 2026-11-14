@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isLocalVocab, loadLocalWords, loadLocalVocabulary, getLocalSettings } from "@/utils/localVocabHelper";
+import { getOfflineVocabularyBundle, getOfflineWords, getOfflineProgress, mutateVocabularyData } from "@/services/offlineVocabularyService";
 
 interface Word {
   id: string;
@@ -29,7 +30,7 @@ type ViewMode = "word-only" | "meaning-only" | "both" | "example";
 const Study = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [words, setWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -43,10 +44,10 @@ const Study = () => {
   const incorrectIds = searchParams.get("incorrectIds")?.split(",") || [];
 
   useEffect(() => {
-    if (id) {
+    if (id && !authLoading) {
       loadWords();
     }
-  }, [id]);
+  }, [id, authLoading]);
 
   const loadWords = async () => {
     try {
@@ -62,6 +63,17 @@ const Study = () => {
         if (isRandom && incorrectIds.length === 0) {
           wordsData = [...wordsData].sort(() => Math.random() - 0.5);
         }
+        setWords(wordsData);
+        return;
+      }
+
+      if (user && !navigator.onLine) {
+        const cached = await getOfflineVocabularyBundle(user.id, id!);
+        if (cached) setVocabularyName(cached.vocabulary.name);
+        let wordsData = await getOfflineWords(user.id, [id!]);
+        if (chapterId) wordsData = wordsData.filter(word => word.chapter_id === chapterId);
+        if (incorrectIds.length > 0) wordsData = wordsData.filter(word => incorrectIds.includes(word.id));
+        if (isRandom && incorrectIds.length === 0) wordsData = [...wordsData].sort(() => Math.random() - 0.5);
         setWords(wordsData);
         return;
       }
@@ -127,6 +139,18 @@ const Study = () => {
       setWords(wordsData);
     } catch (error) {
       console.error("Error loading words:", error);
+      if (user) {
+        const cached = await getOfflineVocabularyBundle(user.id, id!);
+        if (cached) {
+          setVocabularyName(cached.vocabulary.name);
+          let wordsData = cached.words;
+          if (chapterId) wordsData = wordsData.filter(word => word.chapter_id === chapterId);
+          if (incorrectIds.length > 0) wordsData = wordsData.filter(word => incorrectIds.includes(word.id));
+          if (isRandom && incorrectIds.length === 0) wordsData = [...wordsData].sort(() => Math.random() - 0.5);
+          setWords(wordsData);
+          return;
+        }
+      }
       toast.error("단어를 불러오는데 실패했습니다.");
     } finally {
       setLoading(false);
@@ -139,29 +163,45 @@ const Study = () => {
   const recordAnswer = async (isCorrect: boolean, wordId: string) => {
     if (!user || isLocalVocab(id)) return;
     try {
-      const { data: existingProgress } = await supabase
-        .from("study_progress")
-        .select("*")
-        .eq("user_id", user?.id)
-        .eq("word_id", wordId)
-        .single();
+      let existingProgress: any = null;
+      if (navigator.onLine) {
+        const { data, error } = await supabase
+          .from("study_progress")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("word_id", wordId)
+          .maybeSingle();
+        if (!error) existingProgress = data;
+      }
+      if (!existingProgress && !navigator.onLine) {
+        const cached = await getOfflineProgress(user.id);
+        existingProgress = cached.find(progress => progress.word_id === wordId) || null;
+      }
 
       if (existingProgress) {
-        await supabase
-          .from("study_progress")
-          .update({
-            correct_count: isCorrect ? existingProgress.correct_count + 1 : existingProgress.correct_count,
-            incorrect_count: !isCorrect ? existingProgress.incorrect_count + 1 : existingProgress.incorrect_count,
+        await mutateVocabularyData(user.id, {
+          table: "study_progress",
+          operation: "update",
+          payload: {
+            correct_count: (existingProgress.correct_count || 0) + (isCorrect ? 1 : 0),
+            incorrect_count: (existingProgress.incorrect_count || 0) + (!isCorrect ? 1 : 0),
             last_studied_at: new Date().toISOString(),
-          })
-          .eq("id", existingProgress.id);
+          },
+          match: { id: existingProgress.id },
+        });
       } else {
-        await supabase.from("study_progress").insert({
-          user_id: user?.id,
-          word_id: wordId,
-          vocabulary_id: id,
-          correct_count: isCorrect ? 1 : 0,
-          incorrect_count: !isCorrect ? 1 : 0,
+        await mutateVocabularyData(user.id, {
+          table: "study_progress",
+          operation: "insert",
+          payload: {
+            id: crypto.randomUUID(),
+            user_id: user.id,
+            word_id: wordId,
+            vocabulary_id: id,
+            correct_count: isCorrect ? 1 : 0,
+            incorrect_count: !isCorrect ? 1 : 0,
+            last_studied_at: new Date().toISOString(),
+          },
         });
       }
     } catch (error) {

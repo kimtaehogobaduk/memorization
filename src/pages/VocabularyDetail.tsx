@@ -16,6 +16,8 @@ import { isLocalVocab, loadLocalWords, loadLocalVocabulary } from "@/utils/local
 import { localStorageService } from "@/services/localStorageService";
 import { studyNotes } from "@/lib/studyNotes";
 import { WordManager } from "@/components/WordManager";
+import { InstallAppButton } from "@/components/InstallAppButton";
+import { cacheVocabularyBundle, getOfflineVocabularyBundle, mutateVocabularyData } from "@/services/offlineVocabularyService";
 
 interface Word {
   id: string;
@@ -51,7 +53,7 @@ interface Vocabulary {
 
 const VocabularyDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [vocabulary, setVocabulary] = useState<Vocabulary | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -79,8 +81,8 @@ const VocabularyDetail = () => {
   const [flashcardFlipped, setFlashcardFlipped] = useState(false);
 
   useEffect(() => {
-    if (id) loadVocabulary();
-  }, [id]);
+    if (id && !authLoading) loadVocabulary();
+  }, [id, authLoading]);
 
   useEffect(() => {
     setFavoriteIds(new Set(studyNotes.getFavorites().map(f => f.id)));
@@ -101,6 +103,16 @@ const VocabularyDetail = () => {
   };
   const filteredWords = useMemo(() => selectedChapter ? words.filter(w => w.chapter_id === selectedChapter) : words, [selectedChapter, words]);
 
+  const loadCachedVocabulary = async () => {
+    if (!user || !id) return false;
+    const cached = await getOfflineVocabularyBundle(user.id, id);
+    if (!cached) return false;
+    setVocabulary(cached.vocabulary as any);
+    setChapters(cached.chapters as any);
+    setWords(cached.words as any);
+    return true;
+  };
+
   const loadVocabulary = async () => {
     try {
       setLoading(true);
@@ -112,8 +124,10 @@ const VocabularyDetail = () => {
         setWords(loadLocalWords(id!) as any);
         return;
       }
-      const { data: vocabData } = await supabase.from("vocabularies").select("*").eq("id", id).maybeSingle();
-      if (!vocabData) { setVocabulary(null); return; }
+      if (user && !navigator.onLine && await loadCachedVocabulary()) return;
+      const { data: vocabData, error: vocabError } = await supabase.from("vocabularies").select("*").eq("id", id).maybeSingle();
+      if (vocabError) throw vocabError;
+      if (!vocabData) throw new Error("단어장을 찾을 수 없습니다.");
       const { data: chaptersData } = await supabase.from("chapters").select("*").eq("vocabulary_id", id).order("order_index", { ascending: true });
       const { data: wordsData } = await supabase.from("words").select("*").eq("vocabulary_id", id).order("order_index", { ascending: true });
       setVocabulary(vocabData);
@@ -149,7 +163,9 @@ const VocabularyDetail = () => {
 
       setChapters(loadedChapters);
       setWords(loadedWords);
+      if (user) await cacheVocabularyBundle(user.id, vocabData, loadedChapters, loadedWords);
     } catch {
+      if (await loadCachedVocabulary()) return;
       toast.error("단어장을 불러오는데 실패했습니다.");
       setVocabulary(null);
     } finally {
@@ -171,7 +187,7 @@ const VocabularyDetail = () => {
       localStorageService.deleteWord(wordId);
       setWords(loadLocalWords(id!) as any);
     } else {
-      await supabase.from("words").delete().eq("id", wordId);
+      if (user) await mutateVocabularyData(user.id, { table: "words", operation: "delete", payload: {}, match: { id: wordId } });
       setWords(prev => prev.filter(w => w.id !== wordId));
     }
     setSelectedWordIds(prev => prev.filter(v => v !== wordId));
@@ -182,7 +198,7 @@ const VocabularyDetail = () => {
       localStorageService.updateWord(wordId, payload as any);
       setWords(loadLocalWords(id!) as any);
     } else {
-      await supabase.from("words").update(payload as any).eq("id", wordId);
+      if (user) await mutateVocabularyData(user.id, { table: "words", operation: "update", payload, match: { id: wordId } });
       await loadVocabulary();
     }
     setEditingWordId(null);
@@ -196,7 +212,7 @@ const VocabularyDetail = () => {
         localStorageService.bulkUpdateWords(selectedWordIds, { chapter_id: chapterActionTarget || null } as any);
         setWords(loadLocalWords(id!) as any);
       } else {
-        await Promise.all(selectedWordIds.map(wordId => supabase.from("words").update({ chapter_id: chapterActionTarget || null } as any).eq("id", wordId)));
+        if (user) await Promise.all(selectedWordIds.map(wordId => mutateVocabularyData(user.id, { table: "words", operation: "update", payload: { chapter_id: chapterActionTarget || null }, match: { id: wordId } })));
         await loadVocabulary();
       }
     } else {
@@ -214,7 +230,8 @@ const VocabularyDetail = () => {
         } as any)));
         setWords(loadLocalWords(id!) as any);
       } else {
-        await supabase.from("words").insert(selected.map(w => ({
+        const copies = selected.map((w, index) => ({
+          id: crypto.randomUUID(),
           vocabulary_id: id,
           chapter_id: chapterActionTarget || null,
           word: w.word,
@@ -228,8 +245,13 @@ const VocabularyDetail = () => {
           difficulty: w.difficulty,
           derivatives: w.derivatives,
           image_url: w.image_url,
-          order_index: words.length,
-        })) as any);
+          order_index: words.length + index,
+        }));
+        if (user) {
+          for (const copy of copies) {
+            await mutateVocabularyData(user.id, { table: "words", operation: "insert", payload: copy });
+          }
+        }
         await loadVocabulary();
       }
     }
@@ -243,19 +265,19 @@ const VocabularyDetail = () => {
   const addChapter = async () => {
     if (!newChapterName.trim()) return;
     if (isLocalVocab(id)) return;
-    const { data } = await supabase.from("chapters").insert({ vocabulary_id: id, name: newChapterName.trim(), description: newChapterDescription.trim() || null, order_index: chapters.length }).select().single();
-    if (data) {
-      setChapters([...chapters, data]);
-      setShowAddChapter(false);
-      setNewChapterName("");
-      setNewChapterDescription("");
-    }
+    if (!user) return;
+    const chapter = { id: crypto.randomUUID(), vocabulary_id: id, name: newChapterName.trim(), description: newChapterDescription.trim() || null, order_index: chapters.length };
+    await mutateVocabularyData(user.id, { table: "chapters", operation: "insert", payload: chapter });
+    setChapters([...chapters, chapter]);
+    setShowAddChapter(false);
+    setNewChapterName("");
+    setNewChapterDescription("");
   };
 
   const renameChapter = async (chapterId: string) => {
     if (!editingChapterName.trim()) return;
     if (isLocalVocab(id)) return;
-    await supabase.from("chapters").update({ name: editingChapterName.trim() }).eq("id", chapterId);
+    if (user) await mutateVocabularyData(user.id, { table: "chapters", operation: "update", payload: { name: editingChapterName.trim() }, match: { id: chapterId } });
     setChapters(prev => prev.map(c => c.id === chapterId ? { ...c, name: editingChapterName.trim() } : c));
     setEditingChapterId(null);
     setEditingChapterName("");
@@ -265,8 +287,10 @@ const VocabularyDetail = () => {
   const deleteChapter = async (chapterId: string) => {
     if (isLocalVocab(id)) return;
     // Move words to null chapter before deleting
-    await supabase.from("words").update({ chapter_id: null } as any).eq("chapter_id", chapterId);
-    await supabase.from("chapters").delete().eq("id", chapterId);
+    if (user) {
+      await mutateVocabularyData(user.id, { table: "words", operation: "update", payload: { chapter_id: null }, match: { chapter_id: chapterId } });
+      await mutateVocabularyData(user.id, { table: "chapters", operation: "delete", payload: {}, match: { id: chapterId } });
+    }
     if (selectedChapter === chapterId) setSelectedChapter(null);
     await loadVocabulary();
     toast.success("챕터가 삭제되었습니다");
@@ -352,8 +376,9 @@ const VocabularyDetail = () => {
           </div>
         )}
 
-        {/* Print & share buttons - available to all viewers */}
+        {/* Print, app install & share buttons - available to all viewers */}
         <div className="flex gap-2 mb-4 flex-wrap">
+          <InstallAppButton compact />
           <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
             <Printer className="w-4 h-4 mr-1" />단어 리스트 프린트
           </Button>
@@ -459,7 +484,7 @@ const VocabularyDetail = () => {
                 localStorageService.saveWords([{ vocabulary_id: id!, chapter_id: targetChapter, word: newWord.trim(), meaning: newMeaning.trim(), example: "", note: "", part_of_speech: "", order_index: words.length } as any]);
                 setWords(loadLocalWords(id!) as any);
               } else {
-                await supabase.from("words").insert({ vocabulary_id: id, chapter_id: targetChapter, word: newWord.trim(), meaning: newMeaning.trim(), order_index: words.length } as any);
+                if (user) await mutateVocabularyData(user.id, { table: "words", operation: "insert", payload: { id: crypto.randomUUID(), vocabulary_id: id, chapter_id: targetChapter, word: newWord.trim(), meaning: newMeaning.trim(), order_index: words.length } });
                 await loadVocabulary();
               }
               setShowAddWord(false); setNewWord(""); setNewMeaning("");

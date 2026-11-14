@@ -19,6 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { WordManager } from "@/components/WordManager";
 import { isLocalVocab, loadLocalWords, loadLocalVocabulary } from "@/utils/localVocabHelper";
 import { localStorageService } from "@/services/localStorageService";
+import { getOfflineVocabularyBundle, mutateVocabularyData } from "@/services/offlineVocabularyService";
 
 interface Chapter {
   id: string;
@@ -112,9 +113,24 @@ const EditVocabulary = () => {
     setWords(localWords.map(w => ({ id: w.id, chapter_id: w.chapter_id ?? null, word: w.word, meaning: w.meaning, example: w.example || "", note: w.note || "", part_of_speech: w.part_of_speech || "", order_index: w.order_index })));
   };
 
+  const loadCachedVocabulary = async () => {
+    if (!user || !id) return false;
+    const cached = await getOfflineVocabularyBundle(user.id, id);
+    if (!cached) return false;
+    setName(cached.vocabulary.name);
+    setDescription(cached.vocabulary.description || "");
+    setLanguage(cached.vocabulary.language);
+    setIsPublic(cached.vocabulary.is_public || false);
+    setChapters(cached.chapters as any);
+    setWords(cached.words as any);
+    return true;
+  };
+
   const loadVocabulary = async () => {
     try {
-      const { data: vocab } = await supabase.from("vocabularies").select("*").eq("id", id).single();
+      if (!navigator.onLine && await loadCachedVocabulary()) return;
+      const { data: vocab, error } = await supabase.from("vocabularies").select("*").eq("id", id).single();
+      if (error) throw error;
       if (vocab) { setName(vocab.name); setDescription(vocab.description || ""); setLanguage(vocab.language); setIsPublic(vocab.is_public || false); }
       const { data: chaptersData } = await supabase.from("chapters").select("*").eq("vocabulary_id", id).order("order_index");
       setChapters(chaptersData || []);
@@ -122,13 +138,14 @@ const EditVocabulary = () => {
       setWords(wordsData || []);
     } catch (error) {
       console.error("Error loading vocabulary:", error);
+      if (await loadCachedVocabulary()) return;
       toast.error("단어장을 불러오는데 실패했습니다.");
     }
   };
 
   const fetchAIMeaningForNew = useCallback(async (wordText: string) => {
     const trimmedWord = wordText.trim();
-    if (!trimmedWord || !aiAutoMeaning) return;
+    if (!trimmedWord || !aiAutoMeaning || !navigator.onLine) return;
     setFetchingNewMeaning(true);
     try {
       const data: any = await apiGetWordMeaning(trimmedWord);
@@ -166,6 +183,7 @@ const EditVocabulary = () => {
 
   const handleImageUpload = async (file: File) => {
     if (!file) return;
+    if (!navigator.onLine) { toast.error("이미지 업로드는 인터넷 연결 후 사용할 수 있어요."); return; }
     if (!validateImageFile(file, 5)) return;
     try {
       setUploadingImage(true);
@@ -205,6 +223,10 @@ const EditVocabulary = () => {
   };
 
   const handleBulkProcess = async () => {
+    if (!navigator.onLine) {
+      toast.error("AI 일괄 입력은 인터넷 연결 후 사용할 수 있어요.");
+      return;
+    }
     const wordList = bulkText
       .split("\n")
       .map(w => w.trim())
@@ -240,11 +262,14 @@ const EditVocabulary = () => {
             aiData = await apiGetWordMeaning(wordText) as any;
           } catch {}
 
-          // Insert word
-          const { error: insertError } = await supabase
-            .from("words")
-            .insert({
+          if (!user) throw new Error("로그인이 필요합니다.");
+          await mutateVocabularyData(user.id, {
+            table: "words",
+            operation: "insert",
+            payload: {
+              id: crypto.randomUUID(),
               vocabulary_id: id,
+              chapter_id: null,
               word: wordText,
               meaning: aiData.meaning || wordText,
               example: aiData.example || null,
@@ -256,9 +281,8 @@ const EditVocabulary = () => {
               antonyms: aiData.antonyms || null,
               derivatives: Array.isArray(aiData.derivatives) && aiData.derivatives.length > 0
                 ? JSON.stringify(aiData.derivatives) : null,
-            } as any);
-
-          if (insertError) throw insertError;
+            },
+          });
 
           successCount++;
           setBulkResults(prev => prev.map((r, ri) => ri === globalIdx ? { ...r, status: "done" } : r));
@@ -291,9 +315,9 @@ const EditVocabulary = () => {
         setNewWord(emptyNewWord());
         loadLocalVocab();
       } else {
-        const { error } = await supabase.from("words").insert({ vocabulary_id: id, word: newWord.word.trim(), meaning: newWord.meaning.trim(), example: newWord.example.trim() || null, part_of_speech: newWord.part_of_speech.trim() || null, note: newWord.note.trim() || null, order_index: words.length, image_url: newWord.image_url || null, frequency: newWord.frequency || 0, difficulty: newWord.difficulty || 0, synonyms: newWord.synonyms.trim() || null, antonyms: newWord.antonyms.trim() || null, derivatives: newWord.derivatives.length > 0 ? JSON.stringify(newWord.derivatives) : null } as any);
-        if (error) throw error;
-        toast.success("단어가 추가되었습니다!");
+        if (!user) throw new Error("로그인이 필요합니다.");
+        const result = await mutateVocabularyData(user.id, { table: "words", operation: "insert", payload: { id: crypto.randomUUID(), vocabulary_id: id, chapter_id: null, word: newWord.word.trim(), meaning: newWord.meaning.trim(), example: newWord.example.trim() || null, part_of_speech: newWord.part_of_speech.trim() || null, note: newWord.note.trim() || null, order_index: words.length, image_url: newWord.image_url || null, frequency: newWord.frequency || 0, difficulty: newWord.difficulty || 0, synonyms: newWord.synonyms.trim() || null, antonyms: newWord.antonyms.trim() || null, derivatives: newWord.derivatives.length > 0 ? JSON.stringify(newWord.derivatives) : null } });
+        toast.success(result.offline ? "기기에 저장했어요. 인터넷 연결 시 자동 동기화됩니다." : "단어가 추가되었습니다!");
         setNewWord(emptyNewWord());
         loadVocabulary();
       }
@@ -312,8 +336,9 @@ const EditVocabulary = () => {
         localStorageService.updateVocabulary(id!, { name, description, language });
         toast.success("단어장이 수정되었습니다!");
       } else {
-        await supabase.from("vocabularies").update({ name, description, language, is_public: isPublic }).eq("id", id);
-        toast.success("단어장이 수정되었습니다!");
+        if (!user) throw new Error("로그인이 필요합니다.");
+        const result = await mutateVocabularyData(user.id, { table: "vocabularies", operation: "update", payload: { name, description, language, is_public: isPublic }, match: { id } });
+        toast.success(result.offline ? "기기에 저장했어요. 인터넷 연결 시 자동 동기화됩니다." : "단어장이 수정되었습니다!");
       }
       navigate(`/vocabularies/${id}`);
     } catch (error) {
@@ -327,8 +352,11 @@ const EditVocabulary = () => {
   const addChapter = async () => {
     try {
       if (isLocal) return;
-      const { data } = await supabase.from("chapters").insert({ vocabulary_id: id, name: `Chapter ${chapters.length + 1}`, description: "", order_index: chapters.length }).select().single();
-      if (data) { setChapters([...chapters, data]); toast.success("챕터가 추가되었습니다!"); }
+      if (!user) throw new Error("로그인이 필요합니다.");
+      const chapter = { id: crypto.randomUUID(), vocabulary_id: id, name: `Chapter ${chapters.length + 1}`, description: "", order_index: chapters.length };
+      await mutateVocabularyData(user.id, { table: "chapters", operation: "insert", payload: chapter });
+      setChapters([...chapters, chapter]);
+      toast.success("챕터가 추가되었습니다!");
     } catch (error) {
       console.error("Error adding chapter:", error);
       toast.error("챕터 추가에 실패했습니다.");
@@ -338,7 +366,8 @@ const EditVocabulary = () => {
   const deleteChapter = async (chapterId: string) => {
     try {
       if (isLocal) return;
-      await supabase.from("chapters").delete().eq("id", chapterId);
+      if (!user) throw new Error("로그인이 필요합니다.");
+      await mutateVocabularyData(user.id, { table: "chapters", operation: "delete", payload: {}, match: { id: chapterId } });
       setChapters(chapters.filter(c => c.id !== chapterId));
       toast.success("챕터가 삭제되었습니다!");
     } catch (error) {

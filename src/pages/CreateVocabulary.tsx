@@ -20,6 +20,7 @@ import { apiGetWordMeaning } from "@/services/api";
 import { uploadImageWithRetry, validateImageFile } from "@/utils/imageUpload";
 import { Plus, Trash2, ChevronDown, Upload, Sparkles, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { mutateVocabularyData } from "@/services/offlineVocabularyService";
 
 interface Derivative {
   word: string;
@@ -118,7 +119,7 @@ const CreateVocabulary = () => {
 
   const fetchAIMeaning = useCallback(async (wordId: string, word: string, partOfSpeech: string) => {
     const trimmedWord = word.trim();
-    if (!trimmedWord || !aiAutoMeaning || trimmedWord.length < 3) return;
+    if (!trimmedWord || !aiAutoMeaning || trimmedWord.length < 3 || !navigator.onLine) return;
 
     const normalizedWord = trimmedWord.toLowerCase();
     const reqKey = `${normalizedWord}::${partOfSpeech || ""}`;
@@ -253,6 +254,7 @@ const CreateVocabulary = () => {
 
   const handleImageUpload = async (wordId: string, file: File) => {
     if (!file) return;
+    if (!navigator.onLine) { toast.error("이미지 업로드는 인터넷 연결 후 사용할 수 있어요."); return; }
     if (!validateImageFile(file, 5)) return;
     try {
       setUploadingImage(true);
@@ -288,20 +290,23 @@ const CreateVocabulary = () => {
     setLoading(true);
     try {
       if (user) {
-        const { data: vocabulary, error: vocabError } = await supabase
-          .from("vocabularies")
-          .insert({
-            user_id: user.id,
-            name: name.trim(),
-            description: description.trim() || null,
-            language,
-          })
-          .select()
-          .single();
-        if (vocabError) throw vocabError;
+        const vocabulary = {
+          id: crypto.randomUUID(),
+          user_id: user.id,
+          name: name.trim(),
+          description: description.trim() || null,
+          language,
+          is_public: false,
+          share_code: "",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const vocabularyResult = await mutateVocabularyData(user.id, { table: "vocabularies", operation: "insert", payload: vocabulary });
 
         const wordsToInsert = validWords.map((w, index) => ({
+          id: crypto.randomUUID(),
           vocabulary_id: vocabulary.id,
+          chapter_id: null,
           word: w.word.trim(),
           meaning: w.meaning.trim(),
           example: w.example.trim() || null,
@@ -316,12 +321,11 @@ const CreateVocabulary = () => {
           derivatives: w.derivatives.length > 0 ? JSON.stringify(w.derivatives) : null,
         }));
 
-        const { error: wordsError } = await supabase
-          .from("words")
-          .insert(wordsToInsert as any);
-        if (wordsError) throw wordsError;
+        for (const word of wordsToInsert) {
+          await mutateVocabularyData(user.id, { table: "words", operation: "insert", payload: word });
+        }
 
-        toast.success("단어장이 생성되었습니다!");
+        toast.success(vocabularyResult.offline ? "기기에 저장했어요. 인터넷 연결 시 자동 동기화됩니다." : "단어장이 생성되었습니다!");
         navigate(`/vocabularies/${vocabulary.id}`);
       } else {
         const { localStorageService } = await import("@/services/localStorageService");
@@ -397,7 +401,10 @@ const CreateVocabulary = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="button" variant={aiAutoMeaning ? "default" : "outline"} className="w-full flex items-center gap-2" onClick={() => setAiAutoMeaning(!aiAutoMeaning)}>
+              <Button type="button" variant={aiAutoMeaning ? "default" : "outline"} className="w-full flex items-center gap-2" onClick={() => {
+                if (!navigator.onLine) { toast.error("AI 자동 입력은 인터넷 연결 후 사용할 수 있어요."); return; }
+                setAiAutoMeaning(!aiAutoMeaning);
+              }}>
                 <Sparkles className="w-4 h-4" />
                 AI 자동 입력 (뜻/빈도/난이도/유의어/반의어/파생어)
                 {aiAutoMeaning && <span className="ml-auto text-xs">켜짐</span>}

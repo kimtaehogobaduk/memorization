@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { isLocalVocab, loadLocalWords } from "@/utils/localVocabHelper";
+import { loadWordsWithOffline } from "@/services/offlineVocabularyService";
 
 interface Word {
   id: string;
@@ -29,7 +29,7 @@ const DYNAMIC_SLOTS = 7;
 const QuizMatching = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { playMatchSound, playIncorrectSound } = useQuizSound();
 
@@ -63,10 +63,10 @@ const QuizMatching = () => {
   const vocabIds = idsParam ? idsParam.split(",") : [id];
 
   useEffect(() => {
-    if (id || (vocabIds && vocabIds.length > 0)) {
+    if (!authLoading && (id || (vocabIds && vocabIds.length > 0))) {
       loadWords();
     }
-  }, [id, idsParam]);
+  }, [id, idsParam, authLoading]);
 
   useEffect(() => {
     if (allWords.length > 0 && !dynamicMode) {
@@ -106,37 +106,13 @@ const QuizMatching = () => {
     try {
       setLoading(true);
 
-      const hasLocal = vocabIds.some(vid => vid && isLocalVocab(vid));
-      if (hasLocal) {
-        let words: Word[] = [];
-        for (const vid of vocabIds) {
-          if (vid && isLocalVocab(vid)) {
-            words.push(...loadLocalWords(vid).map(w => ({ id: w.id, word: w.word, meaning: w.meaning })));
-          }
-        }
-        if (isRetry && incorrectIds.length > 0) {
-          words = words.filter(w => incorrectIds.includes(w.id));
-        }
-        if (isRandom && !isRetry) words = [...words].sort(() => Math.random() - 0.5);
-        setAllWords(words);
-        return;
+      const loadedWords = await loadWordsWithOffline(user?.id, vocabIds);
+      let wordsData = loadedWords.map(word => ({ id: word.id, word: word.word, meaning: word.meaning }));
+      if (chapterId) {
+        const chapterIds = new Set(loadedWords.filter(word => word.chapter_id === chapterId).map(word => word.id));
+        wordsData = wordsData.filter(word => chapterIds.has(word.id));
       }
-
-      let query = supabase
-        .from("words")
-        .select("id, word, meaning")
-        .in("vocabulary_id", vocabIds)
-        .order("order_index", { ascending: true })
-        .order("created_at", { ascending: true })
-        .limit(10000);
-
-      if (chapterId) query = query.eq("chapter_id", chapterId);
-      if (isRetry && incorrectIds.length > 0) query = query.in("id", incorrectIds);
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      let wordsData = data || [];
+      if (isRetry && incorrectIds.length > 0) wordsData = wordsData.filter(word => incorrectIds.includes(word.id));
       if (isRandom && !isRetry) wordsData = [...wordsData].sort(() => Math.random() - 0.5);
       setAllWords(wordsData);
     } catch (error) {

@@ -14,12 +14,15 @@ import { Brain, CheckSquare, Edit3, Grid3x3, Printer, Sparkles, PenLine } from "
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isLocalVocab, loadLocalWords, loadLocalVocabulary, getLocalSettings } from "@/utils/localVocabHelper";
+import { getOfflineChapter, getOfflineVocabularyBundle, getOfflineWords } from "@/services/offlineVocabularyService";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { exportQuizTestPaper } from "@/lib/quizTestPaper";
 
 const Quiz = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const online = useOnlineStatus();
   const navigate = useNavigate();
   const [vocabularyName, setVocabularyName] = useState("");
   const [chapterName, setChapterName] = useState("");
@@ -39,11 +42,11 @@ const Quiz = () => {
   const chapterId = searchParams.get("chapter");
 
   useEffect(() => {
-    if (id) {
+    if (id && !authLoading) {
       loadQuizData();
       loadUserSettings();
     }
-  }, [id, chapterId]);
+  }, [id, chapterId, authLoading]);
 
   const loadUserSettings = async () => {
     if (!user) {
@@ -66,6 +69,20 @@ const Quiz = () => {
     }
   };
 
+  const loadOfflineQuizData = async () => {
+    if (!user || !id) return false;
+    const cached = await getOfflineVocabularyBundle(user.id, id);
+    if (!cached) return false;
+    setVocabularyName(cached.vocabulary.name);
+    if (chapterId) {
+      const chapter = await getOfflineChapter(user.id, chapterId);
+      if (chapter) setChapterName(chapter.name);
+    }
+    const words = await getOfflineWords(user.id, [id]);
+    setWordCount(chapterId ? words.filter(word => word.chapter_id === chapterId).length : words.length);
+    return true;
+  };
+
   const loadQuizData = async () => {
     try {
       if (isLocalVocab(id)) {
@@ -75,6 +92,7 @@ const Quiz = () => {
         setWordCount(words.length);
         return;
       }
+      if (!navigator.onLine && await loadOfflineQuizData()) return;
 
       const { data: vocab } = await supabase
         .from("vocabularies")
@@ -111,6 +129,7 @@ const Quiz = () => {
       setWordCount(count || 0);
     } catch (error) {
       console.error("Error loading quiz data:", error);
+      if (await loadOfflineQuizData()) return;
       toast.error("퀴즈 데이터를 불러오는데 실패했습니다.");
     }
   };
@@ -119,6 +138,7 @@ const Quiz = () => {
   const exportToTestPaper = () => exportQuizTestPaper({
     id,
     chapterId,
+    userId: user?.id,
     vocabularyName,
     chapterName,
     quizType,
@@ -130,6 +150,10 @@ const Quiz = () => {
     aiCustomRequest,
   });
   const startQuiz = () => {
+    if (!online && (quizType === "ai" || quizType === "sentence")) {
+      toast.error("AI 퀴즈는 인터넷 연결 후 사용할 수 있어요.");
+      return;
+    }
     const params = new URLSearchParams({
       random: isRandomOrder.toString(),
       delay: answerDelay[0].toString(),
@@ -249,15 +273,18 @@ const Quiz = () => {
         <div>
           <h3 className="text-sm font-semibold mb-3">퀴즈 유형</h3>
           <div className="grid grid-cols-1 gap-3">
-            {quizOptions.map((option) => (
+            {quizOptions.map((option) => {
+              const requiresOnline = option.type === "ai" || option.type === "sentence";
+              const disabled = !online && requiresOnline;
+              return (
               <Card
                 key={option.type}
-                className={`cursor-pointer transition-all ${
+                className={`transition-all ${disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer"} ${
                   quizType === option.type
                     ? "border-primary bg-primary/5"
                     : "hover:border-primary/50"
                 }`}
-                onClick={() => setQuizType(option.type as any)}
+                onClick={() => { if (!disabled) setQuizType(option.type as any); }}
               >
                 <CardContent className="p-4 flex items-center gap-4">
                   <div className={`p-3 rounded-lg ${
@@ -269,11 +296,12 @@ const Quiz = () => {
                   </div>
                   <div className="flex-1">
                     <h4 className="font-semibold">{option.title}</h4>
-                    <p className="text-sm text-muted-foreground">{option.description}</p>
+                    <p className="text-sm text-muted-foreground">{disabled ? "Wi-Fi 연결 후 사용할 수 있어요" : option.description}</p>
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         </div>
 

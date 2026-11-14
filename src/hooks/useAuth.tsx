@@ -3,6 +3,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { syncLocalDataToSupabase } from "@/utils/syncLocalData";
+import { scheduleOfflineSync } from "@/services/offlineVocabularyService";
 
 // Shared module-level state to prevent loading flicker on navigation
 type AuthState = {
@@ -55,6 +56,7 @@ const initAuth = () => {
         syncedFor = session.user.id;
         syncLocalDataToSupabase(session.user.id).then((count) => {
           if (count && count > 0) console.log(`Synced ${count} local vocabularies to cloud`);
+          scheduleOfflineSync(session.user.id);
         });
       }
     } else {
@@ -65,7 +67,14 @@ const initAuth = () => {
 
   supabase.auth.getSession().then(({ data: { session } }) => {
     setShared({ session, user: session?.user ?? null, loading: false });
-    if (session?.user) setTimeout(() => checkAdminRole(session.user.id), 0);
+    if (session?.user) {
+      setTimeout(() => checkAdminRole(session.user.id), 0);
+      scheduleOfflineSync(session.user.id);
+    }
+  });
+
+  window.addEventListener("online", () => {
+    if (sharedState.user) scheduleOfflineSync(sharedState.user.id);
   });
 };
 

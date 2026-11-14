@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, Users, Sparkles, Heart, Trophy } from "lucide-react";
 import { motion } from "framer-motion";
 import junsuk01 from "@/assets/junsuk-01.png";
+import { InstallAppButton } from "@/components/InstallAppButton";
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -134,6 +135,7 @@ const Index = () => {
                   <BookOpen className="w-5 h-5 mr-2" />
                   로그인 없이 단어장 사용하기
                 </Button>
+                <InstallAppButton className="w-full h-12 text-base font-semibold" />
               </div>
             </CardContent>
           </Card>

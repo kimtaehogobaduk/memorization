@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, Download } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
+import { mutateVocabularyData } from "@/services/offlineVocabularyService";
 
 const ExcelUpload = () => {
   const { user } = useAuth();
@@ -141,24 +141,23 @@ const ExcelUpload = () => {
       }
 
       if (user) {
-        // Create vocabulary in Supabase
-        const { data: vocabulary, error: vocabError } = await supabase
-          .from("vocabularies")
-          .insert({
-            user_id: user.id,
-            name: vocabularyName.trim(),
-            language: "english",
-          })
-          .select()
-          .single();
-
-        if (vocabError) {
-          console.error("[ExcelUpload] Vocabulary creation error:", vocabError);
-          throw vocabError;
-        }
+        const vocabulary = {
+          id: crypto.randomUUID(),
+          user_id: user.id,
+          name: vocabularyName.trim(),
+          description: null,
+          language: "english",
+          is_public: false,
+          share_code: "",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const vocabularyResult = await mutateVocabularyData(user.id, { table: "vocabularies", operation: "insert", payload: vocabulary });
 
         const wordsToInsert = words.map((w, index) => ({
+          id: crypto.randomUUID(),
           vocabulary_id: vocabulary.id,
+          chapter_id: null,
           word: w.word,
           meaning: w.meaning,
           example: w.example,
@@ -167,16 +166,13 @@ const ExcelUpload = () => {
           order_index: index,
         }));
 
-        const { error: wordsError } = await supabase
-          .from("words")
-          .insert(wordsToInsert);
-
-        if (wordsError) {
-          console.error("[ExcelUpload] Words insertion error:", wordsError);
-          throw wordsError;
+        for (const word of wordsToInsert) {
+          await mutateVocabularyData(user.id, { table: "words", operation: "insert", payload: word });
         }
 
-        toast.success(`단어장이 생성되었습니다! (${words.length}개 단어)`);
+        toast.success(vocabularyResult.offline
+          ? `기기에 단어장을 저장했습니다. 인터넷 연결 시 자동 동기화돼요. (${words.length}개 단어)`
+          : `단어장이 생성되었습니다! (${words.length}개 단어)`);
         navigate(`/vocabularies/${vocabulary.id}`);
       } else {
         // Save to localStorage for non-logged-in users

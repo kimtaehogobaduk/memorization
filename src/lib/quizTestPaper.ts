@@ -1,12 +1,12 @@
 import { toast } from "sonner";
 import { apiGenerateAIQuiz } from "@/services/api";
-import { isLocalVocab, loadLocalWords } from "@/utils/localVocabHelper";
-import { supabase } from "@/integrations/supabase/client";
+import { loadWordsWithOffline } from "@/services/offlineVocabularyService";
 import { AI_TEST_PAPER_STYLES, TEST_PAPER_STYLES } from "@/lib/quizTestPaperStyles";
 
 export interface QuizTestPaperOptions {
   id?: string;
   chapterId: string | null;
+  userId?: string;
   vocabularyName: string;
   chapterName: string;
   quizType: "multiple" | "writing" | "matching" | "random" | "ai" | "sentence";
@@ -22,6 +22,7 @@ export interface QuizTestPaperOptions {
 export const exportQuizTestPaper = async ({
   id,
   chapterId,
+  userId,
   vocabularyName,
   chapterName,
   quizType,
@@ -35,30 +36,15 @@ export const exportQuizTestPaper = async ({
     try {
       let words: { id: string; word: string; meaning: string; part_of_speech: string | null }[] = [];
 
-      if (isLocalVocab(id)) {
-        const localWords = loadLocalWords(id!);
-        words = localWords.map(w => ({
-          id: w.id,
-          word: w.word,
-          meaning: w.meaning,
-          part_of_speech: w.part_of_speech,
+      const loadedWords = await loadWordsWithOffline(userId, [id]);
+      words = loadedWords
+        .filter(word => !chapterId || word.chapter_id === chapterId)
+        .map(word => ({
+          id: word.id,
+          word: word.word,
+          meaning: word.meaning,
+          part_of_speech: word.part_of_speech,
         }));
-      } else {
-        const query = supabase
-          .from("words")
-          .select("id, word, meaning, part_of_speech")
-          .eq("vocabulary_id", id)
-          .order("order_index", { ascending: true })
-          .order("created_at", { ascending: true });
-
-        if (chapterId) {
-          query.eq("chapter_id", chapterId);
-        }
-
-        const { data, error } = await query;
-        if (error) throw error;
-        words = data || [];
-      }
 
       if (!words || words.length === 0) {
         toast.error("단어가 없습니다.");
@@ -80,6 +66,10 @@ export const exportQuizTestPaper = async ({
       let answersHtml = "";
 
       if (quizType === "ai") {
+        if (!navigator.onLine) {
+          toast.error("AI 시험지는 인터넷 연결 후 만들 수 있어요.");
+          return;
+        }
         // AI quiz export: call edge function to generate questions
         toast.info("AI가 시험 문제를 생성하고 있습니다... 잠시만 기다려주세요.");
 

@@ -11,6 +11,7 @@ import { motion } from "framer-motion";
 import junsuk01 from "@/assets/junsuk-01.png";
 import junsuk30 from "@/assets/junsuk-30.png";
 import junsuk27 from "@/assets/junsuk-27.png";
+import { InstallAppButton } from "@/components/InstallAppButton";
 
 const Dashboard = () => {
   const { user, loading, isAdmin } = useAuth();
@@ -134,6 +135,10 @@ const Dashboard = () => {
             </div>
           </div>
         </motion.div>
+
+        <div className="mb-6 flex justify-center">
+          <InstallAppButton />
+        </div>
 
         {/* Quick Actions Grid */}
         <div className="grid grid-cols-2 gap-4 mb-8">

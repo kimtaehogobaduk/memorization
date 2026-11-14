@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { isLocalVocab, loadLocalWords } from "@/utils/localVocabHelper";
 
 export type OfflineTable = "vocabularies" | "words" | "chapters" | "study_progress";
 
@@ -157,8 +158,7 @@ export const flushPendingMutations = async (userId: string) => {
     try {
       await runMutation(mutation);
       await updateSnapshot(userId, current => {
-        const index = current.pending.indexOf(mutation);
-        if (index >= 0) current.pending.splice(index, 1);
+        if (current.pending.length) current.pending.shift();
       });
     } catch (error) {
       if (!isNetworkFailure(error)) console.error("Offline change sync failed:", error);
@@ -231,6 +231,41 @@ export const cacheVocabularyBundle = async (
     snapshot.chapters = [...snapshot.chapters.filter(item => item.vocabulary_id !== vocabulary.id), ...chapters];
     snapshot.words = [...snapshot.words.filter(item => item.vocabulary_id !== vocabulary.id), ...words];
   });
+};
+
+/** Loads guest and cloud vocabularies together, using the device copy when offline. */
+export const loadWordsWithOffline = async (userId: string | undefined, vocabularyIds: Array<string | undefined>) => {
+  const ids = vocabularyIds.filter((id): id is string => Boolean(id));
+  const words: Record<string, any>[] = [];
+  const cloudIds: string[] = [];
+
+  for (const id of ids) {
+    if (isLocalVocab(id)) words.push(...loadLocalWords(id));
+    else cloudIds.push(id);
+  }
+  if (!cloudIds.length) return words;
+
+  if (userId && !navigator.onLine) {
+    words.push(...await getOfflineWords(userId, cloudIds));
+    return words;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("words")
+      .select("*")
+      .in("vocabulary_id", cloudIds)
+      .order("order_index", { ascending: true })
+      .order("created_at", { ascending: true })
+      .limit(100000);
+    if (error) throw error;
+    words.push(...(data || []));
+    return words;
+  } catch (error) {
+    if (!userId || !isNetworkFailure(error)) throw error;
+    words.push(...await getOfflineWords(userId, cloudIds));
+    return words;
+  }
 };
 
 const fetchByVocabularyChunks = async (table: "words" | "chapters", vocabularyIds: string[]) => {

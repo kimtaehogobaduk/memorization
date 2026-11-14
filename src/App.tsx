@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -42,8 +42,11 @@ import Admin from "./pages/Admin";
 import PhoneticGuide from "./pages/PhoneticGuide";
 import ShareVocabulary from "./pages/ShareVocabulary";
 import NotFound from "./pages/NotFound";
+import { NetworkStatusBanner } from "./components/NetworkStatusBanner";
+import { OnlineOnly } from "./components/OnlineOnly";
 
 const queryClient = new QueryClient();
+const onlineOnly = (element: ReactNode) => <OnlineOnly>{element}</OnlineOnly>;
 
 const App = () => {
   const [showSplash, setShowSplash] = useState(true);
@@ -67,48 +70,49 @@ const App = () => {
             <motion.div key="main" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
               <BrowserRouter>
                 <NotificationProvider />
+                <NetworkStatusBanner />
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/auth" element={onlineOnly(<Auth />)} />
                   <Route path="/vocabularies" element={<Vocabularies />} />
                   <Route path="/vocabularies/new" element={<CreateVocabulary />} />
                   <Route path="/vocabularies/excel" element={<ExcelUpload />} />
-                  <Route path="/vocabularies/public" element={<PublicVocabularies />} />
-                  <Route path="/vocabularies/generate" element={<GenerateVocabularies />} />
-                  <Route path="/vocabularies/word-list" element={<WordListUpload />} />
-                  <Route path="/vocabularies/file-upload" element={<FileVocabularyUpload />} />
+                  <Route path="/vocabularies/public" element={onlineOnly(<PublicVocabularies />)} />
+                  <Route path="/vocabularies/generate" element={onlineOnly(<GenerateVocabularies />)} />
+                  <Route path="/vocabularies/word-list" element={onlineOnly(<WordListUpload />)} />
+                  <Route path="/vocabularies/file-upload" element={onlineOnly(<FileVocabularyUpload />)} />
                   <Route path="/vocabularies/:id/edit" element={<EditVocabulary />} />
                   <Route path="/vocabularies/:id" element={<VocabularyDetail />} />
-                  <Route path="/share/:id" element={<ShareVocabulary />} />
+                  <Route path="/share/:id" element={onlineOnly(<ShareVocabulary />)} />
                   <Route path="/study/:id" element={<Study />} />
                   <Route path="/quiz/multi" element={<QuizMultiVocab />} />
                   <Route path="/quiz/multi/multiple" element={<QuizMultipleChoice />} />
                   <Route path="/quiz/multi/writing" element={<QuizWriting />} />
                   <Route path="/quiz/multi/matching" element={<QuizMatching />} />
                   <Route path="/quiz/multi/random" element={<QuizRandom />} />
-                  <Route path="/quiz/multi/ai" element={<QuizAI />} />
-                  <Route path="/quiz/multi/ai-result" element={<QuizAIResult />} />
-                  <Route path="/quiz/multi/sentence" element={<QuizSentence />} />
+                  <Route path="/quiz/multi/ai" element={onlineOnly(<QuizAI />)} />
+                  <Route path="/quiz/multi/ai-result" element={onlineOnly(<QuizAIResult />)} />
+                  <Route path="/quiz/multi/sentence" element={onlineOnly(<QuizSentence />)} />
                   <Route path="/quiz/multi/result" element={<QuizResult />} />
                   <Route path="/quiz/:id" element={<Quiz />} />
                   <Route path="/quiz/:id/multiple" element={<QuizMultipleChoice />} />
                   <Route path="/quiz/:id/writing" element={<QuizWriting />} />
                   <Route path="/quiz/:id/matching" element={<QuizMatching />} />
                   <Route path="/quiz/:id/random" element={<QuizRandom />} />
-                  <Route path="/quiz/:id/sentence" element={<QuizSentence />} />
+                  <Route path="/quiz/:id/sentence" element={onlineOnly(<QuizSentence />)} />
                   <Route path="/quiz/:id/result" element={<QuizResult />} />
-                  <Route path="/quiz/:id/ai" element={<QuizAI />} />
-                  <Route path="/quiz/:id/ai-result" element={<QuizAIResult />} />
-                  <Route path="/groups" element={<Groups />} />
-                  <Route path="/groups/new" element={<CreateGroup />} />
-                  <Route path="/groups/join" element={<JoinGroup />} />
-                  <Route path="/groups/public" element={<PublicGroups />} />
-                  <Route path="/groups/:id" element={<GroupDetail />} />
-                  <Route path="/groups/:id/settings" element={<GroupSettings />} />
+                  <Route path="/quiz/:id/ai" element={onlineOnly(<QuizAI />)} />
+                  <Route path="/quiz/:id/ai-result" element={onlineOnly(<QuizAIResult />)} />
+                  <Route path="/groups" element={onlineOnly(<Groups />)} />
+                  <Route path="/groups/new" element={onlineOnly(<CreateGroup />)} />
+                  <Route path="/groups/join" element={onlineOnly(<JoinGroup />)} />
+                  <Route path="/groups/public" element={onlineOnly(<PublicGroups />)} />
+                  <Route path="/groups/:id" element={onlineOnly(<GroupDetail />)} />
+                  <Route path="/groups/:id/settings" element={onlineOnly(<GroupSettings />)} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/statistics" element={<Statistics />} />
-                  <Route path="/admin" element={<Admin />} />
+                  <Route path="/admin" element={onlineOnly(<Admin />)} />
                   <Route path="/phonetic-guide" element={<PhoneticGuide />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>

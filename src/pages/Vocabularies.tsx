@@ -40,6 +40,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getOfflineVocabularies, loadWordsWithOffline, mutateVocabularyData } from "@/services/offlineVocabularyService";
 
 interface Vocabulary {
   id: string;
@@ -82,6 +83,10 @@ const Vocabularies = () => {
   }, [user, loading]);
 
   const loadBookshelves = async () => {
+    if (!navigator.onLine) {
+      setBookshelves([]);
+      return;
+    }
     try {
       const { data: shelfData, error } = await supabase
         .from("bookshelves")
@@ -147,7 +152,11 @@ const Vocabularies = () => {
       setLoadingVocabs(true);
       
       if (user) {
-        // Load from Supabase
+        if (!navigator.onLine) {
+          setVocabularies(await getOfflineVocabularies(user.id));
+          return;
+        }
+        // Load from Supabase and keep the on-device copy refreshed in the background.
         const { data, error } = await supabase
           .from("vocabularies")
           .select(`
@@ -184,6 +193,10 @@ const Vocabularies = () => {
       }
     } catch (error) {
       console.error("Error loading vocabularies:", error);
+      if (user) {
+        setVocabularies(await getOfflineVocabularies(user.id));
+        return;
+      }
       toast.error("단어장을 불러오는데 실패했습니다.");
     } finally {
       setLoadingVocabs(false);
@@ -193,12 +206,7 @@ const Vocabularies = () => {
   const handleDelete = async (id: string) => {
     try {
       if (user) {
-        const { error } = await supabase
-          .from("vocabularies")
-          .delete()
-          .eq("id", id);
-
-        if (error) throw error;
+        await mutateVocabularyData(user.id, { table: "vocabularies", operation: "delete", payload: {}, match: { id } });
       } else {
         const { localStorageService } = await import("@/services/localStorageService");
         localStorageService.deleteVocabulary(id);
@@ -218,12 +226,9 @@ const Vocabularies = () => {
     
     try {
       if (user) {
-        const { error } = await supabase
-          .from("vocabularies")
-          .delete()
-          .in("id", selectedIds);
-
-        if (error) throw error;
+        for (const id of selectedIds) {
+          await mutateVocabularyData(user.id, { table: "vocabularies", operation: "delete", payload: {}, match: { id } });
+        }
       } else {
         const { localStorageService } = await import("@/services/localStorageService");
         selectedIds.forEach(id => localStorageService.deleteVocabulary(id));
@@ -245,14 +250,7 @@ const Vocabularies = () => {
       let words: any[] = [];
       
       if (user) {
-        const { data, error } = await supabase
-          .from("words")
-          .select("word, meaning, example, part_of_speech, note")
-          .eq("vocabulary_id", vocabId)
-          .order("order_index");
-
-        if (error) throw error;
-        words = data || [];
+        words = await loadWordsWithOffline(user.id, [vocabId]);
       } else {
         const { localStorageService } = await import("@/services/localStorageService");
         words = localStorageService.getWordsByVocabulary(vocabId);

@@ -11,7 +11,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { isLocalVocab, loadLocalWords, getLocalSettings } from "@/utils/localVocabHelper";
+import { getLocalSettings } from "@/utils/localVocabHelper";
+import { loadWordsWithOffline } from "@/services/offlineVocabularyService";
 
 interface Word {
   id: string;
@@ -23,7 +24,7 @@ interface Word {
 const QuizMultipleChoice = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { playCorrectSound, playIncorrectSound } = useQuizSound();
   
@@ -51,11 +52,11 @@ const QuizMultipleChoice = () => {
   const questionCountParam = searchParams.get("count");
  
   useEffect(() => {
-    if (id || (vocabIds && vocabIds.length > 0)) {
+    if (!authLoading && (id || (vocabIds && vocabIds.length > 0))) {
       loadWords();
       loadUserSettings();
     }
-  }, [id, idsParam]);
+  }, [id, idsParam, authLoading]);
 
   const loadUserSettings = async () => {
     if (!user) {
@@ -133,47 +134,19 @@ const QuizMultipleChoice = () => {
     try {
       setLoading(true);
 
-      const hasLocal = vocabIds.some(vid => vid && isLocalVocab(vid));
-      if (hasLocal) {
-        let allWords: Word[] = [];
-        for (const vid of vocabIds) {
-          if (vid && isLocalVocab(vid)) {
-            allWords.push(...loadLocalWords(vid).map(w => ({ id: w.id, word: w.word, meaning: w.meaning, part_of_speech: w.part_of_speech })));
-          }
-        }
-        if (isRetry && incorrectIds.length > 0) {
-          allWords = allWords.filter(w => incorrectIds.includes(w.id));
-        }
-        if (isRandom && !isRetry) allWords = [...allWords].sort(() => Math.random() - 0.5);
-        if (questionCountParam && !isRetry) {
-          const count = parseInt(questionCountParam);
-          if (!isNaN(count) && count > 0) allWords = allWords.slice(0, count);
-        }
-        setWords(allWords);
-        return;
-      }
-
-      let query = supabase
-        .from("words")
-        .select("id, word, meaning, part_of_speech")
-        .in("vocabulary_id", vocabIds)
-        .order("order_index", { ascending: true })
-        .order("created_at", { ascending: true })
-        .limit(10000);
+      const loadedWords = await loadWordsWithOffline(user?.id, vocabIds);
+      let wordsData = loadedWords.map(word => ({
+        id: word.id,
+        word: word.word,
+        meaning: word.meaning,
+        part_of_speech: word.part_of_speech,
+      }));
 
       if (chapterId) {
-        query = query.eq("chapter_id", chapterId);
+        const chapterIds = new Set(loadedWords.filter(word => word.chapter_id === chapterId).map(word => word.id));
+        wordsData = wordsData.filter(word => chapterIds.has(word.id));
       }
-
-      if (isRetry && incorrectIds.length > 0) {
-        query = query.in("id", incorrectIds);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      let wordsData = data || [];
+      if (isRetry && incorrectIds.length > 0) wordsData = wordsData.filter(word => incorrectIds.includes(word.id));
 
       // When random order is off, keep the exact order words were entered (order_index).
       if (isRandom && !isRetry) {
