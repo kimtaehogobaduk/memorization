@@ -167,7 +167,7 @@ export const flushPendingMutations = async (userId: string) => {
   }
 };
 
-export const getOfflineVocabularies = async (userId: string) => {
+export const getOfflineVocabularies = async (userId: string): Promise<any[]> => {
   const snapshot = await readSnapshot(userId);
   return [...snapshot.vocabularies]
     .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
@@ -177,7 +177,7 @@ export const getOfflineVocabularies = async (userId: string) => {
     }));
 };
 
-export const getOfflineVocabularyBundle = async (userId: string, vocabularyId: string) => {
+export const getOfflineVocabularyBundle = async (userId: string, vocabularyId: string): Promise<any> => {
   const snapshot = await readSnapshot(userId);
   const vocabulary = snapshot.vocabularies.find(vocab => vocab.id === vocabularyId);
   if (!vocabulary) return null;
@@ -192,7 +192,7 @@ export const getOfflineVocabularyBundle = async (userId: string, vocabularyId: s
   };
 };
 
-export const getOfflineWords = async (userId: string, vocabularyIds: string[]) => {
+export const getOfflineWords = async (userId: string, vocabularyIds: string[]): Promise<any[]> => {
   const snapshot = await readSnapshot(userId);
   const ids = new Set(vocabularyIds.filter(Boolean));
   return snapshot.words
@@ -200,17 +200,17 @@ export const getOfflineWords = async (userId: string, vocabularyIds: string[]) =
     .sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
 };
 
-export const getOfflineChapter = async (userId: string, chapterId: string) => {
+export const getOfflineChapter = async (userId: string, chapterId: string): Promise<any> => {
   const snapshot = await readSnapshot(userId);
   return snapshot.chapters.find(chapter => chapter.id === chapterId) || null;
 };
 
-export const getOfflineProgress = async (userId: string) => {
+export const getOfflineProgress = async (userId: string): Promise<any[]> => {
   const snapshot = await readSnapshot(userId);
   return snapshot.progress;
 };
 
-export const getOfflineSettings = async (userId: string) => {
+export const getOfflineSettings = async (userId: string): Promise<any> => {
   const snapshot = await readSnapshot(userId);
   return snapshot.settings;
 };

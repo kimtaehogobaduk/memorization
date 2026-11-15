@@ -107,6 +107,19 @@ const VocabularyDetail = () => {
     if (!user || !id) return false;
     const cached = await getOfflineVocabularyBundle(user.id, id);
     if (!cached) return false;
+    const orphanWords = cached.words.filter((word: any) => !word.chapter_id);
+    if (orphanWords.length > 0) {
+      let defaultChapter = cached.chapters.find((chapter: any) => chapter.name === "Chapter 1");
+      if (!defaultChapter) {
+        defaultChapter = { id: crypto.randomUUID(), vocabulary_id: id, name: "Chapter 1", description: null, order_index: cached.chapters.length };
+        await mutateVocabularyData(user.id, { table: "chapters", operation: "insert", payload: defaultChapter });
+        cached.chapters.push(defaultChapter);
+      }
+      for (const word of orphanWords) {
+        await mutateVocabularyData(user.id, { table: "words", operation: "update", payload: { chapter_id: defaultChapter.id }, match: { id: word.id } });
+        word.chapter_id = defaultChapter.id;
+      }
+    }
     setVocabulary(cached.vocabulary as any);
     setChapters(cached.chapters as any);
     setWords(cached.words as any);

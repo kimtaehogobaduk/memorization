@@ -302,11 +302,17 @@ const CreateVocabulary = () => {
           updated_at: new Date().toISOString(),
         };
         const vocabularyResult = await mutateVocabularyData(user.id, { table: "vocabularies", operation: "insert", payload: vocabulary });
+        const chapterId = crypto.randomUUID();
+        await mutateVocabularyData(user.id, {
+          table: "chapters",
+          operation: "insert",
+          payload: { id: chapterId, vocabulary_id: vocabulary.id, name: "Chapter 1", description: null, order_index: 0 },
+        });
 
         const wordsToInsert = validWords.map((w, index) => ({
           id: crypto.randomUUID(),
           vocabulary_id: vocabulary.id,
-          chapter_id: null,
+          chapter_id: chapterId,
           word: w.word.trim(),
           meaning: w.meaning.trim(),
           example: w.example.trim() || null,

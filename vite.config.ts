@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => {
           navigateFallbackDenylist: [/^\/~oauth/],
           runtimeCaching: [
             {
-              urlPattern: ({ request, sameOrigin }) => sameOrigin && request.mode === "navigate",
+              urlPattern: ({ request, sameOrigin, url }) => sameOrigin && request.mode === "navigate" && !url.pathname.startsWith("/~oauth"),
               handler: "NetworkFirst",
               options: { cacheName: "app-navigations" },
             },

@@ -4,7 +4,7 @@ const isPreviewHostname = (hostname: string) => {
   if (hostname === "lovableproject.com" || hostname.endsWith(".lovableproject.com")) return true;
   if (hostname === "lovableproject-dev.com" || hostname.endsWith(".lovableproject-dev.com")) return true;
   if (hostname === "beta.lovable.dev" || hostname.endsWith(".beta.lovable.dev")) return true;
-  if (hostname === "project--5adc5ea4-f194-4d78-8ed3-b12ab7f3df09-dev.lovable.app") return true;
+  if (["lovable.app", "gpt-eng.com", "gptengineer.run"].some(domain => hostname === `project--5adc5ea4-f194-4d78-8ed3-b12ab7f3df09-dev.${domain}`)) return true;
   if (hostname === "id-preview--5adc5ea4-f194-4d78-8ed3-b12ab7f3df09.lovable.app") return true;
 
   const previewDomain = [".lovable.app", ".gpt-eng.com", ".gptengineer.run"]
