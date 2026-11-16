@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -79,6 +79,34 @@ const VocabularyDetail = () => {
   const [printOpen, setPrintOpen] = useState(false);
   const [flashcardWord, setFlashcardWord] = useState<Word | null>(null);
   const [flashcardFlipped, setFlashcardFlipped] = useState(false);
+  const [highlightWordId, setHighlightWordId] = useState<string | null>(null);
+  const wordRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Arriving from All Play (?word=<id>): scroll to that word's row and flag it.
+  const jumpedWordId = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading || words.length === 0) return;
+    const targetId = searchParams.get("word");
+    if (!targetId || jumpedWordId.current === targetId) return;
+    jumpedWordId.current = targetId;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("word");
+      return next;
+    }, { replace: true });
+    if (!words.some((w) => w.id === targetId)) return;
+    setSelectedChapter(null);
+    setHighlightWordId(targetId);
+    const scrollTimer = window.setTimeout(() => {
+      wordRefs.current[targetId]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 200);
+    const clearTimer = window.setTimeout(() => setHighlightWordId(null), 3200);
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [loading, words, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (id && !authLoading) loadVocabulary();
@@ -439,8 +467,13 @@ const VocabularyDetail = () => {
           )}
 
           {filteredWords.map((word) => (
-            <motion.div key={word.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <Card>
+            <motion.div
+              key={word.id}
+              ref={(el) => { wordRefs.current[word.id] = el as HTMLDivElement | null; }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className={highlightWordId === word.id ? "ring-2 ring-primary bg-primary/5 shadow-lg transition-shadow" : "transition-shadow"}>
                 <CardContent className="p-4">
                   {editingWordId === word.id ? (
                     <WordManager word={word} vocabularyId={id || ""} onDelete={() => handleDeleteWord(word.id)} onUpdate={() => { loadVocabulary(); setEditingWordId(null); }} />

@@ -332,6 +332,21 @@ const Study = () => {
     }
   };
 
+  // Clicking the word itself jumps to that word's row in the vocabulary word list.
+  const WordHeading = ({ text, wordId, className }: { text: string; wordId: string; className?: string }) => (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        navigate(`/vocabularies/${id}?word=${wordId}`);
+      }}
+      className={`${className || ""} cursor-pointer rounded-md px-1 -mx-1 transition-colors hover:bg-primary/10 hover:text-primary`}
+      title="클릭하면 단어 목록에서 이 단어로 이동"
+    >
+      {text}
+    </button>
+  );
+
   const derivs = Array.isArray(currentWord.derivatives) ? currentWord.derivatives : [];
 
   const MetadataSection = ({ word }: { word: Word }) => {
@@ -377,7 +392,7 @@ const Study = () => {
         return (
           <div className="text-center">
             <p className="text-sm text-muted-foreground mb-4">단어</p>
-            <h2 className="text-5xl font-bold">{word.word}</h2>
+            {WordHeading({ text: word.word, wordId: word.id, className: "text-5xl font-bold" })}
             {word.part_of_speech && <p className="text-base text-muted-foreground mt-2">{word.part_of_speech}</p>}
             <div className="flex items-center justify-center gap-2 mt-3">
               {word.frequency != null && word.frequency > 0 && (
@@ -400,7 +415,7 @@ const Study = () => {
       case "both":
         return (
           <div className="text-center">
-            <h2 className="text-4xl font-bold mb-4">{word.word}</h2>
+            {WordHeading({ text: word.word, wordId: word.id, className: "text-4xl font-bold mb-4" })}
             {word.part_of_speech && <p className="text-sm text-muted-foreground mb-2">{word.part_of_speech}</p>}
             <p className="text-2xl text-muted-foreground">{word.meaning}</p>
             <MetadataSection word={word} />
@@ -409,7 +424,7 @@ const Study = () => {
       case "example":
         return (
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-4">{word.word}</h2>
+            {WordHeading({ text: word.word, wordId: word.id, className: "text-3xl font-bold mb-4" })}
             {word.part_of_speech && <p className="text-sm text-muted-foreground mb-2">{word.part_of_speech}</p>}
             <p className="text-xl text-muted-foreground mb-3">{word.meaning}</p>
             {word.example && (
@@ -513,7 +528,7 @@ const Study = () => {
                 >
                   <div className="mb-4 flex justify-between items-center">
                     <span className="text-xs text-muted-foreground">
-                      {flipped ? "뒷면" : "앞면"} · 카드 클릭/↑↓ 로 뒤집기
+                      {flipped ? "뒷면" : "앞면"} · 카드 클릭/↑↓ 로 뒤집기 · 단어 클릭 시 목록으로
                     </span>
                     <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); speak(currentWord.word); }} className="text-primary">
                       <Volume2 className="w-6 h-6" />
