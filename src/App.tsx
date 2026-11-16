@@ -44,6 +44,7 @@ import ShareVocabulary from "./pages/ShareVocabulary";
 import NotFound from "./pages/NotFound";
 import { NetworkStatusBanner } from "./components/NetworkStatusBanner";
 import { OnlineOnly } from "./components/OnlineOnly";
+import { LogoProvider } from "./components/layout/LogoProvider";
 
 const queryClient = new QueryClient();
 const onlineOnly = (element: ReactNode) => <OnlineOnly>{element}</OnlineOnly>;
@@ -58,6 +59,7 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <LogoProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -121,6 +123,7 @@ const App = () => {
           )}
         </AnimatePresence>
       </TooltipProvider>
+      </LogoProvider>
     </QueryClientProvider>
   );
 };

@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import logoImage from "@/assets/splash-screen.jpg";
+import { RotatingLogo } from "./RotatingLogo";
 
 interface HeaderProps {
   title: string;
@@ -26,12 +26,7 @@ export const Header = ({ title, showBack = false, onBack, action }: HeaderProps)
     <header className="sticky top-0 z-40 bg-card/80 backdrop-blur-md border-b border-border">
       <div className="max-w-screen-xl mx-auto px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img 
-            src={logoImage} 
-            alt="암기준섹 로고" 
-            className="h-10 w-10 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => navigate("/dashboard")}
-          />
+          <RotatingLogo onClick={() => navigate("/dashboard")} />
           {showBack && (
             <Button
               variant="ghost"

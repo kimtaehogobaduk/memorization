@@ -1,5 +1,7 @@
 # Tasks
 
+- [x] Rotate uploaded logo candidates in the app header and browser tab.
+
 - [ ] Choose the first ad campaign type and continue campaign preparation (waiting for the user's choice).
 - [x] Add an app install action near the app's link/sharing UI.
 - [x] Cache vocabularies on the device: cloud + device for signed-in users, device only for guests.
