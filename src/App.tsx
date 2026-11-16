@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import splashImage from "@/assets/splash-screen.jpg";
+import splashLogo from "@/assets/logos/junsek-logo-12.png.asset.json";
 import { NotificationProvider } from "./components/NotificationProvider";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
