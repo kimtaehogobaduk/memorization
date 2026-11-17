@@ -172,8 +172,9 @@ const ExcelUpload = () => {
           order_index: index,
         }));
 
-        for (const word of wordsToInsert) {
-          await mutateVocabularyData(user.id, { table: "words", operation: "insert", payload: word });
+        // Save in large batches instead of one request per word.
+        for (let i = 0; i < wordsToInsert.length; i += 500) {
+          await mutateVocabularyData(user.id, { table: "words", operation: "insert", payload: wordsToInsert.slice(i, i + 500) });
         }
 
         toast.success(vocabularyResult.offline

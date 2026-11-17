@@ -6,7 +6,8 @@ export type OfflineTable = "vocabularies" | "words" | "chapters" | "study_progre
 export interface OfflineMutation {
   table: OfflineTable;
   operation: "insert" | "update" | "delete";
-  payload: Record<string, any>;
+  /** Inserts may pass an array to write many rows in one request. */
+  payload: Record<string, any> | Record<string, any>[];
   match?: Record<string, any>;
 }
 
@@ -106,9 +107,13 @@ const applyToCache = (snapshot: OfflineSnapshot, mutation: OfflineMutation) => {
         : snapshot.progress;
 
   if (operation === "insert") {
-    const index = collection.findIndex(item => item.id === payload.id);
-    if (index >= 0) collection[index] = { ...collection[index], ...payload };
-    else collection.push(payload);
+    const rows = Array.isArray(payload) ? payload : [payload];
+    const positions = new Map(collection.map((item, index) => [item.id, index]));
+    for (const row of rows) {
+      const index = positions.get(row.id);
+      if (index !== undefined) collection[index] = { ...collection[index], ...row };
+      else { positions.set(row.id, collection.length); collection.push(row); }
+    }
     return;
   }
 
