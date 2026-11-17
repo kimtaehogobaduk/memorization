@@ -1,5 +1,7 @@
 # Tasks
 
+- [x] Show an app-install popup with the browser's install prompt and manual instructions where needed.
+
 - [x] Rotate uploaded logo candidates in the app header and browser tab.
 
 - [ ] Choose the first ad campaign type and continue campaign preparation (waiting for the user's choice).
