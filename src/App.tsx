@@ -44,7 +44,6 @@ import NotFound from "./pages/NotFound";
 import { NetworkStatusBanner } from "./components/NetworkStatusBanner";
 import { OnlineOnly } from "./components/OnlineOnly";
 import { LogoProvider } from "./components/layout/LogoProvider";
-import { InstallAppButton } from "./components/InstallAppButton";
 
 const queryClient = new QueryClient();
 const onlineOnly = (element: ReactNode) => <OnlineOnly>{element}</OnlineOnly>;
@@ -77,7 +76,6 @@ const App = () => {
               <BrowserRouter>
                 <NotificationProvider />
                 <NetworkStatusBanner />
-                <InstallAppButton promotion />
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/dashboard" element={<Dashboard />} />
