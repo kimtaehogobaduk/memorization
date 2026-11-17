@@ -5,7 +5,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import splashLogo from "@/assets/logos/junsek-logo-12.png.asset.json";
 import { NotificationProvider } from "./components/NotificationProvider";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
@@ -65,8 +64,12 @@ const App = () => {
         <Sonner />
         <AnimatePresence mode="wait">
           {showSplash ? (
-            <motion.div key="splash" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-              <img src={splashImage} alt="암기준섹" className="max-w-full max-h-full object-contain p-4" />
+            <motion.div key="splash" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background px-8 text-center">
+              <div className="flex h-56 w-56 items-center justify-center rounded-full bg-primary/15 sm:h-64 sm:w-64">
+                <img src="/icons/app-icon-512.png" alt="브이 포즈를 하는 준섹이" className="h-52 w-52 rounded-full object-contain sm:h-60 sm:w-60" />
+              </div>
+              <h1 className="mt-8 text-4xl font-black tracking-tight text-foreground">암기준섹</h1>
+              <p className="mt-3 text-base text-muted-foreground">준섹이와 즐겁게 단어 암기</p>
             </motion.div>
           ) : (
             <motion.div key="main" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
